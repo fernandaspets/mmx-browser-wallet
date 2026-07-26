@@ -9,7 +9,7 @@
     "default_title": "MMX Wallet"
   },
   "background": {
-    "service_worker": "background.js"
+    "scripts": ["background.js"]
   },
   "content_scripts": [
     {
