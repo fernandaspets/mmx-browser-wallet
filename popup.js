@@ -140,7 +140,8 @@ async function checkPendingDapp() {
           _br.storage.local.remove("mmx_pending_send");
           _br.action.setBadgeText({ text: "" });
           showView("dashboardView");
-          setTimeout(() => renderDashboard(), 1000);
+          setStatus("dashStatus", `dApp payment sent! TXID: ${txid.substring(0, 20)}...`, "success");
+          setTimeout(() => renderDashboard(), 2000);
         } catch (e) {
           document.getElementById("dappSendStatus").textContent = "Error: " + e.message;
           document.getElementById("dappSendConfirm").disabled = false;
