@@ -77,7 +77,7 @@ node test-crypto.mjs
 │    │     https://rpc.mmx.network (CORS enabled)│
 │    ├── mmx-tx.js (transaction serialization)  │
 │    │     BinaryWriter → VNX format → SHA256   │
-│    └── mmx-crypto.js (key derivation)          │
+│    └── wallet-app.js (key derivation inlined)    │
 │          HMAC-SHA512 KDF chain → secp256k1     │
 └─────────────────────────────────────────────┘
 ```
@@ -139,7 +139,7 @@ The wallet talks directly to `https://rpc.mmx.network` — a public MMX node wit
 | `wallet.html` | Full-page wallet UI (web page or extension tab) |
 | `wallet-app.js` | Main app logic (create, import, unlock, send, balance) |
 | `wallet-store.js` | Encrypted wallet storage (localStorage / chrome.storage) |
-| `mmx-crypto.js` | Key derivation, mnemonic, address encoding |
+| `wallet-app.js` | Main app logic + key derivation (inlined from mmx-crypto) |
 | `mmx-tx.js` | Transaction serialization & signing (VNX binary format) |
 | `mmx-node-api.js` | Public RPC client (rpc.mmx.network) |
 | `background.js` | Extension background script |
@@ -147,7 +147,6 @@ The wallet talks directly to `https://rpc.mmx.network` — a public MMX node wit
 | `lib/bech32-esm.js` | bech32m encoder/decoder (ESM) |
 | `lib/buffer-esm.js` | Buffer polyfill for browser |
 | `wordlist.txt` | BIP-0039 English wordlist (2048 words) |
-| `test.html` | Standalone key generation test page |
 | `test-crypto.mjs` | Unit tests (`node test-crypto.mjs`) |
 
 ## Security
