@@ -233,41 +233,48 @@
         <button class="btn btn-secondary" id="openTabBtn">↗ Open Tab</button>
       </div>
       <div class="status" id="dashStatus"></div>
-      <div id="dappNotice" style="display:none;background:rgba(255,152,0,0.08);border:1px solid rgba(255,152,0,0.2);border-radius:6px;padding:10px;margin-top:8px;font-size:12px;color:#ffa726;">
-        <div id="dappMsg">A website wants to see your wallet address.</div>
-        <div style="display:flex;gap:6px;margin-top:8px;">
-          <button class="btn btn-primary" id="dappAllow" style="font-size:11px;padding:6px 12px;">Allow</button>
-          <button class="btn btn-secondary" id="dappDeny" style="font-size:11px;padding:6px 12px;">Deny</button>
-        </div>
-      </div>
-
-      <!-- dApp send confirmation -->
-      <div id="dappSendNotice" style="display:none;background:rgba(76,175,80,0.06);border:1px solid rgba(76,175,80,0.15);border-radius:6px;padding:10px;margin-top:8px;">
-        <div style="font-size:12px;color:#4caf50;font-weight:600;margin-bottom:6px;" id="dappSendOrigin">Website wants to send:</div>
-        <div style="font-size:13px;padding:6px 0;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-            <span style="color:#888;font-size:11px;">Amount:</span>
-            <span style="font-weight:600;" id="dappSendAmount">1 TRAIL</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-            <span style="color:#888;font-size:11px;">To:</span>
-            <span style="font-family:monospace;font-size:10px;word-break:break-all;text-align:right;max-width:200px;" id="dappSendTo">mmx1...</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;">
-            <span style="color:#888;font-size:11px;">Fee:</span>
-            <span style="font-size:11px;color:#ffa726;">~0.05 MMX</span>
-          </div>
-        </div>
-        <div class="status" id="dappSendStatus"></div>
-        <div style="display:flex;gap:6px;margin-top:6px;">
-          <button class="btn btn-primary" id="dappSendConfirm" style="font-size:11px;padding:6px 12px;">Confirm & Send</button>
-          <button class="btn btn-secondary" id="dappSendReject" style="font-size:11px;padding:6px 12px;">Reject</button>
-        </div>
-      </div>
       <div style="margin-top:12px;">
         <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Recent Transactions</div>
         <div id="txHistory" style="max-height:350px;overflow-y:auto;"><div style="color:#888;font-size:11px;text-align:center;">Loading...</div></div>
         <button class="btn btn-secondary" id="txLoadMore" style="display:none;width:100%;margin-top:6px;font-size:11px;">Load More</button>
+      </div>
+    </div>
+
+    <!-- dApp request view (replaces dashboard when a dApp requests address or send) -->
+    <div class="view" id="dappView">
+      <h2 style="font-size:16px;margin-bottom:12px;color:#00d4ff;">Website Request</h2>
+      
+      <!-- Address request -->
+      <div id="dappNotice" style="background:rgba(255,152,0,0.08);border:1px solid rgba(255,152,0,0.2);border-radius:6px;padding:14px;margin-bottom:12px;">
+        <div id="dappMsg" style="font-size:13px;color:#ffa726;margin-bottom:10px;">A website wants to see your wallet address.</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary" id="dappAllow" style="flex:1;font-size:12px;">Allow</button>
+          <button class="btn btn-secondary" id="dappDeny" style="flex:1;font-size:12px;">Deny</button>
+        </div>
+      </div>
+
+      <!-- Send confirmation -->
+      <div id="dappSendNotice" style="display:none;background:rgba(76,175,80,0.06);border:1px solid rgba(76,175,80,0.15);border-radius:6px;padding:14px;">
+        <div style="font-size:13px;color:#4caf50;font-weight:600;margin-bottom:10px;" id="dappSendOrigin">Website wants to send:</div>
+        <div style="font-size:14px;padding:8px 0;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="color:#888;font-size:12px;">Amount:</span>
+            <span style="font-weight:600;font-size:14px;" id="dappSendAmount">1 TRAIL</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="color:#888;font-size:12px;">To:</span>
+            <span style="font-family:monospace;font-size:11px;word-break:break-all;text-align:right;max-width:220px;" id="dappSendTo">mmx1...</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:#888;font-size:12px;">Fee:</span>
+            <span style="font-size:12px;color:#ffa726;">~0.05 MMX</span>
+          </div>
+        </div>
+        <div class="status" id="dappSendStatus"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-primary" id="dappSendConfirm" style="flex:1;font-size:12px;">Confirm & Send</button>
+          <button class="btn btn-secondary" id="dappSendReject" style="flex:1;font-size:12px;">Reject</button>
+        </div>
       </div>
     </div>
 

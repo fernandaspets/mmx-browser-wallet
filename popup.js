@@ -79,6 +79,7 @@ async function checkPendingDapp() {
         _br.storage.local.remove("mmx_pending_dapp");
         _br.action.setBadgeText({ text: "" });
         notice.style.display = "none";
+        showView("dashboardView");
       };
       document.getElementById("dappDeny").onclick = async () => {
         const perms = await new Promise(r => _br.storage.local.get("mmx_dapp_permissions", r)) || {};
@@ -87,8 +88,11 @@ async function checkPendingDapp() {
         _br.storage.local.remove("mmx_pending_dapp");
         _br.action.setBadgeText({ text: "" });
         notice.style.display = "none";
+        showView("dashboardView");
       };
-    } else if (notice) {
+      // Switch to dApp view to show the request
+      showView("dappView");
+    } else {
       notice.style.display = "none";
     }
   });
@@ -121,7 +125,8 @@ async function checkPendingDapp() {
           sendNotice.style.display = "none";
           _br.storage.local.remove("mmx_pending_send");
           _br.action.setBadgeText({ text: "" });
-          setTimeout(() => renderDashboard(), 2000);
+          showView("dashboardView");
+          setTimeout(() => renderDashboard(), 1000);
         } catch (e) {
           document.getElementById("dappSendStatus").textContent = "Error: " + e.message;
           document.getElementById("dappSendConfirm").disabled = false;
@@ -133,8 +138,11 @@ async function checkPendingDapp() {
         sendNotice.style.display = "none";
         _br.storage.local.remove("mmx_pending_send");
         _br.action.setBadgeText({ text: "" });
+        showView("dashboardView");
       };
-    } else if (sendNotice) {
+      // Switch to dApp view to show the send request
+      showView("dappView");
+    } else {
       sendNotice.style.display = "none";
     }
   });
