@@ -525,17 +525,30 @@
           setStatus("Balance updated", "success");
           setTimeout(() => setStatus(""), 2000);
         });
-        // Fetch transaction history (first page)
+        // Fetch transaction history (first page, with retry)
         txOffset = 0;
         try {
           const txs = await app.getTransactionHistory(15, 0);
           allTxs = txs;
           renderTxHistory(txs);
-          await populateContactPicker();
           document.getElementById("txLoadMore").style.display = txs.length >= 15 ? "block" : "none";
-        } catch {
-          document.getElementById("txHistoryList").innerHTML = '<div style="color:#888;font-size:12px;">Failed to load history</div>';
+        } catch(e) {
+          console.error("TX history error:", e.message);
+          // Retry once after 2s (wallet might not be fully ready)
+          setTimeout(async () => {
+            try {
+              const txs = await app.getTransactionHistory(15, 0);
+              allTxs = txs;
+              renderTxHistory(txs);
+              document.getElementById("txLoadMore").style.display = txs.length >= 15 ? "block" : "none";
+            } catch(e2) {
+              document.getElementById("txHistoryList").innerHTML = '<div style="color:#888;font-size:12px;">Failed to load history</div>';
+              console.error("TX history retry failed:", e2.message);
+            }
+          }, 2000);
         }
+        // Populate contact picker (separate from tx history so it works even if tx history fails)
+        try { await populateContactPicker(); } catch {}
       }
 
       function renderTxHistory(txs, append = false) {
