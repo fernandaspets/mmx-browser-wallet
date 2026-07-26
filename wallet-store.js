@@ -3,7 +3,7 @@
  * 
  * Works in both web pages (localStorage) and Chrome extensions (chrome.storage.local).
  * Uses WebCrypto AES-GCM to encrypt wallet seeds at rest.
- * Password is derived into an AES key via PBKDF2 (100k iterations).
+ * Password is derived into an AES key via PBKDF2 (600k iterations per OWASP).
  * 
  * Storage format:
  *   mmx_wallets: [{ id, name, address, enc_seed, iv, salt, created }]
@@ -65,7 +65,7 @@ async function deriveKey(password, salt) {
     "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
   );
   return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+    { name: "PBKDF2", salt, iterations: 600000, hash: "SHA-256" }, // #87: 600k per OWASP
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     false,

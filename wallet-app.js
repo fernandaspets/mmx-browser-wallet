@@ -161,7 +161,12 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   // Cost: min_txfee(20000) + 1 input(10000) + 1 output(10000) + 1 solution(10000) = 50000
   const staticCost = 50000;
 
-  const nonce = Math.floor(Math.random() * 1e15);
+  // Generate 64-bit random nonce using crypto (#93: was Math.random ~50 bits, now full 64 bits)
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
+  let nonce = 0n;
+  for (let i = 0; i < 8; i++) nonce |= BigInt(nonceBytes[i]) << BigInt(i * 8);
+  // Ensure non-zero (node requires nonce != 0)
+  if (nonce === 0n) nonce = 1n;
 
   const tx = {
     version: 0,
@@ -229,6 +234,10 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   // Broadcast
   await api.broadcastTransaction(txObj);
 
+  // Clear sensitive variables from memory (#88)
+  // skey and seed are local, but let's zero them out
+  skey.fill(0);
+  
   return Buffer.from(txId).toString("hex").toUpperCase();
 }
 
@@ -327,11 +336,22 @@ export function satToMmx(satStr) {
   return frac ? `${whole}.${frac}` : `${whole}`;
 }
 
+// --- Auto-lock on inactivity (#101: now resets on activity) ---
+
+if (typeof document !== "undefined") {
+  document.addEventListener("click", () => { if (unlockedSeed) resetAutoLock(); });
+  document.addEventListener("keydown", () => { if (unlockedSeed) resetAutoLock(); });
+}
+
 // Re-export for UI
 export { seedToWords };
 
-// Show mnemonic for current unlocked wallet (requires re-derivation from seed)
-export function showMnemonic() {
+// Show mnemonic for current unlocked wallet (#89: requires password re-entry)
+export async function showMnemonic(password) {
   if (!unlockedSeed) throw new Error("Wallet is locked");
+  // Verify password before revealing mnemonic
+  const walletId = unlockedWallet?.id;
+  if (!walletId) throw new Error("No active wallet");
+  await store.unlockWallet(walletId, password); // throws if wrong password
   return seedToWords(unlockedSeed);
 }

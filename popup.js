@@ -248,13 +248,16 @@ document.getElementById("switchBtn").addEventListener("click", () => {
 });
 
 document.getElementById("showSeedBtn").addEventListener("click", () => {
+  // Require password re-entry (#89: was showing mnemonic without re-auth)
+  const pwd = prompt("Enter your password to reveal your mnemonic:");
+  if (!pwd) return;
   try {
-    const mnemonic = app.showMnemonic();
+    const mnemonic = app.showMnemonic(pwd);
     document.getElementById("seedDisplay").textContent = mnemonic.join("  ");
     document.getElementById("newAddress").textContent = app.getUnlockedWallet().address;
     showView("seedView");
-  } catch (e) {
-    setStatus("dashStatus", "Error: " + e.message, "error");
+  } catch {
+    setStatus("dashStatus", "Wrong password", "error");
   }
 });
 
@@ -269,9 +272,13 @@ document.getElementById("lockBtn").addEventListener("click", () => {
 });
 
 document.getElementById("deleteBtn").addEventListener("click", async () => {
-  if (!confirm("Delete this wallet? Make sure you have your mnemonic saved!")) return;
+  // Require password before deleting (#92: was confirm() only)
+  const pwd = prompt("Enter your password to delete this wallet:\nMake sure you have your mnemonic saved!");
+  if (!pwd) return;
   try {
+    // Verify password before deleting
     const walletId = await app.getActiveWalletId();
+    await app.unlockWallet(walletId, pwd); // throws if wrong
     await app.deleteWalletById(walletId);
     const wallets = await app.getWalletsList();
     if (wallets.length === 0) {
@@ -283,8 +290,8 @@ document.getElementById("deleteBtn").addEventListener("click", async () => {
       showView("unlockView");
     }
     setStatus("dashStatus", "Wallet deleted", "");
-  } catch (e) {
-    setStatus("dashStatus", "Error: " + e.message, "error");
+  } catch {
+    setStatus("dashStatus", "Wrong password", "error");
   }
 });
 
@@ -366,46 +373,102 @@ document.getElementById("copyReceiveBtn").addEventListener("click", async () => 
   } catch {}
 });
 
-// --- Send ---
+// --- Send (review step) ---
 
-document.getElementById("sendConfirmBtn").addEventListener("click", async () => {
+document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   const to = document.getElementById("sendTo").value.trim();
   const amount = document.getElementById("sendAmount").value.trim();
 
   if (!to || !to.startsWith("mmx1")) { setStatus("sendStatus", "Valid MMX address required", "error"); return; }
   if (!amount || parseFloat(amount) <= 0) { setStatus("sendStatus", "Valid amount required", "error"); return; }
 
-  setStatus("sendStatus", "Building & signing...", "");
+  // Validate address checksum (#95)
+  try {
+    const { bech32m } = await import("./lib/bech32-esm.js");
+    const decoded = bech32m.decode(to);
+    if (!decoded || decoded.prefix !== "mmx") {
+      setStatus("sendStatus", "Invalid MMX address (checksum failed)", "error"); return;
+    }
+    const bytes = bech32m.fromWords(decoded.words);
+    if (bytes.length !== 32) {
+      setStatus("sendStatus", "Invalid MMX address (wrong length)", "error"); return;
+    }
+  } catch {
+    setStatus("sendStatus", "Invalid MMX address", "error"); return;
+  }
+
+  // Look up currency and decimals
+  const currency = document.getElementById("sendCurrency").value;
+  let contractAddr = null;
+  let decimals = 6;
+  if (currency !== "MMX") {
+    try {
+      const balances = await app.fetchBalance();
+      const token = balances.find(b => b.symbol === currency);
+      if (token) { contractAddr = token.contract; decimals = token.decimals || 0; }
+      else { setStatus("sendStatus", `No ${currency} balance found`, "error"); return; }
+    } catch {
+      setStatus("sendStatus", "Failed to fetch balances", "error"); return;
+    }
+  }
+
+  // Show confirmation view (#90 + #100)
+  const amountSat = app.mmxToSat(amount, decimals);
+  const feeSat = 50000; // standard transfer fee
+  const feeMmx = (feeSat / 1e6).toFixed(6);
+  const amountDisplay = decimals > 0 ? amount : amountSat.toString();
+  const totalDisplay = currency === "MMX"
+    ? `${(Number(amountSat + BigInt(feeSat)) / 1e6).toFixed(6)} MMX`
+    : `${amountDisplay} ${currency} + ${feeMmx} MMX fee`;
+
+  document.getElementById("confirmAmount").textContent = `${amountDisplay} ${currency}`;
+  document.getElementById("confirmTo").textContent = to;
+  document.getElementById("confirmFee").textContent = `~${feeMmx} MMX`;
+  document.getElementById("confirmTotal").textContent = totalDisplay;
+  showView("sendConfirmView");
+});
+
+// --- Send broadcast (final confirm) ---
+
+document.getElementById("sendBroadcastBtn").addEventListener("click", async () => {
+  const to = document.getElementById("sendTo").value.trim();
+  const amount = document.getElementById("sendAmount").value.trim();
+  const currency = document.getElementById("sendCurrency").value;
+
+  setStatus("sendConfirmStatus", "Building & signing...", "");
 
   try {
-    // Pass currency contract address (null = MMX native, TRAIL contract for TRAIL)
-    const currency = document.getElementById("sendCurrency").value;
     let contractAddr = null;
     let decimals = 6;
     if (currency !== "MMX") {
-      // Look up the contract address and decimals from balances
       const balances = await app.fetchBalance();
       const token = balances.find(b => b.symbol === currency);
       if (token) { contractAddr = token.contract; decimals = token.decimals || 0; }
     }
     const amountSat = app.mmxToSat(amount, decimals);
     const txid = await app.sendTransaction(to, amountSat, contractAddr);
-    setStatus("sendStatus", "✅ Sent!", "success");
+    setStatus("sendConfirmStatus", "✅ Sent!", "success");
     document.getElementById("sendTo").value = "";
     document.getElementById("sendAmount").value = "";
 
-    // Show tx hash with explorer link
     const txLink = document.createElement("div");
     txLink.className = "tx-link";
     txLink.innerHTML = `<a href="https://explore.mmx.network/#/explore/transaction/${txid}" target="_blank" style="color:#00d4ff;text-decoration:none;">${txid.substring(0,20)}...↗</a>`;
-    document.getElementById("sendStatus").appendChild(txLink);
+    document.getElementById("sendConfirmStatus").appendChild(txLink);
 
-    // Refresh balance after delay
     setTimeout(() => renderDashboard(), 3000);
   } catch (e) {
-    setStatus("sendStatus", "Error: " + e.message, "error");
+    setStatus("sendConfirmStatus", "Error: " + e.message, "error");
     console.error("Send error:", e);
   }
+});
+
+document.getElementById("sendConfirmBackBtn").addEventListener("click", () => {
+  showView("sendView");
+});
+
+document.getElementById("sendCancelBtn").addEventListener("click", () => {
+  showView("dashboardView");
 });
 
 // --- Back buttons ---

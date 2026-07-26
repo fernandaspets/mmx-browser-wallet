@@ -320,8 +320,12 @@ export function calcPubKeyHash(solution) {
  * Returns a PubKey solution object.
  */
 export async function signTx(txHash, skey) {
+  if (txHash.length !== 32) throw new Error("txHash must be 32 bytes (SHA256 output)");
+  if (skey.length !== 32) throw new Error("skey must be 32 bytes");
   const pubkey = Buffer.from(secp.getPublicKey(skey));
-  // prehash: false because txHash is already a SHA256 hash
+  // CRITICAL: prehash must be false. txHash is already a SHA256 hash.
+  // If prehash is true (the default), @noble double-hashes and the
+  // MMX node will reject the signature as invalid.
   const signature = await secp.sign(txHash, skey, { prehash: false });
   return {
     __type: "mmx.solution.PubKey",
