@@ -5,9 +5,24 @@
  */
 
 import * as app from "./wallet-app.js";
+import * as api from "./mmx-node-api.js";
 
 // --- State ---
 let lastBalanceHash = null;
+
+// --- Network badge ---
+async function updateNetworkBadge() {
+  const badge = document.getElementById("networkBadge");
+  if (!badge) return;
+  try {
+    const height = await api.getHeight();
+    badge.textContent = `mainnet · ✓ h:${height}`;
+    badge.style.color = "#4caf50";
+  } catch {
+    badge.textContent = "mainnet · ✗ offline";
+    badge.style.color = "#f44336";
+  }
+}
 
 // --- DOM helpers ---
 function showView(name) {
@@ -194,6 +209,9 @@ async function renderDashboard() {
 
   showView("dashboardView");
 
+  // Update network badge with connection status + block height
+  updateNetworkBadge();
+
   // M5: Check for pending dApp requests (badge notification)
   try {
     const _browser = typeof browser !== "undefined" ? browser : chrome;
@@ -215,6 +233,7 @@ async function renderDashboard() {
     // Auto-refresh every 30s, only re-render if balance changed
     app.startAutoRefresh((newBalances) => {
       renderBalances(newBalances);
+      updateNetworkBadge();
       setStatus("dashStatus", "Balance updated", "success");
       setTimeout(() => setStatus("dashStatus", ""), 2000);
     });

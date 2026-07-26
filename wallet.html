@@ -172,7 +172,7 @@
   <div class="app">
     <div class="header">
       <h1>⚡ MMX Wallet</h1>
-      <span class="network-badge" id="networkBadge">mainnet</span>
+      <span class="network-badge" id="networkBadge">mainnet · connecting...</span>
     </div>
     <div class="status" id="status">Loading...</div>
 
@@ -229,8 +229,12 @@
 
     <!-- ============ MAIN WALLET VIEW ============ -->
     <div id="walletView" class="hidden">
-      <!-- Balance card -->
+      <!-- Wallet name + connection status -->
       <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:16px;font-weight:700;color:#00d4ff;" id="displayWalletName">Wallet</span>
+          <span style="font-size:11px;color:#888;" id="walletCount"></span>
+        </div>
         <div class="label">Address</div>
         <div class="address-box" id="displayAddress" onclick="copyEl(this)">mmx1...</div>
         <div class="copy-hint">Click to copy</div>
@@ -361,9 +365,11 @@
     try {
       setStatus("Loading crypto libraries...");
       const app = await import("./wallet-app.js");
+      const api = await import("./mmx-node-api.js");
       await app.init();
       setStatus("Ready");
       window.app = app;
+      window.api = api;
 
       const wallets = await app.getWalletsList();
       if (wallets.length === 0) {
@@ -448,11 +454,18 @@
       async function renderWallet() {
         show("walletView");
         const wallet = app.getUnlockedWallet();
+        document.getElementById("displayWalletName").textContent = wallet.name;
         document.getElementById("displayAddress").textContent = wallet.address;
+        // Show wallet count
+        const wallets = await app.getWalletsList();
+        document.getElementById("walletCount").textContent = wallets.length > 1 ? `(${wallets.length} wallets)` : "";
         await refreshBalance();
+        // Update network badge with block height
+        updateNetworkBadge();
         // Start auto-refresh
         app.startAutoRefresh(async () => {
           await refreshBalance();
+          updateNetworkBadge();
           setStatus("Balance updated", "success");
           setTimeout(() => setStatus(""), 2000);
         });
@@ -489,6 +502,18 @@
           </div>`;
         }
         list.innerHTML = html;
+      }
+
+      async function updateNetworkBadge() {
+        const badge = document.getElementById("networkBadge");
+        try {
+          const height = await api.getHeight();
+          badge.textContent = `mainnet · ✓ h:${height}`;
+          badge.style.color = "#4caf50";
+        } catch {
+          badge.textContent = "mainnet · ✗ offline";
+          badge.style.color = "#f44336";
+        }
       }
 
       async function refreshBalance() {
