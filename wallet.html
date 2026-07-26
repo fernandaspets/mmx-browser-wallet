@@ -338,7 +338,10 @@
       document.getElementById("onboardImport").onclick = () => show("importView");
 
       // --- Create ---
-      document.getElementById("createCancel").onclick = () => show("onboarding");
+      document.getElementById("createCancel").onclick = async () => {
+        const wallets = await app.getWalletsList();
+        if (wallets.length > 0) show("walletListView"); else show("onboarding");
+      };
       document.getElementById("createBtn").onclick = async () => {
         const name = document.getElementById("createName").value.trim() || "My Wallet";
         const pass = document.getElementById("createPass").value;
@@ -358,7 +361,10 @@
       };
 
       // --- Import ---
-      document.getElementById("importCancel").onclick = () => show("onboarding");
+      document.getElementById("importCancel").onclick = async () => {
+        const wallets = await app.getWalletsList();
+        if (wallets.length > 0) show("walletListView"); else show("onboarding");
+      };
       document.getElementById("importBtn").onclick = async () => {
         const name = document.getElementById("importName").value.trim() || "Imported Wallet";
         const mnemonicStr = document.getElementById("importMnemonic").value.trim();
@@ -506,7 +512,17 @@
         }
       };
 
-      document.getElementById("listCancel").onclick = () => show("walletView");
+      document.getElementById("listCancel").onclick = async () => {
+        if (app.isUnlocked()) await renderWallet();
+        else {
+          const walletId = await app.getActiveWalletId();
+          const wallet = (await app.getWalletsList()).find(w => w.id === walletId);
+          if (wallet) {
+            document.getElementById("unlockWalletName").textContent = wallet.name;
+            show("unlockView");
+          } else { show("onboarding"); }
+        }
+      };
       document.getElementById("listCreateBtn").onclick = () => show("createView");
       document.getElementById("listImportBtn").onclick = () => show("importView");
 
