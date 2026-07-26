@@ -262,35 +262,40 @@ async function renderDashboard() {
     }
   } catch {}
 
-  // Fetch balance + start auto-refresh
+  // Fetch balance + tx history in parallel (non-blocking)
   setStatus("dashStatus", "Fetching balance...", "");
-  try {
-    const balances = await app.fetchBalance();
+  txOffset = 0;
+  
+  const [balanceResult, txResult] = await Promise.allSettled([
+    app.fetchBalance(),
+    app.getTransactionHistory(10, 0)
+  ]);
+  
+  // Handle balance
+  if (balanceResult.status === "fulfilled") {
+    const balances = balanceResult.value;
     renderBalances(balances);
     lastBalanceHash = JSON.stringify(balances);
     setStatus("dashStatus", "");
-    // Auto-refresh every 30s, only re-render if balance changed
     app.startAutoRefresh((newBalances) => {
       renderBalances(newBalances);
       updateNetworkBadge();
       setStatus("dashStatus", "Balance updated", "success");
       setTimeout(() => setStatus("dashStatus", ""), 2000);
     });
-  } catch (e) {
+  } else {
     setStatus("dashStatus", "Balance fetch failed", "error");
-    console.error("Balance error:", e);
+    console.error("Balance error:", balanceResult.reason);
   }
-
-  // Fetch transaction history (first page, with retry)
-  txOffset = 0;
-  try {
-    const txs = await app.getTransactionHistory(10, 0);
+  
+  // Handle tx history
+  if (txResult.status === "fulfilled") {
+    const txs = txResult.value;
     allTxs = txs;
     renderTxHistory(txs);
-    // Show load more if we got a full page
     document.getElementById("txLoadMore").style.display = txs.length >= 10 ? "block" : "none";
-  } catch(e) {
-    console.error("TX history error:", e.message);
+  } else {
+    console.error("TX history error:", txResult.reason?.message);
     // Retry once after 2s
     setTimeout(async () => {
       try {
@@ -300,7 +305,6 @@ async function renderDashboard() {
         document.getElementById("txLoadMore").style.display = txs.length >= 10 ? "block" : "none";
       } catch(e2) {
         document.getElementById("txHistory").innerHTML = '<div style="color:#888;font-size:11px;text-align:center;">Failed to load history</div>';
-        console.error("TX history retry failed:", e2.message);
       }
     }, 2000);
   }
