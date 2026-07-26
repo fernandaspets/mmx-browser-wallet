@@ -444,7 +444,6 @@
         setStatus("Sending...", "loading");
         try {
           // Convert amount to satoshis
-          const amountSat = app.mmxToSat(amountStr, decimals);
           // Look up currency contract address and decimals
           let contractAddr = null;
           let decimals = 6;
@@ -453,6 +452,7 @@
             const token = balances.find(b => b.symbol === currency);
             if (token) { contractAddr = token.contract; decimals = token.decimals || 0; }
           }
+          const amountSat = app.mmxToSat(amountStr, decimals);
           const txid = await app.sendTransaction(toAddr, amountSat, contractAddr);
           setStatus("✅ Sent! TXID:", "success");
           document.getElementById("sendTo").value = "";
