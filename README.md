@@ -167,6 +167,32 @@ The wallet talks directly to `https://rpc.mmx.network` — a public MMX node wit
 
 ## Dependencies
 
+### Dependency Analysis
+
+| What | Size | Files | What we use |
+|---|---|---|---|
+| `@noble/secp256k1` | 56 KB | 1 file | `getPublicKey`, `sign`, `verify` |
+| `@noble/hashes` (loaded) | 56 KB | 5 files | `sha256`, `sha512`, `hmac` |
+| `@noble/hashes` (full package) | 1.1 MB | 19 files | Only 5 of 19 loaded; rest never imported |
+| **Our code** | 92 KB | 10 files | Everything else |
+
+**Total external code loaded: ~112 KB.** The entire wallet including dependencies is ~200 KB.
+
+We use **6 functions** from external libraries:
+
+- `secp.getPublicKey(skey)` — derive public key
+- `secp.sign(hash, skey)` — sign transaction
+- `secp.verify(sig, hash, pubkey)` — verify signature (tests only)
+- `sha256(data)` — hash for addresses, tx ids
+- `sha512(data)` — HMAC-SHA512 for key derivation
+- `hmac(hash, key, data)` — HMAC for key derivation
+
+All external code is **pure JavaScript** — no native bindings, no WebAssembly, no binary blobs. Works in any browser. The `@noble` libraries are well-audited and widely used (Bitcoin projects, Ethereum wallets, etc.).
+
+The 1.1 MB `@noble/hashes` package includes algorithms we don't need (blake, sha3, scrypt, etc.) but the browser only loads what we import — 5 files, 56 KB. The rest is dead weight on disk but never loaded at runtime.
+
+### npm packages
+
 | Package | Purpose | Why |
 |---|---|---|
 | `@noble/secp256k1` | ECDSA signing | Pure JS, no native bindings, browser-compatible |
