@@ -344,7 +344,65 @@ export function satToMmx(satStr) {
   return frac ? `${whole}.${frac}` : `${whole}`;
 }
 
-// --- Auto-lock on inactivity (#101: now resets on activity) ---
+// --- Transaction history ---
+
+export async function getTransactionHistory(limit = 20) {
+  if (!unlockedWallet) return [];
+  const resp = await fetch(`${api.getNodeUrl()}/transactions?addr=${unlockedWallet.address}&limit=${limit}`);
+  if (!resp.ok) throw new Error(`Transaction history error: ${resp.status}`);
+  const txs = await resp.json();
+  // Format for UI: determine direction (sent/received) and amounts
+  const myAddr = unlockedWallet.address;
+  return txs.map(tx => {
+    const isSender = tx.sender === myAddr;
+    const inputAmounts = tx.input_amounts || [];
+    const outputAmounts = tx.output_amounts || [];
+    // For received txs, the sender is someone else and one of the outputs goes to us
+    // For sent txs, we are the sender
+    let direction = isSender ? 'sent' : 'received';
+    let amount = '';
+    let symbol = '';
+    if (inputAmounts.length > 0) {
+      amount = inputAmounts[0].amount;
+      symbol = inputAmounts[0].symbol || 'MMX';
+    }
+    return {
+      id: tx.id,
+      height: tx.height,
+      note: tx.note,
+      direction,
+      amount,
+      symbol,
+      fee: tx.fee?.value || 0,
+      time: tx.time_stamp || tx.time,
+      sender: tx.sender,
+    };
+  });
+}
+
+// --- Auto-refresh balance ---
+let autoRefreshTimer = null;
+let lastBalanceHash = null;
+const AUTO_REFRESH_MS = 30 * 1000; // 30 seconds
+
+export function startAutoRefresh(onUpdate) {
+  stopAutoRefresh();
+  autoRefreshTimer = setInterval(async () => {
+    if (!unlockedWallet) return;
+    try {
+      const balances = await api.getBalance(unlockedWallet.address);
+      const hash = JSON.stringify(balances);
+      if (hash !== lastBalanceHash) {
+        lastBalanceHash = hash;
+        if (onUpdate) onUpdate(balances);
+      }
+    } catch { /* network error, try again next interval */ }
+  }, AUTO_REFRESH_MS);
+}
+
+export function stopAutoRefresh() {
+  if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+}
 
 if (typeof document !== "undefined") {
   document.addEventListener("click", () => { if (unlockedSeed) resetAutoLock(); });

@@ -6,6 +6,9 @@
 
 import * as app from "./wallet-app.js";
 
+// --- State ---
+let lastBalanceHash = null;
+
 // --- DOM helpers ---
 function showView(name) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
@@ -202,15 +205,30 @@ async function renderDashboard() {
     }
   } catch {}
 
-  // Fetch balance
+  // Fetch balance + start auto-refresh
   setStatus("dashStatus", "Fetching balance...", "");
   try {
     const balances = await app.fetchBalance();
     renderBalances(balances);
+    lastBalanceHash = JSON.stringify(balances);
     setStatus("dashStatus", "");
+    // Auto-refresh every 30s, only re-render if balance changed
+    app.startAutoRefresh((newBalances) => {
+      renderBalances(newBalances);
+      setStatus("dashStatus", "Balance updated", "success");
+      setTimeout(() => setStatus("dashStatus", ""), 2000);
+    });
   } catch (e) {
     setStatus("dashStatus", "Balance fetch failed", "error");
     console.error("Balance error:", e);
+  }
+
+  // Fetch transaction history
+  try {
+    const txs = await app.getTransactionHistory(10);
+    renderTxHistory(txs);
+  } catch {
+    document.getElementById("txHistory").innerHTML = '<div style="color:#888;font-size:11px;text-align:center;">Failed to load history</div>';
   }
 }
 
@@ -224,7 +242,6 @@ function renderBalances(balances) {
     return;
   }
 
-  // Show balances
   let html = "";
   for (const b of balances) {
     const amount = b.spendable !== undefined ? b.spendable : b.total || 0;
@@ -235,11 +252,36 @@ function renderBalances(balances) {
   }
   list.innerHTML = html;
 
-  // Update currency dropdown
   sendCurrency.innerHTML = "";
   for (const b of balances) {
     sendCurrency.innerHTML += `<option value="${b.symbol}">${b.symbol}</option>`;
   }
+}
+
+function renderTxHistory(txs) {
+  const list = document.getElementById("txHistory");
+  if (!txs || txs.length === 0) {
+    list.innerHTML = '<div style="color:#888;font-size:11px;text-align:center;">No transactions yet</div>';
+    return;
+  }
+  let html = "";
+  for (const tx of txs) {
+    const isSent = tx.direction === 'sent';
+    const arrow = isSent ? '📤' : '📥';
+    const color = isSent ? '#ff9800' : '#4caf50';
+    const addrShort = isSent ? (tx.id.substring(0, 12) + '...') : (tx.sender.substring(0, 12) + '...');
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span>${arrow}</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:${color};">${isSent ? '-' : '+'}${tx.amount} ${tx.symbol}</div>
+          <div style="font-family:monospace;font-size:9px;color:#666;">${addrShort} · h:${tx.height}</div>
+        </div>
+      </div>
+      <a href="https://explore.mmx.network/#/explore/transaction/${tx.id}" target="_blank" style="color:#555;font-size:10px;text-decoration:none;">↗</a>
+    </div>`;
+  }
+  list.innerHTML = html;
 }
 
 document.getElementById("sendBtn").addEventListener("click", () => {
@@ -273,6 +315,7 @@ document.getElementById("showSeedBtn").addEventListener("click", () => {
 });
 
 document.getElementById("lockBtn").addEventListener("click", async () => {
+  app.stopAutoRefresh();
   app.lockWalletPub();
   document.getElementById("unlockPassword").value = "";
   // L8: just show unlock view directly, no need to re-init
