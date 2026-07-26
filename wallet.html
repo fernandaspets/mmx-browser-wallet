@@ -489,18 +489,21 @@
         let html = "";
         for (const w of wallets) {
           const isActive = w.id === activeId ? " active" : "";
-          html += `<div class="wallet-list-item${isActive}" data-id="${w.id}">
+          html += `<div class="wallet-list-item${isActive}" data-id="${w.id}" style="display:flex;justify-content:space-between;align-items:center;">
             <div>
               <div class="wallet-name">${w.name}</div>
-              <div class="wallet-addr">${w.address.substring(0,20)}...${w.address.substring(-8)}</div>
+              <div class="wallet-addr">${w.address.substring(0,20)}...${w.address.slice(-8)}</div>
             </div>
+            <button class="btn-delete-wallet" data-id="${w.id}" style="background:none;border:1px solid rgba(244,67,54,0.3);border-radius:6px;padding:4px 8px;color:#f44336;font-size:11px;cursor:pointer;">🗑</button>
           </div>`;
         }
         document.getElementById("walletListItems").innerHTML = html;
         show("walletListView");
         
         for (const el of document.querySelectorAll(".wallet-list-item")) {
-          el.onclick = async () => {
+          el.onclick = async (e) => {
+            // Ignore clicks on the delete button
+            if (e.target.classList.contains("btn-delete-wallet")) return;
             const id = el.dataset.id;
             await app.setActiveWalletId(id);
             app.lockWalletPub();
@@ -508,6 +511,28 @@
             document.getElementById("unlockWalletName").textContent = wallet.name;
             document.getElementById("unlockPass").value = "";
             show("unlockView");
+          };
+        }
+        // Delete button handlers
+        for (const btn of document.querySelectorAll(".btn-delete-wallet")) {
+          btn.onclick = async (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            const wallets = await app.getWalletsList();
+            const w = wallets.find(x => x.id === id);
+            if (!w) return;
+            if (!confirm(`Delete "${w.name}"?\nMake sure you have your mnemonic saved!`)) return;
+            const pwd = prompt("Enter password to delete this wallet:");
+            if (!pwd) return;
+            try {
+              await app.unlockWallet(id, pwd);
+              await app.deleteWalletById(id);
+              // Refresh wallet list
+              const switchBtn = document.getElementById("switchWalletBtn");
+              if (switchBtn.onclick) switchBtn.onclick();
+            } catch {
+              alert("Wrong password");
+            }
           };
         }
       };
