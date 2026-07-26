@@ -73,13 +73,9 @@ function deriveKeypair(seed, passphrase, acctIdx, addrIdx) {
 }
 
 function hashToAddress(hash32LE) {
-  const be = Buffer.from(hash32LE).reverse();
-  const bits = BigInt("0x" + be.toString("hex"));
-  const dp = new Array(52);
-  dp[51] = Number((bits & 1n) << 4n);
-  let b = bits >> 1n;
-  for (let i = 0; i < 51; i++) { dp[50 - i] = Number(b & 31n); b >>= 5n; }
-  return bech32m.encode("mmx", dp);
+  // Use bech32m.toWords like the MMX explorer: encode('mmx', toWords(bytes.reverse()))
+  // hash32LE is little-endian, reverse to big-endian for bech32m
+  return bech32m.encode("mmx", bech32m.toWords(Array.from(Buffer.from(hash32LE).reverse())));
 }
 
 // --- Mnemonic ---
@@ -145,23 +141,17 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   const { skey, pubkey, addrHash } = deriveKeypair(unlockedSeed, "", 0, 0);
   const fromAddrBytes = Array.from(addrHash);
 
-  // Parse destination address to bytes
-  const { words } = bech32m.decode(toAddress);
-  let dstBits = 0n;
-  for (let i = 0; i < 51; i++) dstBits = (dstBits << 5n) | BigInt(words[i]);
-  dstBits = (dstBits << 4n) | (BigInt(words[51]) >> 1n);
-  const dstHex = dstBits.toString(16).padStart(64, "0");
-  const dstBytes = Array.from(Buffer.from(dstHex, "hex").reverse());
+  // Parse destination address to bytes (using bech32m.fromWords like the MMX explorer)
+  const { words: dstWords } = bech32m.decode(toAddress);
+  const dstBytesBE = bech32m.fromWords(dstWords);
+  const dstBytes = Array.from(Buffer.from(dstBytesBE).reverse()); // BE → LE
 
   // Parse currency contract address (MMX native = all zeros)
   let contractBytes = new Array(32).fill(0);
   if (currencyContract && currencyContract !== "mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev") {
     const { words: cw } = bech32m.decode(currencyContract);
-    let cBits = 0n;
-    for (let i = 0; i < 51; i++) cBits = (cBits << 5n) | BigInt(cw[i]);
-    cBits = (cBits << 4n) | (BigInt(cw[51]) >> 1n);
-    const cHex = cBits.toString(16).padStart(64, "0");
-    contractBytes = Array.from(Buffer.from(cHex, "hex").reverse());
+    const cBytesBE = bech32m.fromWords(cw);
+    contractBytes = Array.from(Buffer.from(cBytesBE).reverse());
   }
 
   // Get height for expires
