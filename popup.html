@@ -122,9 +122,12 @@
     <div class="view active" id="onboardingView">
       <h2>Welcome</h2>
       <p class="subtitle">Create a new wallet or import an existing one from your 24-word mnemonic.</p>
-      <button class="btn btn-primary" id="onboardCreateBtn">🔑 Create New Wallet</button>
+      <div style="background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius);padding:10px;margin-bottom:12px;font-size:11px;line-height:1.4;">
+        <strong>Note:</strong> Temporary Firefox extensions lose data on reload. Always save your 24-word mnemonic — you'll need it to re-import after reloading the extension.
+      </div>
+      <button class="btn btn-primary" id="onboardCreateBtn">Create New Wallet</button>
       <div style="height:8px"></div>
-      <button class="btn btn-secondary" id="onboardImportBtn">📥 Import from Mnemonic</button>
+      <button class="btn btn-secondary" id="onboardImportBtn">Import from Mnemonic</button>
     </div>
 
     <!-- Create wallet view -->
@@ -171,7 +174,7 @@
 
     <!-- Seed backup view -->
     <div class="view" id="seedView">
-      <h2 style="font-size:18px;margin-bottom:8px;">🔑 Save Your Seed</h2>
+      <h2 style="font-size:18px;margin-bottom:8px;">Save Your Seed</h2>
       <div class="seed-warning">
         <strong>⚠️ Important:</strong> These 24 words can restore your wallet. Write them down and store safely. Anyone with this seed can control your funds.
       </div>
@@ -192,7 +195,7 @@
       <div class="status" id="unlockStatus"></div>
       <button class="btn btn-primary" id="unlockBtn">Unlock</button>
       <div style="height:8px"></div>
-      <button class="btn btn-secondary" id="unlockSwitchBtn">📋 Switch Wallet</button>
+      <button class="btn btn-secondary" id="unlockSwitchBtn">Switch Wallet</button>
     </div>
 
     <!-- Dashboard view -->
@@ -213,20 +216,20 @@
         <div class="copy-feedback" id="copyFeedback">Copied!</div>
       </div>
       <div class="actions">
-        <button class="btn btn-primary" id="sendBtn">📤 Send</button>
-        <button class="btn btn-secondary" id="receiveBtn">📥 Receive</button>
+        <button class="btn btn-primary" id="sendBtn">Send</button>
+        <button class="btn btn-secondary" id="receiveBtn">Receive</button>
       </div>
       <div class="action-row">
-        <button class="btn btn-secondary" id="refreshBtn">🔄 Refresh</button>
-        <button class="btn btn-secondary" id="switchBtn">📋 Switch</button>
-        <button class="btn btn-secondary" id="contactsBtn">📇 Contacts</button>
+        <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+        <button class="btn btn-secondary" id="switchBtn">Switch</button>
+        <button class="btn btn-secondary" id="contactsBtn">Contacts</button>
       </div>
       <div class="action-row">
-        <button class="btn btn-secondary" id="showSeedBtn">👁 Seed</button>
-        <button class="btn btn-secondary" id="lockBtn">🔒 Lock</button>
+        <button class="btn btn-secondary" id="showSeedBtn">Seed</button>
+        <button class="btn btn-secondary" id="lockBtn">Lock</button>
       </div>
       <div class="action-row">
-        <button class="btn btn-danger" id="deleteBtn">🗑 Delete</button>
+        <button class="btn btn-danger" id="deleteBtn">Delete</button>
         <button class="btn btn-secondary" id="openTabBtn">↗ Open Tab</button>
       </div>
       <div class="status" id="dashStatus"></div>
@@ -304,7 +307,7 @@
       <p style="font-size:12px;color:#888;text-align:center;margin-bottom:16px;">
         Send MMX or TRAIL to this address.
       </p>
-      <button class="btn btn-primary" id="copyReceiveBtn">📋 Copy Address</button>
+      <button class="btn btn-primary" id="copyReceiveBtn">Copy Address</button>
     </div>
 
     <!-- Wallet list view -->
@@ -313,9 +316,9 @@
       <h2 style="font-size:18px;margin-bottom:16px;">Your Wallets</h2>
       <div id="walletListItems"></div>
       <div style="height:12px"></div>
-      <button class="btn btn-primary" id="listCreateBtn">🔑 Create New Wallet</button>
+      <button class="btn btn-primary" id="listCreateBtn">Create New Wallet</button>
       <div style="height:8px"></div>
-      <button class="btn btn-secondary" id="listImportBtn">📥 Import Wallet</button>
+      <button class="btn btn-secondary" id="listImportBtn">Import Wallet</button>
     </div>
 
     <!-- Contacts view -->
