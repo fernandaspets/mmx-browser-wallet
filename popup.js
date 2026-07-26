@@ -408,5 +408,16 @@ document.getElementById("receiveBackBtn").addEventListener("click", () => {
   showView("dashboardView");
 });
 
+// --- Open in tab (stays open when popup closes) ---
+
+document.getElementById("openTabBtn").addEventListener("click", () => {
+  if (typeof browser !== "undefined" && browser.tabs) {
+    browser.tabs.create({ url: browser.runtime.getURL("wallet.html") });
+  } else if (typeof chrome !== "undefined" && chrome.tabs) {
+    chrome.tabs.create({ url: chrome.runtime.getURL("wallet.html") });
+  }
+  window.close();
+});
+
 // --- Start ---
 init();
