@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "description": "Lightweight MMX wallet for the browser",
   "permissions": ["storage", "activeTab"],
+  "host_permissions": ["https://rpc.mmx.network/*"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "MMX Wallet"

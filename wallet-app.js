@@ -215,7 +215,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
     fee_ratio: tx.fee_ratio,
     max_fee_amount: tx.max_fee_amount,
     note: tx.note,
-    nonce: tx.nonce,
+    nonce: tx.nonce.toString(),
     network: tx.network,
     sender: tx.sender,
     inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
