@@ -631,7 +631,6 @@ let pendingSend = null; // stores { to, amountSat, contractAddr, decimals, curre
 document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   const to = document.getElementById("sendTo").value.trim();
   const amount = document.getElementById("sendAmount").value.trim();
-  const memo = document.getElementById("sendMemo").value.trim() || null;
 
   if (!to || !to.startsWith("mmx1")) { setStatus("sendStatus", "Valid MMX address required", "error"); return; }
   if (!amount || parseFloat(amount) <= 0) { setStatus("sendStatus", "Valid amount required", "error"); return; }
@@ -704,7 +703,7 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   }
 
   // Store pending send so broadcast reads from state, not DOM
-  pendingSend = { to, amountSat, contractAddr, decimals, currency, feeSat, memo };
+  pendingSend = { to, amountSat, contractAddr, decimals, currency, feeSat };
 
   // Show confirmation view (#90 + #100)
   const feeMmx = (Number(feeSat) / 1e6).toFixed(6);
@@ -734,11 +733,10 @@ document.getElementById("sendBroadcastBtn").addEventListener("click", async () =
   setStatus("sendConfirmStatus", "Building & signing...", "");
 
   try {
-    const txid = await app.sendTransaction(pendingSend.to, pendingSend.amountSat, pendingSend.contractAddr, pendingSend.memo);
+    const txid = await app.sendTransaction(pendingSend.to, pendingSend.amountSat, pendingSend.contractAddr);
     setStatus("sendConfirmStatus", "✅ Sent!", "success");
     document.getElementById("sendTo").value = "";
     document.getElementById("sendAmount").value = "";
-    document.getElementById("sendMemo").value = "";
     pendingSend = null;
 
     const txLink = document.createElement("div");

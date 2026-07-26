@@ -274,7 +274,6 @@
         <input class="input" id="sendAmount" placeholder="0.0001" type="text">
         <div style="height:12px"></div>
         <div class="label">Memo (optional)</div>
-        <input class="input" id="sendMemo" placeholder="Note for this transaction" maxlength="100">
         <button class="btn" id="sendBtn">Review Send</button>
       </div>
 
@@ -617,7 +616,6 @@
       document.getElementById("sendBtn").onclick = async () => {
         const toAddr = document.getElementById("sendTo").value.trim();
         const amountStr = document.getElementById("sendAmount").value.trim();
-        const memo = document.getElementById("sendMemo").value.trim() || null;
         const currency = document.getElementById("sendCurrency").value;
         
         if (!toAddr || !toAddr.startsWith("mmx1")) return setStatus("Enter a valid MMX address", "error");
@@ -674,7 +672,7 @@
         } catch {}
         
         // Show confirm card
-        pendingSend = { toAddr, amountSat, contractAddr, decimals, currency, amountStr, memo };
+        pendingSend = { toAddr, amountSat, contractAddr, decimals, currency, amountStr };
         const feeMmx = (Number(feeSat) / 1e6).toFixed(6);
         document.getElementById("confirmAmount").textContent = `${amountStr} ${currency}`;
         document.getElementById("confirmTo").textContent = toAddr;
@@ -696,11 +694,10 @@
         btn.disabled = true;
         document.getElementById("sendConfirmStatus").textContent = "Sending...";
         try {
-          const txid = await app.sendTransaction(pendingSend.toAddr, pendingSend.amountSat, pendingSend.contractAddr, pendingSend.memo);
+          const txid = await app.sendTransaction(pendingSend.toAddr, pendingSend.amountSat, pendingSend.contractAddr);
           document.getElementById("sendConfirmCard").style.display = "none";
           document.getElementById("sendTo").value = "";
           document.getElementById("sendAmount").value = "";
-          document.getElementById("sendMemo").value = "";
           setStatus(`✅ Sent! TXID: ${txid}`, "success");
           await refreshBalance();
           // Fetch updated tx history (new tx will show as pending)
