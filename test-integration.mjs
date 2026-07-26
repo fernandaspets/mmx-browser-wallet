@@ -493,6 +493,43 @@ console.log("\n11. Transaction memo field");
   assert("Tx without memo is deterministic", calcTxId(txNoMemo).equals(calcTxId(txNoMemo)), true);
 }
 
+// === INTEGRATION: Address book (contacts) ===
+console.log("\n12. Address book contacts");
+{
+  // Mock contact storage (tests logic, not actual storage)
+  let contacts = [];
+  function mockAdd(name, address) {
+    if (contacts.some(c => c.address === address)) throw new Error("Duplicate");
+    contacts.push({ id: String(contacts.length + 1), name, address });
+  }
+  function mockDelete(id) { contacts = contacts.filter(c => c.id !== id); }
+  function mockFindByAddr(addr) { return contacts.find(c => c.address === addr) || null; }
+
+  mockAdd("Morpheus", "mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5");
+  mockAdd("Neo", "mmx102gmjqqlu3mm93utncnv0uezk5d62sa5cuqdg9quh4q5n83zsydq5pnaek");
+  assert("Contacts saved", contacts.length, 2);
+  assert("Find by address works", mockFindByAddr("mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5").name, "Morpheus");
+  assert("Find unknown returns null", mockFindByAddr("mmx1unknown"), null);
+
+  // Duplicate rejected
+  let threwDup = false;
+  try { mockAdd("Duplicate", "mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5"); } catch { threwDup = true; }
+  assert("Duplicate address rejected", threwDup, true);
+
+  // Delete works
+  mockDelete("1");
+  assert("Contact deleted", contacts.length, 1);
+  assert("Deleted contact not found", mockFindByAddr("mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5"), null);
+
+  // Don't auto-track own address
+  const myAddr = "mmx1ntpzx2zj5nl58xrj9erjd5saszfa83dvnwjr07l5hl39f2p3mh4sk0xuvd";
+  contacts = [];
+  // Simulate autoTrackAddress: skip if it's own address
+  const wallets = [{ address: myAddr }];
+  if (!wallets.some(w => w.address === myAddr)) mockAdd("Self", myAddr);
+  assert("Own address not auto-saved", contacts.length, 0);
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Integration tests: ${passed} passed, ${failed} failed`);

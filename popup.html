@@ -209,6 +209,7 @@
       <div class="action-row">
         <button class="btn btn-secondary" id="refreshBtn">🔄 Refresh</button>
         <button class="btn btn-secondary" id="switchBtn">📋 Switch</button>
+        <button class="btn btn-secondary" id="contactsBtn">📇 Contacts</button>
       </div>
       <div class="action-row">
         <button class="btn btn-secondary" id="showSeedBtn">👁 Seed</button>
@@ -242,6 +243,9 @@
       <div class="input-group">
         <label>To Address</label>
         <input type="text" class="mono" id="sendTo" placeholder="mmx1...">
+        <select id="sendToContact" style="width:100%;padding:6px;margin-top:4px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#888;font-size:11px;">
+          <option value="">Select from contacts...</option>
+        </select>
       </div>
       <div class="input-group">
         <label>Amount</label>
@@ -306,6 +310,18 @@
       <button class="btn btn-primary" id="listCreateBtn">🔑 Create New Wallet</button>
       <div style="height:8px"></div>
       <button class="btn btn-secondary" id="listImportBtn">📥 Import Wallet</button>
+    </div>
+
+    <!-- Contacts view -->
+    <div class="view" id="contactsView">
+      <button class="back-btn" id="contactsBackBtn">← Back</button>
+      <h2 style="font-size:18px;margin-bottom:16px;">Address Book</h2>
+      <div id="contactsList"></div>
+      <div style="height:12px"></div>
+      <div style="font-size:12px;color:#888;margin-bottom:6px;">Add new contact</div>
+      <input type="text" class="input" id="contactName" placeholder="Name" style="width:100%;margin-bottom:6px;">
+      <input type="text" class="input mono" id="contactAddr" placeholder="mmx1..." style="width:100%;margin-bottom:6px;font-size:11px;">
+      <button class="btn btn-primary" id="addContactBtn" style="width:100%;">➕ Add Contact</button>
     </div>
 
     <!-- Reauth view (inline password for show mnemonic / delete) -->

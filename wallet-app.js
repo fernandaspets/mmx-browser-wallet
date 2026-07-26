@@ -246,6 +246,9 @@ export async function sendTransaction(toAddress, amountSat, currencyContract, me
   // Broadcast
   await api.broadcastTransaction(txObj);
 
+  // Auto-track destination address in contacts (if not own and not already saved)
+  try { await store.autoTrackAddress(toAddress, "Sent to"); } catch {}
+
   // Clear sensitive variables from memory (#88)
   // skey and seed are local, but let's zero them out
   skey.fill(0);
@@ -440,3 +443,10 @@ export async function showMnemonic(password) {
   await store.unlockWallet(walletId, password); // throws if wrong password
   return seedToWords(unlockedSeed);
 }
+
+// --- Address book (re-export from store) ---
+export async function getContacts() { return store.getContacts(); }
+export async function addContact(name, address) { return store.addContact(name, address); }
+export async function deleteContact(id) { return store.deleteContact(id); }
+export async function findContactByAddress(address) { return store.findContactByAddress(address); }
+export async function autoTrackAddress(address, defaultName) { return store.autoTrackAddress(address, defaultName); }

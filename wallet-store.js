@@ -215,3 +215,48 @@ export async function verifyPassword(walletId, password) {
     return false;
   }
 }
+
+// --- Address book ---
+// Stores named addresses the user has interacted with. Not encrypted (addresses are public).
+// Format: [{ id, name, address, created }]
+
+const CONTACTS_KEY = "mmx_contacts";
+
+export async function getContacts() {
+  const data = await storageGet(CONTACTS_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+export async function addContact(name, address) {
+  const contacts = await getContacts();
+  // Check for duplicate address
+  if (contacts.some(c => c.address === address)) {
+    throw new Error("Address already in contacts");
+  }
+  const contact = { id: generateId(), name: name.trim() || "Unnamed", address, created: Date.now() };
+  contacts.push(contact);
+  await storageSet(CONTACTS_KEY, JSON.stringify(contacts));
+  return contact;
+}
+
+export async function deleteContact(id) {
+  const contacts = await getContacts();
+  const filtered = contacts.filter(c => c.id !== id);
+  await storageSet(CONTACTS_KEY, JSON.stringify(filtered));
+}
+
+export async function findContactByAddress(address) {
+  const contacts = await getContacts();
+  return contacts.find(c => c.address === address) || null;
+}
+
+// Auto-save an address we interacted with (if not already saved)
+export async function autoTrackAddress(address, defaultName) {
+  const existing = await findContactByAddress(address);
+  if (existing) return existing; // already tracked
+  // Don't auto-save own address
+  const wallets = await getWallets();
+  if (wallets.some(w => w.address === address)) return null;
+  // Auto-save with default name (user can rename later)
+  return await addContact(defaultName || "Unknown", address);
+}

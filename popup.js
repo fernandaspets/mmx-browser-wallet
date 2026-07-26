@@ -250,6 +250,7 @@ async function renderDashboard() {
     const txs = await app.getTransactionHistory(10, 0);
     allTxs = txs;
     renderTxHistory(txs);
+    await populateContactPicker();
     // Show load more if we got a full page
     document.getElementById("txLoadMore").style.display = txs.length >= 10 ? "block" : "none";
   } catch {
@@ -429,6 +430,84 @@ document.getElementById("lockBtn").addEventListener("click", async () => {
 
 document.getElementById("deleteBtn").addEventListener("click", () => {
   showReauth("Delete Wallet", "Enter your password to permanently delete this wallet. Make sure you have your mnemonic saved!", 'delete');
+});
+
+// --- Contacts (address book) ---
+
+async function renderContacts() {
+  const contacts = await app.getContacts();
+  const list = document.getElementById("contactsList");
+  if (contacts.length === 0) {
+    list.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;padding:12px;">No saved contacts yet. Addresses you send to will be auto-saved here.</div>';
+  } else {
+    let html = "";
+    for (const c of contacts) {
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <div>
+          <div style="font-size:13px;font-weight:600;">${c.name}</div>
+          <div style="font-family:monospace;font-size:10px;color:#666;">${c.address.substring(0,20)}...</div>
+        </div>
+        <button class="btn btn-secondary" data-id="${c.id}" data-addr="${c.address}" style="font-size:10px;padding:4px 8px;">Send</button>
+        <button class="btn btn-danger" data-del="${c.id}" style="font-size:10px;padding:4px 8px;margin-left:4px;">🗑</button>
+      </div>`;
+    }
+    list.innerHTML = html;
+    // Wire send buttons
+    for (const btn of list.querySelectorAll("button[data-id]")) {
+      btn.addEventListener("click", () => {
+        document.getElementById("sendTo").value = btn.dataset.addr;
+        showView("sendView");
+      });
+    }
+    // Wire delete buttons
+    for (const btn of list.querySelectorAll("button[data-del]")) {
+      btn.addEventListener("click", async () => {
+        await app.deleteContact(btn.dataset.del);
+        await renderContacts();
+        await populateContactPicker();
+      });
+    }
+  }
+}
+
+async function populateContactPicker() {
+  const contacts = await app.getContacts();
+  const select = document.getElementById("sendToContact");
+  select.innerHTML = '<option value="">Select from contacts...</option>';
+  for (const c of contacts) {
+    select.innerHTML += `<option value="${c.address}">${c.name} — ${c.address.substring(0,12)}...</option>`;
+  }
+}
+
+document.getElementById("contactsBtn").addEventListener("click", async () => {
+  await renderContacts();
+  showView("contactsView");
+});
+
+document.getElementById("contactsBackBtn").addEventListener("click", () => {
+  showView("dashboardView");
+});
+
+document.getElementById("addContactBtn").addEventListener("click", async () => {
+  const name = document.getElementById("contactName").value.trim();
+  const addr = document.getElementById("contactAddr").value.trim();
+  if (!name) return;
+  if (!addr || !addr.startsWith("mmx1")) return;
+  try {
+    await app.addContact(name, addr);
+    document.getElementById("contactName").value = "";
+    document.getElementById("contactAddr").value = "";
+    await renderContacts();
+    await populateContactPicker();
+  } catch (e) {
+    // duplicate or error
+  }
+});
+
+document.getElementById("sendToContact").addEventListener("change", (e) => {
+  if (e.target.value) {
+    document.getElementById("sendTo").value = e.target.value;
+  }
 });
 
 // --- Wallet list (switch) ---
