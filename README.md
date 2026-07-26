@@ -61,8 +61,19 @@ Open `http://localhost:5050/browser-wallet/wallet.html` in your browser.
 ### Run Tests
 
 ```bash
-node test-crypto.mjs
+npm test                    # run all 97 tests
+npm run test:unit           # 22 unit tests
+test:regression            # 17 regression tests
+test:fuzz                   # 38 fuzz tests
+test:integration            # 20 integration tests
 ```
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `test-crypto.mjs` | 22 | Address derivation, mnemonic round-trip, bech32m, tx hash, signature cross-verification, encrypted storage |
+| `test-regression.mjs` | 17 | Prevents known bugs from returning: prehash trap, max_fee_amount size, bech32m fromWords, expires field, nonce entropy, account-based tx model, execute field serialization |
+| `test-fuzz.mjs` | 38 | Invalid inputs: bad mnemonics, invalid addresses, negative amounts, wrong-length keys, XSS names, large amounts, tx with memo, multi-input tx |
+| `test-integration.mjs` | 20 | Components together: create→unlock→verify, import→verify address, wrong password rejected, build→sign→verify, lock→clear→unlock, duplicate detection |
 
 ## Architecture
 
@@ -147,7 +158,10 @@ The wallet talks directly to `https://rpc.mmx.network` — a public MMX node wit
 | `lib/bech32-esm.js` | bech32m encoder/decoder (ESM) |
 | `lib/buffer-esm.js` | Buffer polyfill for browser |
 | `wordlist.txt` | BIP-0039 English wordlist (2048 words) |
-| `test-crypto.mjs` | Unit tests (`node test-crypto.mjs`) |
+| `test-crypto.mjs` | Unit tests (22) |
+| `test-regression.mjs` | Regression tests (17) — prevents known bugs from returning |
+| `test-fuzz.mjs` | Fuzz tests (38) — invalid/malformed inputs rejected gracefully |
+| `test-integration.mjs` | Integration tests (20) — components work together |
 
 ## Security
 
