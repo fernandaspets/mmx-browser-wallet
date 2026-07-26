@@ -358,9 +358,9 @@ export function satToMmx(satStr) {
 
 // --- Transaction history ---
 
-export async function getTransactionHistory(limit = 20) {
+export async function getTransactionHistory(limit = 20, offset = 0) {
   if (!unlockedWallet) return [];
-  const resp = await fetch(`${api.getNodeUrl()}/transactions?addr=${unlockedWallet.address}&limit=${limit}`);
+  const resp = await fetch(`${api.getNodeUrl()}/transactions?addr=${unlockedWallet.address}&limit=${limit}&offset=${offset}`);
   if (!resp.ok) throw new Error(`Transaction history error: ${resp.status}`);
   const txs = await resp.json();
   // Format for UI: determine direction (sent/received) and amounts
@@ -383,6 +383,7 @@ export async function getTransactionHistory(limit = 20) {
     return {
       id: tx.id,
       height: tx.height,
+      confirm: tx.confirm || 0,
       note: tx.note,
       direction,
       amount,

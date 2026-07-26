@@ -299,6 +299,7 @@
       <div style="margin-top:16px;">
         <div class="label" style="margin-bottom:8px;">Recent Transactions</div>
         <div id="txHistoryList" style="max-height:300px;overflow-y:auto;"><div style="color:#888;font-size:12px;text-align:center;">Loading...</div></div>
+        <button class="btn secondary" id="txLoadMore" style="display:none;width:100%;margin-top:6px;font-size:12px;">Load More</button>
       </div>
     </div>
 
@@ -453,6 +454,9 @@
       };
 
       // --- Wallet view ---
+      let txOffset = 0;
+      let allTxs = [];
+
       async function renderWallet() {
         show("walletView");
         const wallet = app.getUnlockedWallet();
@@ -471,19 +475,22 @@
           setStatus("Balance updated", "success");
           setTimeout(() => setStatus(""), 2000);
         });
-        // Fetch transaction history
+        // Fetch transaction history (first page)
+        txOffset = 0;
         try {
-          const txs = await app.getTransactionHistory(15);
+          const txs = await app.getTransactionHistory(15, 0);
+          allTxs = txs;
           renderTxHistory(txs);
+          document.getElementById("txLoadMore").style.display = txs.length >= 15 ? "block" : "none";
         } catch {
           document.getElementById("txHistoryList").innerHTML = '<div style="color:#888;font-size:12px;">Failed to load history</div>';
         }
       }
 
-      function renderTxHistory(txs) {
+      function renderTxHistory(txs, append = false) {
         const list = document.getElementById("txHistoryList");
         if (!txs || txs.length === 0) {
-          list.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;">No transactions yet</div>';
+          if (!append) list.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;">No transactions yet</div>';
           return;
         }
         let html = "";
@@ -492,18 +499,21 @@
           const arrow = isSent ? '📤' : '📥';
           const color = isSent ? '#ff9800' : '#4caf50';
           const addrShort = isSent ? (tx.id.substring(0, 12) + '...') : (tx.sender.substring(0, 12) + '...');
+          const confirmations = tx.confirm || 0;
+          const pendingBadge = confirmations < 1 ? ' <span style="color:#ff9800;font-size:10px;">⏳ pending</span>' : '';
           html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="font-size:16px;">${arrow}</span>
               <div>
-                <div style="font-size:13px;font-weight:600;color:${color};">${isSent ? '-' : '+'}${tx.amount} ${tx.symbol}</div>
+                <div style="font-size:13px;font-weight:600;color:${color};">${isSent ? '-' : '+'}${tx.amount} ${tx.symbol}${pendingBadge}</div>
                 <div style="font-family:monospace;font-size:10px;color:#666;">${addrShort} · block ${tx.height}</div>
               </div>
             </div>
             <a href="https://explore.mmx.network/#/explore/transaction/${tx.id}" target="_blank" style="color:#555;font-size:12px;text-decoration:none;">↗</a>
           </div>`;
         }
-        list.innerHTML = html;
+        if (append) list.innerHTML += html;
+        else list.innerHTML = html;
       }
 
       async function updateNetworkBadge() {
@@ -639,16 +649,35 @@
           document.getElementById("sendAmount").value = "";
           setStatus(`✅ Sent! TXID: ${txid}`, "success");
           await refreshBalance();
-          // Fetch updated tx history
+          // Fetch updated tx history (new tx will show as pending)
           try {
-            const txs = await app.getTransactionHistory(15);
+            txOffset = 0;
+            const txs = await app.getTransactionHistory(15, 0);
+            allTxs = txs;
             renderTxHistory(txs);
+            document.getElementById("txLoadMore").style.display = txs.length >= 15 ? "block" : "none";
           } catch {}
           pendingSend = null;
         } catch(e) {
           document.getElementById("sendConfirmStatus").textContent = "Error: " + e.message;
         } finally {
           btn.disabled = false;
+        }
+      };
+
+      // Load more transactions
+      document.getElementById("txLoadMore").onclick = async () => {
+        txOffset += 15;
+        try {
+          const btn = document.getElementById("txLoadMore");
+          btn.textContent = "Loading...";
+          const txs = await app.getTransactionHistory(15, txOffset);
+          allTxs = allTxs.concat(txs);
+          renderTxHistory(txs, true);
+          btn.textContent = "Load More";
+          btn.style.display = txs.length >= 15 ? "block" : "none";
+        } catch {
+          txOffset -= 15;
         }
       };
 

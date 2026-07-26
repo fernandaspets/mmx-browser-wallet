@@ -9,6 +9,8 @@ import * as api from "./mmx-node-api.js";
 
 // --- State ---
 let lastBalanceHash = null;
+let txOffset = 0;
+let allTxs = [];
 
 // --- Network badge ---
 async function updateNetworkBadge() {
@@ -242,10 +244,14 @@ async function renderDashboard() {
     console.error("Balance error:", e);
   }
 
-  // Fetch transaction history
+  // Fetch transaction history (first page)
+  txOffset = 0;
   try {
-    const txs = await app.getTransactionHistory(10);
+    const txs = await app.getTransactionHistory(10, 0);
+    allTxs = txs;
     renderTxHistory(txs);
+    // Show load more if we got a full page
+    document.getElementById("txLoadMore").style.display = txs.length >= 10 ? "block" : "none";
   } catch {
     document.getElementById("txHistory").innerHTML = '<div style="color:#888;font-size:11px;text-align:center;">Failed to load history</div>';
   }
@@ -277,31 +283,51 @@ function renderBalances(balances) {
   }
 }
 
-function renderTxHistory(txs) {
+function renderTxHistory(txs, append = false) {
   const list = document.getElementById("txHistory");
   if (!txs || txs.length === 0) {
-    list.innerHTML = '<div style="color:#888;font-size:11px;text-align:center;">No transactions yet</div>';
+    if (!append) list.innerHTML = '<div style="color:#888;font-size:11px;text-align:center;">No transactions yet</div>';
     return;
   }
+  // Check for pending txs (confirm < 1 means not yet in a block)
   let html = "";
   for (const tx of txs) {
     const isSent = tx.direction === 'sent';
     const arrow = isSent ? '📤' : '📥';
     const color = isSent ? '#ff9800' : '#4caf50';
     const addrShort = isSent ? (tx.id.substring(0, 12) + '...') : (tx.sender.substring(0, 12) + '...');
+    const confirmations = tx.confirm || 0;
+    const pendingBadge = confirmations < 1 ? ' <span style="color:#ff9800;font-size:9px;">⏳ pending</span>' : '';
     html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
       <div style="display:flex;align-items:center;gap:6px;">
         <span>${arrow}</span>
         <div>
-          <div style="font-size:12px;font-weight:600;color:${color};">${isSent ? '-' : '+'}${tx.amount} ${tx.symbol}</div>
+          <div style="font-size:12px;font-weight:600;color:${color};">${isSent ? '-' : '+'}${tx.amount} ${tx.symbol}${pendingBadge}</div>
           <div style="font-family:monospace;font-size:9px;color:#666;">${addrShort} · h:${tx.height}</div>
         </div>
       </div>
       <a href="https://explore.mmx.network/#/explore/transaction/${tx.id}" target="_blank" style="color:#555;font-size:10px;text-decoration:none;">↗</a>
     </div>`;
   }
-  list.innerHTML = html;
+  if (append) list.innerHTML += html;
+  else list.innerHTML = html;
 }
+
+// Load more transactions
+document.getElementById("txLoadMore").addEventListener("click", async () => {
+  txOffset += 10;
+  try {
+    const btn = document.getElementById("txLoadMore");
+    btn.textContent = "Loading...";
+    const txs = await app.getTransactionHistory(10, txOffset);
+    allTxs = allTxs.concat(txs);
+    renderTxHistory(txs, true);
+    btn.textContent = "Load More";
+    btn.style.display = txs.length >= 10 ? "block" : "none";
+  } catch {
+    txOffset -= 10; // rollback on error
+  }
+});
 
 document.getElementById("sendBtn").addEventListener("click", () => {
   showView("sendView");
