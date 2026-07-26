@@ -12,9 +12,9 @@
  */
 
 // Browser imports need full paths (bare specifiers don't work in browsers)
-import * as secp from "/node_modules/@noble/secp256k1/index.js";
-import { sha256, sha512 } from "/node_modules/@noble/hashes/sha2.js";
-import { hmac } from "/node_modules/@noble/hashes/hmac.js";
+import * as secp from "./node_modules/@noble/secp256k1/index.js";
+import { sha256, sha512 } from "./node_modules/@noble/hashes/sha2.js";
+import { hmac } from "./node_modules/@noble/hashes/hmac.js";
 import { bech32m } from "./lib/bech32-esm.js";
 import "./lib/buffer-esm.js";
 import * as store from "./wallet-store.js";
@@ -291,16 +291,16 @@ export function getWalletsList() {
   return store.getWallets();
 }
 
-export function getActiveWalletId() {
+export async function getActiveWalletId() {
   return store.getActiveWalletId();
 }
 
-export function setActiveWalletId(id) {
-  store.setActiveWalletId(id);
+export async function setActiveWalletId(id) {
+  await store.setActiveWalletId(id);
 }
 
-export function deleteWalletById(id) {
-  store.deleteWallet(id);
+export async function deleteWalletById(id) {
+  await store.deleteWallet(id);
   if (unlockedWallet?.id === id) lockWallet();
 }
 
@@ -308,8 +308,6 @@ export async function fetchBalance() {
   if (!unlockedWallet) return [];
   return await api.getBalance(unlockedWallet.address);
 }
-
-// Amount helpers: MMX has 6 decimals
 export function mmxToSat(mmxStr) {
   // Parse decimal string to integer satoshis
   const [whole, frac = ""] = mmxStr.split(".");

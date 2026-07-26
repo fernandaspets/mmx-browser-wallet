@@ -1,9 +1,9 @@
 /**
  * wallet-store.js — Encrypted wallet storage with password protection.
  * 
+ * Works in both web pages (localStorage) and Chrome extensions (chrome.storage.local).
  * Uses WebCrypto AES-GCM to encrypt wallet seeds at rest.
  * Password is derived into an AES key via PBKDF2 (100k iterations).
- * Wallets are stored in localStorage as encrypted blobs.
  * 
  * Storage format:
  *   mmx_wallets: [{ id, name, address, enc_seed, iv, salt, created }]
@@ -12,6 +12,39 @@
 
 const STORAGE_KEY = "mmx_wallets";
 const ACTIVE_KEY = "mmx_active_wallet";
+
+// Detect environment
+const isExtension = (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local);
+
+// --- Storage abstraction (async for both environments) ---
+
+async function storageGet(key) {
+  if (isExtension) {
+    return new Promise(resolve => {
+      chrome.storage.local.get(key, result => resolve(result[key]));
+    });
+  }
+  const data = localStorage.getItem(key);
+  return data ? JSON.parse(data) : null;
+}
+
+async function storageSet(key, value) {
+  if (isExtension) {
+    return new Promise(resolve => {
+      chrome.storage.local.set({ [key]: value }, () => resolve());
+    });
+  }
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+async function storageRemove(key) {
+  if (isExtension) {
+    return new Promise(resolve => {
+      chrome.storage.local.remove(key, () => resolve());
+    });
+  }
+  localStorage.removeItem(key);
+}
 
 // --- Password → AES key derivation (PBKDF2) ---
 
@@ -76,52 +109,48 @@ function b64ToBuf(b64) {
   return bytes;
 }
 
-// --- Wallet list management ---
+// --- Wallet list management (all async now) ---
 
-export function getWallets() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+export async function getWallets() {
+  return (await storageGet(STORAGE_KEY)) || [];
 }
 
-export function getActiveWalletId() {
-  return localStorage.getItem(ACTIVE_KEY);
+export async function getActiveWalletId() {
+  return await storageGet(ACTIVE_KEY);
 }
 
-export function setActiveWalletId(id) {
-  localStorage.setItem(ACTIVE_KEY, id);
+export async function setActiveWalletId(id) {
+  await storageSet(ACTIVE_KEY, id);
 }
 
-export function getWallet(id) {
-  return getWallets().find(w => w.id === id) || null;
+export async function getWallet(id) {
+  const wallets = await getWallets();
+  return wallets.find(w => w.id === id) || null;
 }
 
-export function getActiveWallet() {
-  const id = getActiveWalletId();
-  return id ? getWallet(id) : null;
+export async function getActiveWallet() {
+  const id = await getActiveWalletId();
+  return id ? await getWallet(id) : null;
 }
 
-export function saveWallet(wallet) {
-  const wallets = getWallets();
+export async function saveWallet(wallet) {
+  const wallets = await getWallets();
   const idx = wallets.findIndex(w => w.id === wallet.id);
   if (idx >= 0) wallets[idx] = wallet;
   else wallets.push(wallet);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(wallets));
+  await storageSet(STORAGE_KEY, wallets);
 }
 
-export function deleteWallet(id) {
-  const wallets = getWallets().filter(w => w.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(wallets));
-  if (getActiveWalletId() === id) {
-    localStorage.removeItem(ACTIVE_KEY);
+export async function deleteWallet(id) {
+  const wallets = (await getWallets()).filter(w => w.id !== id);
+  await storageSet(STORAGE_KEY, wallets);
+  if ((await getActiveWalletId()) === id) {
+    await storageRemove(ACTIVE_KEY);
   }
 }
 
-export function hasWallets() {
-  return getWallets().length > 0;
+export async function hasWallets() {
+  return (await getWallets()).length > 0;
 }
 
 // --- High-level: create/import wallet ---
@@ -137,13 +166,13 @@ export async function createWallet(name, password, seedBytes, address) {
     salt,
     created: Date.now(),
   };
-  saveWallet(wallet);
-  setActiveWalletId(wallet.id);
+  await saveWallet(wallet);
+  await setActiveWalletId(wallet.id);
   return wallet;
 }
 
 export async function unlockWallet(walletId, password) {
-  const wallet = getWallet(walletId);
+  const wallet = await getWallet(walletId);
   if (!wallet) throw new Error("Wallet not found");
   try {
     const seed = await decryptSeed(wallet.enc_seed, wallet.iv, wallet.salt, password);

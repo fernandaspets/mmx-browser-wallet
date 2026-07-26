@@ -20,7 +20,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["wordlist.txt", "inject.js"],
+      "resources": ["wordlist.txt", "inject.js", "node_modules/@noble/secp256k1/*", "node_modules/@noble/hashes/*"],
       "matches": ["<all_urls>"]
     }
   ],

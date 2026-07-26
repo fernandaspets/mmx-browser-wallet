@@ -16,8 +16,8 @@
  *   - Type tags: raw C string (e.g. "txin_t<>", "txout_t<>")
  */
 
-import { sha256 } from "/node_modules/@noble/hashes/sha2.js";
-import * as secp from "/node_modules/@noble/secp256k1/index.js";
+import { sha256 } from "./node_modules/@noble/hashes/sha2.js";
+import * as secp from "./node_modules/@noble/secp256k1/index.js";
 
 // Transaction type hash (Hash64, 8 bytes LE)
 const TX_TYPE_HASH = 0xce0462acdceaa5bcn;
