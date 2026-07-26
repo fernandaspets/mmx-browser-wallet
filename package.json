@@ -1,0 +1,18 @@
+{
+  "name": "mmx-browser-wallet",
+  "version": "0.1.0",
+  "description": "Lightweight MMX wallet for the browser — keys never leave your device",
+  "type": "module",
+  "scripts": {
+    "test": "node test-crypto.mjs"
+  },
+  "dependencies": {
+    "@noble/secp256k1": "^3.1.0",
+    "@noble/hashes": "^2.0.0"
+  },
+  "devDependencies": {
+    "bech32": "^2.0.0",
+    "secp256k1": "^4.0.0"
+  },
+  "license": "MIT"
+}
