@@ -483,7 +483,8 @@
       };
 
       // --- Switch wallet ---
-      document.getElementById("switchWalletBtn").onclick = async () => {
+      // L6: extracted to named function for reuse
+      async function renderWalletList() {
         const wallets = await app.getWalletsList();
         const activeId = await app.getActiveWalletId();
         let html = "";
@@ -502,7 +503,6 @@
         
         for (const el of document.querySelectorAll(".wallet-list-item")) {
           el.onclick = async (e) => {
-            // Ignore clicks on the delete button
             if (e.target.classList.contains("btn-delete-wallet")) return;
             const id = el.dataset.id;
             await app.setActiveWalletId(id);
@@ -527,15 +527,14 @@
             try {
               await app.unlockWallet(id, pwd);
               await app.deleteWalletById(id);
-              // Refresh wallet list
-              const switchBtn = document.getElementById("switchWalletBtn");
-              if (switchBtn.onclick) switchBtn.onclick();
+              await renderWalletList(); // L6: call function directly
             } catch {
               alert("Wrong password");
             }
           };
         }
-      };
+      }
+      document.getElementById("switchWalletBtn").onclick = renderWalletList;
 
       document.getElementById("listCancel").onclick = async () => {
         if (app.isUnlocked()) await renderWallet();

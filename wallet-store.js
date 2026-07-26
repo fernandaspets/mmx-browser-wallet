@@ -29,7 +29,8 @@ async function storageGet(key) {
   try {
     return JSON.parse(data);
   } catch {
-    // Might be a raw string (old format) or corrupted data
+    // L7: log warning when falling back to raw string (possible corruption)
+    console.warn(`[MMX Wallet] storageGet(${key}): JSON.parse failed, returning raw string`);
     return data;
   }
 }

@@ -27,8 +27,13 @@ export function getNodeUrl() {
 // --- Balance ---
 
 export async function getBalance(address) {
-  const resp = await fetch(`${_nodeUrl}/balance?id=${address}`);
-  if (!resp.ok) throw new Error(`Balance API error: ${resp.status}`);
+  let resp;
+  try {
+    resp = await fetch(`${_nodeUrl}/balance?id=${address}`);
+  } catch {
+    throw new Error("Network error: cannot reach MMX node. Check your internet connection.");
+  }
+  if (!resp.ok) throw new Error(`Balance API error: HTTP ${resp.status}`);
   const data = await resp.json();
   // Returns { balances: [{ contract, symbol, decimals, spendable, total, ... }], nfts: [] }
   return data.balances || [];
@@ -42,8 +47,13 @@ export async function getBalanceOf(address, currencySymbol) {
 // --- Block height (for tx expires field) ---
 
 export async function getHeight() {
-  const resp = await fetch(`${_nodeUrl}/headers?limit=1`);
-  if (!resp.ok) throw new Error(`Headers API error: ${resp.status}`);
+  let resp;
+  try {
+    resp = await fetch(`${_nodeUrl}/headers?limit=1`);
+  } catch {
+    throw new Error("Network error: cannot reach MMX node.");
+  }
+  if (!resp.ok) throw new Error(`Headers API error: HTTP ${resp.status}`);
   const data = await resp.json();
   return data[0]?.height ?? 0;
 }
@@ -51,24 +61,34 @@ export async function getHeight() {
 // --- Transaction validate/broadcast ---
 
 export async function validateTransaction(txObj) {
-  const resp = await fetch(`${_nodeUrl}/transaction/validate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(txObj),
-  });
+  let resp;
+  try {
+    resp = await fetch(`${_nodeUrl}/transaction/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(txObj),
+    });
+  } catch {
+    throw new Error("Network error: cannot reach MMX node to validate transaction.");
+  }
   const text = await resp.text();
-  if (!resp.ok) throw new Error(`Validate failed: ${text}`);
+  if (!resp.ok) throw new Error(`Transaction invalid: ${text}`);
   return JSON.parse(text);
 }
 
 export async function broadcastTransaction(txObj) {
-  const resp = await fetch(`${_nodeUrl}/transaction/broadcast`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(txObj),
-  });
+  let resp;
+  try {
+    resp = await fetch(`${_nodeUrl}/transaction/broadcast`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(txObj),
+    });
+  } catch {
+    throw new Error("Network error: cannot reach MMX node to broadcast transaction.");
+  }
   const text = await resp.text();
-  if (!resp.ok) throw new Error(`Broadcast failed: ${text}`);
+  if (!resp.ok) throw new Error(`Broadcast rejected by node: ${text}`);
   // Success returns empty 200
   return true;
 }

@@ -191,6 +191,17 @@ async function renderDashboard() {
 
   showView("dashboardView");
 
+  // M5: Check for pending dApp requests (badge notification)
+  try {
+    const _browser = typeof browser !== "undefined" ? browser : chrome;
+    if (_browser.action && _browser.action.getBadgeText) {
+      _browser.action.getBadgeText({}, (text) => {
+        const notice = document.getElementById("dappNotice");
+        if (notice) notice.style.display = text ? "block" : "none";
+      });
+    }
+  } catch {}
+
   // Fetch balance
   setStatus("dashStatus", "Fetching balance...", "");
   try {
@@ -261,14 +272,16 @@ document.getElementById("showSeedBtn").addEventListener("click", () => {
   }
 });
 
-document.getElementById("lockBtn").addEventListener("click", () => {
+document.getElementById("lockBtn").addEventListener("click", async () => {
   app.lockWalletPub();
   document.getElementById("unlockPassword").value = "";
-  const walletId = app.getActiveWalletId();
-  // Show unlock for current wallet
-  init().then(() => {
-    document.getElementById("unlockPassword").focus();
-  });
+  // L8: just show unlock view directly, no need to re-init
+  const walletId = await app.getActiveWalletId();
+  const wallets = await app.getWalletsList();
+  const wallet = wallets.find(w => w.id === walletId);
+  if (wallet) document.getElementById("unlockWalletName").textContent = wallet.name;
+  showView("unlockView");
+  document.getElementById("unlockPassword").focus();
 });
 
 document.getElementById("deleteBtn").addEventListener("click", async () => {
@@ -431,6 +444,12 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
 // --- Send broadcast (final confirm) ---
 
 document.getElementById("sendBroadcastBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("sendBroadcastBtn");
+  // L5: rate limit — disable button for 3s to prevent double-clicks
+  if (btn.disabled) return;
+  btn.disabled = true;
+  setTimeout(() => { btn.disabled = false; }, 3000);
+
   const to = document.getElementById("sendTo").value.trim();
   const amount = document.getElementById("sendAmount").value.trim();
   const currency = document.getElementById("sendCurrency").value;

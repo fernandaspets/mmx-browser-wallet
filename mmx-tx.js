@@ -22,22 +22,9 @@ import * as secp from "./node_modules/@noble/secp256k1/index.js";
 // Transaction type hash (Hash64, 8 bytes LE)
 const TX_TYPE_HASH = 0xce0462acdceaa5bcn;
 
-// tx_note_e values
+// tx_note_e values (only TRANSFER is used by this wallet; others exist in MMX protocol)
 const TX_NOTE = {
-  BURN: 1273454750,
-  CLAIM: 3251493825,
-  DEPLOY: 251696509,
-  DEPOSIT: 4272391094,
-  EXECUTE: 356250251,
-  MINT: 2140500429,
-  MUTATE: 2579166487,
-  OFFER: 1549148948,
-  REVOKE: 3821531424,
-  REWARD: 3842121424,
-  TIMELORD_REWARD: 1783340485,
-  TRADE: 329618288,
   TRANSFER: 858544509,
-  WITHDRAW: 4266232802,
 };
 
 // --- Binary writer ---
