@@ -166,7 +166,7 @@ The wallet talks directly to `https://rpc.mmx.network` — a public MMX node wit
 ## Security
 
 - **Keys never leave the device.** All crypto happens in the browser via `@noble/secp256k1`.
-- **Wallets encrypted at rest** with AES-GCM. Password derived via PBKDF2 (100,000 iterations).
+- **Wallets encrypted at rest** with AES-GCM. Password derived via PBKDF2 (600,000 iterations per OWASP).
 - **No server, no backend.** The wallet talks directly to the public MMX RPC node.
 - **No tracking, no analytics.** Pure client-side app.
 - **Auto-lock** after 5 minutes of inactivity.
