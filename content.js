@@ -1,6 +1,7 @@
 /**
  * content.js — Injects window.mmx into web pages for dApp integration.
  * Address requests require per-site user approval (deny by default).
+ * Send requests require explicit confirmation each time.
  */
 
 // Inject the MMX provider script
@@ -36,34 +37,51 @@ window.addEventListener('message', async (event) => {
   const { type, id } = event.data;
   const origin = window.location.origin;
   
-  if (type === 'MMX_GET_ADDRESS' || type === 'MMX_REQUEST') {
+  if (type === 'MMX_GET_ADDRESS' || type === 'MMX_REQUEST' || type === 'MMX_SEND') {
     const perms = await getPermissions();
     
     if (perms[origin] === true) {
-      // Already approved — respond immediately
-      _browser.runtime.sendMessage({ type: 'GET_ADDRESS' }, (response) => {
-        window.postMessage({ source: 'mmx-content', id, response }, '*');
-      });
+      // Site is approved
+      if (type === 'MMX_SEND') {
+        // Send requires explicit confirmation each time
+        _browser.storage.local.set({
+          mmx_pending_send: { origin, id, params: event.data.params, timestamp: Date.now() }
+        });
+        if (_browser.action) {
+          _browser.action.setBadgeText({ text: '$' });
+          _browser.action.setBadgeBackgroundColor({ color: '#4caf50' });
+        }
+        // Wait for popup to confirm/reject
+        const sendListener = (msg) => {
+          if (msg && msg.type === 'SEND_RESULT' && msg.id === id) {
+            _browser.runtime.onMessage.removeListener(sendListener);
+            window.postMessage({ source: 'mmx-content', id, response: msg.response }, '*');
+            _browser.storage.local.remove('mmx_pending_send');
+            if (_browser.action) _browser.action.setBadgeText({ text: '' });
+          }
+        };
+        _browser.runtime.onMessage.addListener(sendListener);
+      } else {
+        // Address request — respond immediately
+        _browser.runtime.sendMessage({ type: 'GET_ADDRESS' }, (response) => {
+          window.postMessage({ source: 'mmx-content', id, response }, '*');
+        });
+      }
     } else if (perms[origin] === false) {
       // Already denied
       window.postMessage({ source: 'mmx-content', id, response: { address: null, error: 'Permission denied' } }, '*');
     } else {
       // No permission yet — ask the user via popup
-      // Store pending request so popup can show it
       _browser.storage.local.set({ 
         mmx_pending_dapp: { origin, id, type, timestamp: Date.now() } 
       });
-      
-      // Set badge to notify user
       if (_browser.action) {
         _browser.action.setBadgeText({ text: '!' });
         _browser.action.setBadgeBackgroundColor({ color: '#ffa726' });
       }
-      
-      // Respond with null for now — page should retry after approval
       window.postMessage({ source: 'mmx-content', id, response: { address: null, error: 'Approval required. Open the MMX wallet extension popup to approve.' } }, '*');
       
-      // Listen for approval (popup will set permission and notify)
+      // Listen for approval
       const approvalListener = (msg) => {
         if (msg && msg.type === 'DAPP_APPROVED' && msg.origin === origin) {
           _browser.runtime.onMessage.removeListener(approvalListener);

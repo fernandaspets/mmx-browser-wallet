@@ -1,53 +1,39 @@
 /**
- * inject.js — Injected into web pages. Exposes window.mmx for dApp integration.
- * This runs in the page's context (not the extension's isolated world).
+ * inject.js — Injects window.mmx into web pages for dApp integration.
+ * Runs in the page's context (not the extension's isolated world).
  */
 
 window.mmx = {
   isMMX: true,
   
-  // Get the current wallet address
-  request: async function(args) {
-    // args = { method: 'mmx_getAddress', params: {} }
-    return new Promise((resolve, reject) => {
-      const id = Date.now() + Math.random();
-      window.postMessage({
-        source: 'mmx-inject',
-        type: 'MMX_REQUEST',
-        id,
-        ...args,
-      }, '*');
-      
-      const handler = (event) => {
-        if (event.data && event.data.source === 'mmx-content' && event.data.id === id) {
-          window.removeEventListener('message', handler);
-          resolve(event.data.response);
-        }
-      };
-      window.addEventListener('message', handler);
-      
-      // Timeout after 5 seconds
-      setTimeout(() => {
-        window.removeEventListener('message', handler);
-        reject(new Error('Request timeout'));
-      }, 5000);
-    });
+  getAddress: async function() {
+    return window.mmx._request({ type: 'MMX_GET_ADDRESS' })
+      .then(r => r?.address || null);
   },
   
-  // Convenience method
-  getAddress: async function() {
+  // Send a transaction. Shows confirm dialog in the extension popup.
+  // params: { to: "mmx1...", amount: "1", currency: "TRAIL" or "MMX", memo: "optional" }
+  // Returns: { txid: "ABCD..." } or throws on rejection/error
+  send: async function(params) {
+    return window.mmx._request({ type: 'MMX_SEND', params }, 60000);
+  },
+  
+  // Internal request handler with configurable timeout
+  _request: function(data, timeoutMs = 5000) {
     return new Promise((resolve, reject) => {
       const id = Date.now() + Math.random();
       window.postMessage({
         source: 'mmx-inject',
-        type: 'MMX_GET_ADDRESS',
         id,
+        ...data,
       }, '*');
       
       const handler = (event) => {
         if (event.data && event.data.source === 'mmx-content' && event.data.id === id) {
           window.removeEventListener('message', handler);
-          resolve(event.data.response?.address || null);
+          const response = event.data.response;
+          if (response && response.error) reject(new Error(response.error));
+          else resolve(response);
         }
       };
       window.addEventListener('message', handler);
@@ -55,10 +41,9 @@ window.mmx = {
       setTimeout(() => {
         window.removeEventListener('message', handler);
         reject(new Error('Request timeout'));
-      }, 5000);
+      }, timeoutMs);
     });
   },
 };
 
-// Dispatch event to notify dApps that MMX wallet is available
 window.dispatchEvent(new CustomEvent('mmx#initialized'));

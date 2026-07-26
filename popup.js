@@ -281,6 +281,60 @@ async function renderDashboard() {
         notice.style.display = "none";
       }
     });
+    
+    // Check for pending dApp send requests
+    _browser.storage.local.get("mmx_pending_send", (result) => {
+      const pending = result.mmx_pending_send;
+      const sendNotice = document.getElementById("dappSendNotice");
+      if (pending && sendNotice) {
+        sendNotice.style.display = "block";
+        document.getElementById("dappSendOrigin").textContent = `${pending.origin} wants to send:`;
+        document.getElementById("dappSendAmount").textContent = `${pending.params.amount} ${pending.params.currency || "MMX"}`;
+        document.getElementById("dappSendTo").textContent = pending.params.to;
+        document.getElementById("dappSendStatus").textContent = "";
+        document.getElementById("dappSendConfirm").onclick = async () => {
+          document.getElementById("dappSendConfirm").disabled = true;
+          document.getElementById("dappSendStatus").textContent = "Sending...";
+          try {
+            // Look up contract address for currency
+            let contractAddr = null;
+            if (pending.params.currency && pending.params.currency !== "MMX") {
+              const balances = await app.fetchBalance();
+              const token = balances.find(b => b.symbol === pending.params.currency);
+              if (token) contractAddr = token.contract;
+            }
+            // Determine decimals
+            let decimals = 6;
+            if (contractAddr) {
+              const balances = await app.fetchBalance();
+              const token = balances.find(b => b.symbol === pending.params.currency);
+              if (token) decimals = token.decimals || 0;
+            }
+            const amountSat = app.mmxToSat(pending.params.amount, decimals);
+            const txid = await app.sendTransaction(pending.params.to, amountSat, contractAddr);
+            // Notify content script with result
+            _browser.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { txid } });
+            sendNotice.style.display = "none";
+            _browser.storage.local.remove("mmx_pending_send");
+            _browser.action.setBadgeText({ text: "" });
+            // Refresh dashboard
+            setTimeout(() => renderDashboard(), 2000);
+          } catch (e) {
+            document.getElementById("dappSendStatus").textContent = "Error: " + e.message;
+            document.getElementById("dappSendConfirm").disabled = false;
+            _browser.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { error: e.message } });
+          }
+        };
+        document.getElementById("dappSendReject").onclick = () => {
+          _browser.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { error: "User rejected" } });
+          sendNotice.style.display = "none";
+          _browser.storage.local.remove("mmx_pending_send");
+          _browser.action.setBadgeText({ text: "" });
+        };
+      } else if (sendNotice) {
+        sendNotice.style.display = "none";
+      }
+    });
   } catch {}
 
   // Fetch balance + tx history in parallel (non-blocking)
