@@ -7,11 +7,11 @@
  * Run with: node test-fuzz.mjs
  */
 
-import * as secp from "./node_modules/@noble/secp256k1/index.js";
-import { sha256 } from "./node_modules/@noble/hashes/sha2.js";
-import { bech32m } from "./lib/bech32-esm.js";
-import "./lib/buffer-esm.js";
-import { calcTxId, signTx } from "./mmx-tx.js";
+import * as secp from "../node_modules/@noble/secp256k1/index.js";
+import { sha256 } from "../node_modules/@noble/hashes/sha2.js";
+import { bech32m } from "../lib/bech32-esm.js";
+import "../lib/buffer-esm.js";
+import { calcTxId, signTx } from "../mmx-tx.js";
 
 secp.hashes.sha256 = (data) => sha256(data);
 secp.hashes.hmacSha256 = (key, data) => sha256(Buffer.concat([Buffer.from(key), Buffer.from(data)]));
@@ -92,7 +92,7 @@ function mmxToSat(mmxStr, decimals = 6) {
 
 // --- Load wordlist ---
 import fs from "node:fs";
-const wordlist = fs.readFileSync("./wordlist.txt", "utf8").trim().split("\n");
+const wordlist = fs.readFileSync(import.meta.dirname + "/../wordlist.txt", "utf8").trim().split("\n");
 const wordMap = {};
 for (let i = 0; i < wordlist.length; i++) wordMap[wordlist[i]] = i;
 

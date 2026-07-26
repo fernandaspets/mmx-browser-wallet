@@ -4,15 +4,15 @@
   "description": "Lightweight MMX wallet for the browser — keys never leave your device",
   "type": "module",
   "scripts": {
-    "test": "node test-crypto.mjs && node test-regression.mjs && node test-fuzz.mjs && node test-integration.mjs",
-    "test:unit": "node test-crypto.mjs",
-    "test:regression": "node test-regression.mjs",
-    "test:fuzz": "node test-fuzz.mjs",
-    "test:integration": "node test-integration.mjs"
+    "test": "node test/test-crypto.mjs && node test/test-regression.mjs && node test/test-fuzz.mjs && node test/test-integration.mjs",
+    "test:unit": "node test/test-crypto.mjs",
+    "test:regression": "node test/test-regression.mjs",
+    "test:fuzz": "node test/test-fuzz.mjs",
+    "test:integration": "node test/test-integration.mjs"
   },
   "dependencies": {
     "@noble/secp256k1": "^3.1.0",
-    "@noble/hashes": "^2.0.0"
+    "@noble/hashes": "^2.2.0"
   },
   "devDependencies": {
     "bech32": "^2.0.0",

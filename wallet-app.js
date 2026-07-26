@@ -36,7 +36,10 @@ let wordMap = {};
 
 async function loadWordlist() {
   if (wordlist) return;
-  const resp = await fetch("./wordlist.txt");
+  let resp;
+  try { resp = await fetch("./wordlist.txt"); }
+  catch { resp = await fetch("../wordlist.txt"); }
+  if (!resp.ok) resp = await fetch("../wordlist.txt");
   wordlist = (await resp.text()).trim().split("\n");
   for (let i = 0; i < wordlist.length; i++) wordMap[wordlist[i]] = i;
 }

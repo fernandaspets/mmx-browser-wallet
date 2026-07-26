@@ -2,11 +2,16 @@ node_modules/
 *.bak
 .DS_Store
 dist/
+test-wallet.json
+*.log
+
+# @noble packages are physically copied for Firefox compatibility
+# (Firefox can't resolve symlinks in web_accessible_resources)
 lib/@noble/
+
+# Test-only npm packages (bech32, secp256k1) used for cross-verification
 lib/bech32/
 lib/secp256k1.js
 lib/sha2.js
 lib/hmac.js
 lib/bech32.js
-test-wallet.json
-*.log

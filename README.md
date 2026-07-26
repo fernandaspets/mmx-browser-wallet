@@ -72,10 +72,10 @@ npm run test:integration    # 54 integration tests
 
 | Suite | Tests | What it covers |
 |---|---|---|
-| `test-crypto.mjs` | 22 | Address derivation, mnemonic round-trip, bech32m, tx hash, signature cross-verification, encrypted storage |
-| `test-regression.mjs` | 55 | Prevents known bugs from returning: prehash trap, max_fee_amount size, bech32m fromWords, expires field, nonce entropy, BigInt JSON, formatAmount, manifest, theme system, syntax checks |
-| `test-fuzz.mjs` | 38 | Invalid inputs: bad mnemonics, invalid addresses, negative amounts, wrong-length keys, XSS names, large amounts, multi-input tx |
-| `test-integration.mjs` | 54 | Create→unlock→verify, import→verify, wrong password, build→sign→verify, lock cycle, duplicate detection, send validation, contacts |
+| `test/test-crypto.mjs` | 22 | Address derivation, mnemonic round-trip, bech32m, tx hash, signature cross-verification, encrypted storage |
+| `test/test-regression.mjs` | 55 | Prevents known bugs from returning: prehash trap, max_fee_amount size, bech32m fromWords, expires field, nonce entropy, BigInt JSON, formatAmount, manifest, theme system, syntax checks |
+| `test/test-fuzz.mjs` | 38 | Invalid inputs: bad mnemonics, invalid addresses, negative amounts, wrong-length keys, XSS names, large amounts, multi-input tx |
+| `test/test-integration.mjs` | 54 | Create→unlock→verify, import→verify, wrong password, build→sign→verify, lock cycle, duplicate detection, send validation, contacts |
 
 ## Architecture
 

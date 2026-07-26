@@ -7,11 +7,11 @@
  * Run with: node test-regression.mjs
  */
 
-import * as secp from "./node_modules/@noble/secp256k1/index.js";
-import { sha256 } from "./node_modules/@noble/hashes/sha2.js";
-import { bech32m } from "./lib/bech32-esm.js";
-import "./lib/buffer-esm.js";
-import { calcTxId, calcContentHash, signTx, BinaryWriter, TX_NOTE } from "./mmx-tx.js";
+import * as secp from "../node_modules/@noble/secp256k1/index.js";
+import { sha256 } from "../node_modules/@noble/hashes/sha2.js";
+import { bech32m } from "../lib/bech32-esm.js";
+import "../lib/buffer-esm.js";
+import { calcTxId, calcContentHash, signTx, BinaryWriter, TX_NOTE } from "../mmx-tx.js";
 
 secp.hashes.sha256 = (data) => sha256(data);
 secp.hashes.hmacSha256 = (key, data) => sha256(Buffer.concat([Buffer.from(key), Buffer.from(data)]));
@@ -338,7 +338,7 @@ console.log("\nFormat amount with decimals");
 console.log("\nManifest host_permissions");
 {
   const fs = await import("fs");
-  const manifest = JSON.parse(fs.readFileSync("./manifest.json", "utf8"));
+  const manifest = JSON.parse(fs.readFileSync(import.meta.dirname + "/../manifest.json", "utf8"));
   assert("manifest has host_permissions", Array.isArray(manifest.host_permissions), true);
   assert("host_permissions includes rpc.mmx.network",
     manifest.host_permissions.some(h => h.includes("rpc.mmx.network")), true);
@@ -352,7 +352,7 @@ console.log("\nNo popup dialogs in source");
   const files = ["popup.js", "popup.html", "wallet.html", "content.js"];
   let allClean = true;
   for (const f of files) {
-    const src = fs.readFileSync("./" + f, "utf8");
+    const src = fs.readFileSync(import.meta.dirname + "/../" + f, "utf8");
     if (/\bprompt\s*\(/.test(src)) { console.log(`  ❌ ${f} has prompt()`); allClean = false; }
     if (/\bconfirm\s*\(/.test(src)) { console.log(`  ❌ ${f} has confirm()`); allClean = false; }
     if (/\balert\s*\(/.test(src)) { console.log(`  ❌ ${f} has alert()`); allClean = false; }
@@ -369,7 +369,7 @@ console.log("\nHTML inline script syntax check");
   const files = ["wallet.html", "popup.html"];
   let allValid = true;
   for (const f of files) {
-    const html = fs.readFileSync("./" + f, "utf8");
+    const html = fs.readFileSync(import.meta.dirname + "/../" + f, "utf8");
     const match = html.match(/<script[^>]*type="module"[^>]*>([\s\S]*?)<\/script>/);
     if (!match) { console.log(`  ⚠️  ${f}: no module script found`); continue; }
     const tmpFile = `/tmp/syntax-check-${f}.mjs`;
@@ -413,20 +413,20 @@ console.log("\nTheme system");
   assert("theme.css exists", fs.existsSync("./theme.css"), true);
   
   // theme.css has dark and light variables
-  const css = fs.readFileSync("./theme.css", "utf8");
+  const css = fs.readFileSync(import.meta.dirname + "/../theme.css", "utf8");
   assert("Dark theme defined", css.includes(".theme-dark"), true);
   assert("Light theme defined", css.includes(".theme-light"), true);
   assert("CSS variables used", css.includes("--bg:"), true);
   assert("Theme toggle class defined", css.includes(".theme-toggle"), true);
   
   // manifest includes theme.css
-  const manifest = JSON.parse(fs.readFileSync("./manifest.json", "utf8"));
+  const manifest = JSON.parse(fs.readFileSync(import.meta.dirname + "/../manifest.json", "utf8"));
   const resources = manifest.web_accessible_resources[0].resources;
   assert("theme.css in web_accessible_resources", resources.includes("theme.css"), true);
   
   // HTML files reference theme.css
-  const popupHtml = fs.readFileSync("./popup.html", "utf8");
-  const walletHtml = fs.readFileSync("./wallet.html", "utf8");
+  const popupHtml = fs.readFileSync(import.meta.dirname + "/../popup.html", "utf8");
+  const walletHtml = fs.readFileSync(import.meta.dirname + "/../wallet.html", "utf8");
   assert("popup.html imports theme.css", popupHtml.includes("theme.css"), true);
   assert("wallet.html imports theme.css", walletHtml.includes("theme.css"), true);
   
