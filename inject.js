@@ -15,7 +15,7 @@ window.mmx = {
   // params: { to: "mmx1...", amount: "1", currency: "TRAIL" or "MMX", memo: "optional" }
   // Returns: { txid: "ABCD..." } or throws on rejection/error
   send: async function(params) {
-    return window.mmx._request({ type: 'MMX_SEND', params }, 60000);
+    return window.mmx._request({ type: 'MMX_SEND', params }, 300000);
   },
   
   // Internal request handler with configurable timeout

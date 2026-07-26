@@ -42,7 +42,103 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch {}
     });
   }
+
+  // Re-check for pending dApp requests when storage changes
+  // (content.js writes mmx_pending_send/mmx_pending_dapp while popup is open)
+  try {
+    if (_browser.storage && _browser.storage.onChanged) {
+      _browser.storage.onChanged.addListener((changes, area) => {
+        if (area !== "local") return;
+        if (changes.mmx_pending_send || changes.mmx_pending_dapp) {
+          // Re-run the pending request check
+          checkPendingDapp();
+        }
+      });
+    }
+  } catch {}
 });
+
+// Check for pending dApp requests (address approval + send confirmation)
+// Extracted to named function so it can be called from storage listener
+async function checkPendingDapp() {
+  const _br = typeof browser !== "undefined" ? browser : chrome;
+  if (!_br.storage) return;
+  
+  // Check for pending address request
+  _br.storage.local.get("mmx_pending_dapp", (result) => {
+    const pending = result.mmx_pending_dapp;
+    const notice = document.getElementById("dappNotice");
+    if (pending && notice) {
+      notice.style.display = "block";
+      document.getElementById("dappMsg").textContent = `${pending.origin} wants to see your wallet address. Allow?`;
+      document.getElementById("dappAllow").onclick = async () => {
+        const perms = await new Promise(r => _br.storage.local.get("mmx_dapp_permissions", r)) || {};
+        perms[pending.origin] = true;
+        _br.storage.local.set({ mmx_dapp_permissions: perms });
+        _br.runtime.sendMessage({ type: "DAPP_APPROVED", origin: pending.origin });
+        _br.storage.local.remove("mmx_pending_dapp");
+        _br.action.setBadgeText({ text: "" });
+        notice.style.display = "none";
+      };
+      document.getElementById("dappDeny").onclick = async () => {
+        const perms = await new Promise(r => _br.storage.local.get("mmx_dapp_permissions", r)) || {};
+        perms[pending.origin] = false;
+        _br.storage.local.set({ mmx_dapp_permissions: perms });
+        _br.storage.local.remove("mmx_pending_dapp");
+        _br.action.setBadgeText({ text: "" });
+        notice.style.display = "none";
+      };
+    } else if (notice) {
+      notice.style.display = "none";
+    }
+  });
+  
+  // Check for pending send request
+  _br.storage.local.get("mmx_pending_send", (result) => {
+    const pending = result.mmx_pending_send;
+    const sendNotice = document.getElementById("dappSendNotice");
+    if (pending && sendNotice) {
+      sendNotice.style.display = "block";
+      document.getElementById("dappSendOrigin").textContent = `${pending.origin} wants to send:`;
+      document.getElementById("dappSendAmount").textContent = `${pending.params.amount} ${pending.params.currency || "MMX"}`;
+      document.getElementById("dappSendTo").textContent = pending.params.to;
+      document.getElementById("dappSendStatus").textContent = "";
+      document.getElementById("dappSendConfirm").disabled = false;
+      document.getElementById("dappSendConfirm").onclick = async () => {
+        document.getElementById("dappSendConfirm").disabled = true;
+        document.getElementById("dappSendStatus").textContent = "Sending...";
+        try {
+          let contractAddr = null;
+          let decimals = 6;
+          if (pending.params.currency && pending.params.currency !== "MMX") {
+            const balances = await app.fetchBalance();
+            const token = balances.find(b => b.symbol === pending.params.currency);
+            if (token) { contractAddr = token.contract; decimals = token.decimals || 0; }
+          }
+          const amountSat = app.mmxToSat(pending.params.amount, decimals);
+          const txid = await app.sendTransaction(pending.params.to, amountSat, contractAddr);
+          _br.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { txid } });
+          sendNotice.style.display = "none";
+          _br.storage.local.remove("mmx_pending_send");
+          _br.action.setBadgeText({ text: "" });
+          setTimeout(() => renderDashboard(), 2000);
+        } catch (e) {
+          document.getElementById("dappSendStatus").textContent = "Error: " + e.message;
+          document.getElementById("dappSendConfirm").disabled = false;
+          _br.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { error: e.message } });
+        }
+      };
+      document.getElementById("dappSendReject").onclick = () => {
+        _br.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { error: "User rejected" } });
+        sendNotice.style.display = "none";
+        _br.storage.local.remove("mmx_pending_send");
+        _br.action.setBadgeText({ text: "" });
+      };
+    } else if (sendNotice) {
+      sendNotice.style.display = "none";
+    }
+  });
+}
 
 // --- State ---
 let lastBalanceHash = null;
@@ -251,91 +347,8 @@ async function renderDashboard() {
   // Update network badge with connection status + block height
   updateNetworkBadge();
 
-  // Check for pending dApp requests
-  try {
-    const _browser = typeof browser !== "undefined" ? browser : chrome;
-    _browser.storage.local.get("mmx_pending_dapp", (result) => {
-      const pending = result.mmx_pending_dapp;
-      const notice = document.getElementById("dappNotice");
-      if (pending && notice) {
-        notice.style.display = "block";
-        document.getElementById("dappMsg").textContent = `${pending.origin} wants to see your wallet address. Allow?`;
-        document.getElementById("dappAllow").onclick = async () => {
-          const perms = await new Promise(r => _browser.storage.local.get("mmx_dapp_permissions", r)) || {};
-          perms[pending.origin] = true;
-          _browser.storage.local.set({ mmx_dapp_permissions: perms });
-          _browser.runtime.sendMessage({ type: "DAPP_APPROVED", origin: pending.origin });
-          _browser.storage.local.remove("mmx_pending_dapp");
-          _browser.action.setBadgeText({ text: "" });
-          notice.style.display = "none";
-        };
-        document.getElementById("dappDeny").onclick = async () => {
-          const perms = await new Promise(r => _browser.storage.local.get("mmx_dapp_permissions", r)) || {};
-          perms[pending.origin] = false;
-          _browser.storage.local.set({ mmx_dapp_permissions: perms });
-          _browser.storage.local.remove("mmx_pending_dapp");
-          _browser.action.setBadgeText({ text: "" });
-          notice.style.display = "none";
-        };
-      } else if (notice) {
-        notice.style.display = "none";
-      }
-    });
-    
-    // Check for pending dApp send requests
-    _browser.storage.local.get("mmx_pending_send", (result) => {
-      const pending = result.mmx_pending_send;
-      const sendNotice = document.getElementById("dappSendNotice");
-      if (pending && sendNotice) {
-        sendNotice.style.display = "block";
-        document.getElementById("dappSendOrigin").textContent = `${pending.origin} wants to send:`;
-        document.getElementById("dappSendAmount").textContent = `${pending.params.amount} ${pending.params.currency || "MMX"}`;
-        document.getElementById("dappSendTo").textContent = pending.params.to;
-        document.getElementById("dappSendStatus").textContent = "";
-        document.getElementById("dappSendConfirm").onclick = async () => {
-          document.getElementById("dappSendConfirm").disabled = true;
-          document.getElementById("dappSendStatus").textContent = "Sending...";
-          try {
-            // Look up contract address for currency
-            let contractAddr = null;
-            if (pending.params.currency && pending.params.currency !== "MMX") {
-              const balances = await app.fetchBalance();
-              const token = balances.find(b => b.symbol === pending.params.currency);
-              if (token) contractAddr = token.contract;
-            }
-            // Determine decimals
-            let decimals = 6;
-            if (contractAddr) {
-              const balances = await app.fetchBalance();
-              const token = balances.find(b => b.symbol === pending.params.currency);
-              if (token) decimals = token.decimals || 0;
-            }
-            const amountSat = app.mmxToSat(pending.params.amount, decimals);
-            const txid = await app.sendTransaction(pending.params.to, amountSat, contractAddr);
-            // Notify content script with result
-            _browser.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { txid } });
-            sendNotice.style.display = "none";
-            _browser.storage.local.remove("mmx_pending_send");
-            _browser.action.setBadgeText({ text: "" });
-            // Refresh dashboard
-            setTimeout(() => renderDashboard(), 2000);
-          } catch (e) {
-            document.getElementById("dappSendStatus").textContent = "Error: " + e.message;
-            document.getElementById("dappSendConfirm").disabled = false;
-            _browser.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { error: e.message } });
-          }
-        };
-        document.getElementById("dappSendReject").onclick = () => {
-          _browser.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { error: "User rejected" } });
-          sendNotice.style.display = "none";
-          _browser.storage.local.remove("mmx_pending_send");
-          _browser.action.setBadgeText({ text: "" });
-        };
-      } else if (sendNotice) {
-        sendNotice.style.display = "none";
-      }
-    });
-  } catch {}
+  // Check for pending dApp requests (address + send)
+  try { checkPendingDapp(); } catch {}
 
   // Fetch balance + tx history in parallel (non-blocking)
   setStatus("dashStatus", "Fetching balance...", "");
