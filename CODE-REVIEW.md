@@ -15,7 +15,7 @@
 | Send flow | Good — validation, balance check, confirm dialog, bech32m address check |
 | Address book | Good — auto-tracks sent addresses, duplicate detection |
 | Theme system | Good — CSS variables, persists choice |
-| Tests | 169 tests across 4 suites |
+| Tests | 180 tests across 4 suites |
 | Security | No known vulnerabilities in current version |
 
 ---
@@ -58,8 +58,12 @@ environment (localStorage vs chrome.storage.local).
 
 - **No memo support** — tx memo serialization matches C++ but public RPC rejects
   txs with non-null memo. Removed pending investigation.
-- **Fee is static** (50000 sat = 0.05 MMX) — `getFeeEstimate()` checks for
-  free mode (average_txfee=0) but otherwise uses static cost.
+- **Fee from node validation** — `sendTransaction()` validates the tx before
+  broadcasting and returns the actual fee charged (`exec_result.total_fee`).
+  `getFeeEstimate()` returns a static estimate (50000 sat = 0.05 MMX) for UI
+  preview; the real fee is confirmed post-validation. For the local node wallet
+  API, `auto_send: false` dry-run also returns `exec_result.total_fee`.
+  Note: `average_txfee=0` from headers means empty blocks, NOT free transactions.
 - **No QR codes** — planned but not yet implemented.
 - **No network selector** — public RPC only. Local node support planned.
 - **Public RPC gives no error details** — `/transaction/validate` returns
@@ -72,10 +76,10 @@ environment (localStorage vs chrome.storage.local).
 | Suite | Tests | Covers |
 |---|---|---|
 | `test-crypto.mjs` | 22 | Address derivation, mnemonic round-trip, bech32m, tx hash, signature, storage |
-| `test-regression.mjs` | 55 | All past bugs: prehash trap, max_fee_amount, bech32m fromWords, expires, nonce, BigInt JSON, formatAmount, manifest, no prompt(), syntax check, theme system |
+| `test-regression.mjs` | 66 | All past bugs: prehash trap, max_fee_amount, bech32m fromWords, expires, nonce, BigInt JSON, formatAmount, manifest, no prompt(), syntax check, theme system, session persistence |
 | `test-fuzz.mjs` | 38 | Invalid mnemonics, addresses, amounts, keys, XSS, large amounts, multi-io |
 | `test-integration.mjs` | 54 | Create→unlock→verify, import, wrong password, build→sign, lock cycle, memo, contacts, send validation |
-| **Total** | **169** | |
+| **Total** | **180** | |
 
 ---
 

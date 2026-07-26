@@ -63,9 +63,9 @@ Open `http://localhost:5050/browser-wallet/wallet.html` in your browser.
 ### Run Tests
 
 ```bash
-npm test                    # run all 169 tests
+npm test                    # run all 180 tests
 npm run test:unit           # 22 unit tests
-npm run test:regression     # 55 regression tests
+npm run test:regression     # 66 regression tests
 npm run test:fuzz           # 38 fuzz tests
 npm run test:integration    # 54 integration tests
 ```
@@ -73,7 +73,7 @@ npm run test:integration    # 54 integration tests
 | Suite | Tests | What it covers |
 |---|---|---|
 | `test/test-crypto.mjs` | 22 | Address derivation, mnemonic round-trip, bech32m, tx hash, signature cross-verification, encrypted storage |
-| `test/test-regression.mjs` | 55 | Prevents known bugs from returning: prehash trap, max_fee_amount size, bech32m fromWords, expires field, nonce entropy, BigInt JSON, formatAmount, manifest, theme system, syntax checks |
+| `test/test-regression.mjs` | 66 | Prevents known bugs from returning: prehash trap, max_fee_amount size, bech32m fromWords, expires field, nonce entropy, BigInt JSON, formatAmount, manifest, theme system, syntax checks, session persistence |
 | `test/test-fuzz.mjs` | 38 | Invalid inputs: bad mnemonics, invalid addresses, negative amounts, wrong-length keys, XSS names, large amounts, multi-input tx |
 | `test/test-integration.mjs` | 54 | Create→unlock→verify, import→verify, wrong password, build→sign→verify, lock cycle, duplicate detection, send validation, contacts |
 
@@ -120,7 +120,10 @@ Ported from `mmx-node` `Transaction::hash_serialize()`:
 5. Submit to node via `POST /transaction/broadcast`
 
 Key details:
-- `max_fee_amount` is `uint32` (8 bytes promoted to uint64), **not** uint128
+- `max_fee_amount` is `uint32` (8 bytes promoted to uint64), **not** uint128 —
+  this is the MAX fee you're willing to pay, not the actual fee. The node
+  determines the real fee during validation (`exec_result.total_fee`). For
+  standard transfers: 50000 sat = min_txfee(20000) + input + output + solution
 - `expires` is an **absolute block height** (current + 100), not a relative offset
 - MMX is **account-based**: input amount = output amount, fee deducted separately
 - `@noble/secp256k1` v3 defaults to `prehash: true` — must override to `false`
