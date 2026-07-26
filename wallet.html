@@ -895,8 +895,13 @@
         }
       }
       document.getElementById("contactsBtn").onclick = async () => {
-        await renderContacts();
-        show("contactsView");
+        try {
+          await renderContacts();
+          show("contactsView");
+        } catch(e) {
+          setStatus("Contacts error: " + e.message, "error");
+          console.error("Contacts error:", e);
+        }
       };
       document.getElementById("contactsBackBtn").onclick = () => show("walletView");
       document.getElementById("addContactBtn").onclick = async () => {

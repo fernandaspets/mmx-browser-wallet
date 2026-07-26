@@ -224,7 +224,9 @@ const CONTACTS_KEY = "mmx_contacts";
 
 export async function getContacts() {
   const data = await storageGet(CONTACTS_KEY);
-  return data ? JSON.parse(data) : [];
+  if (!data) return [];
+  // storageGet already JSON.parses for localStorage, check if it's already an array
+  return Array.isArray(data) ? data : JSON.parse(data);
 }
 
 export async function addContact(name, address) {
