@@ -798,7 +798,7 @@
       };
 
       // --- Switch wallet ---
-      // L6: extracted to named function for reuse
+      // Extracted to named function for reuse
       async function renderWalletList() {
         const wallets = await app.getWalletsList();
         const activeId = await app.getActiveWalletId();
