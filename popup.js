@@ -1,5 +1,5 @@
 /**
- * popup.js — Chrome extension popup UI logic.
+ * popup.js — Chrome/Firefox extension popup UI logic.
  * Uses the same wallet-app.js as the web page wallet.
  */
 
@@ -22,19 +22,24 @@ function setStatus(id, msg, type = "") {
 // --- Initialize ---
 
 async function init() {
-  await app.init();
-  const hasWallets = await app.hasWallets?.() ?? (await app.getWalletsList()).length > 0;
+  try {
+    await app.init();
+  } catch(e) {
+    setStatus("createStatus", "Init error: " + e.message, "error");
+    return;
+  }
+  
+  let hasWallets = false;
+  try {
+    const wallets = await app.getWalletsList();
+    hasWallets = wallets.length > 0;
+  } catch(e) {
+    // Storage might not be ready yet
+  }
   
   if (hasWallets) {
-    // Show unlock view
-    const activeId = await app.getActiveWalletId();
-    if (activeId) {
-      showView("unlockView");
-      document.getElementById("unlockPassword").focus();
-    } else {
-      showView("unlockView");
-      document.getElementById("unlockPassword").focus();
-    }
+    showView("unlockView");
+    document.getElementById("unlockPassword").focus();
   } else {
     showView("createView");
     document.getElementById("createPassword").focus();
@@ -57,11 +62,13 @@ document.getElementById("createBtn").addEventListener("click", async () => {
     const { mnemonic } = await app.createWallet("My Wallet", pwd);
     // Show seed backup (mnemonic words)
     document.getElementById("seedDisplay").textContent = mnemonic.join("  ");
-    document.getElementById("newAddress").textContent = (await app.getUnlockedWallet()).address;
+    const wallet = app.getUnlockedWallet();
+    document.getElementById("newAddress").textContent = wallet ? wallet.address : "";
     showView("seedView");
     setStatus("createStatus", "Wallet created! Save your seed words.", "success");
   } catch (e) {
     setStatus("createStatus", "Error: " + e.message, "error");
+    console.error("Create wallet error:", e);
   }
 });
 
@@ -79,11 +86,16 @@ document.getElementById("unlockBtn").addEventListener("click", async () => {
   
   try {
     const walletId = await app.getActiveWalletId();
+    if (!walletId) {
+      setStatus("unlockStatus", "No active wallet found", "error");
+      return;
+    }
     await app.unlockWallet(walletId, pwd);
     await renderDashboard();
     setStatus("unlockStatus", "Unlocked", "success");
   } catch (e) {
-    setStatus("unlockStatus", "Wrong password", "error");
+    setStatus("unlockStatus", "Error: " + e.message, "error");
+    console.error("Unlock error:", e);
   }
 });
 
@@ -112,21 +124,10 @@ async function renderDashboard() {
     const mmxBal = balances.find(b => b.symbol === "MMX");
     const mmxAmount = mmxBal ? (mmxBal.spendable !== undefined ? mmxBal.spendable : mmxBal.total || 0) : 0;
     document.getElementById("balanceValue").textContent = mmxAmount;
-    
-    // Show all token balances if more than MMX
-    if (balances.length > 1) {
-      let balText = `${mmxAmount} MMX`;
-      for (const b of balances) {
-        if (b.symbol !== "MMX") {
-          balText += ` | ${b.spendable || b.total || 0} ${b.symbol}`;
-        }
-      }
-      document.getElementById("balanceValue").textContent = mmxAmount;
-    }
-    
     setStatus("dashStatus", "");
   } catch (e) {
     setStatus("dashStatus", "Balance fetch failed: " + e.message, "error");
+    console.error("Balance error:", e);
   }
 }
 
@@ -195,6 +196,7 @@ document.getElementById("sendConfirmBtn").addEventListener("click", async () => 
     setTimeout(() => renderDashboard(), 3000);
   } catch (e) {
     setStatus("sendStatus", "Error: " + e.message, "error");
+    console.error("Send error:", e);
   }
 });
 

@@ -109,6 +109,15 @@ function b64ToBuf(b64) {
   return bytes;
 }
 
+// --- UUID fallback (crypto.randomUUID may not be available in all contexts) ---
+function generateId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
+
 // --- Wallet list management (all async now) ---
 
 export async function getWallets() {
@@ -158,7 +167,7 @@ export async function hasWallets() {
 export async function createWallet(name, password, seedBytes, address) {
   const { enc_seed, iv, salt } = await encryptSeed(seedBytes, password);
   const wallet = {
-    id: crypto.randomUUID(),
+    id: crypto.randomUUID ? crypto.randomUUID() : generateId(),
     name: name || "My Wallet",
     address,
     enc_seed,
