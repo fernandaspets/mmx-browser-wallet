@@ -463,6 +463,39 @@ console.log("\nBalance conversion from float");
   assert("Insufficient with bug", bugSat < amountSat + feeSat, true);
 }
 
+// === Session persistence (background holds seed across popup reopen) ===
+{
+  // wallet-app.js must export restoreSession, getUnlockedSeed, getUnlockedWalletId
+  const app = await import("../wallet-app.js");
+  assert("restoreSession is a function", typeof app.restoreSession, "function");
+  assert("getUnlockedSeed is a function", typeof app.getUnlockedSeed, "function");
+  assert("getUnlockedWalletId is a function", typeof app.getUnlockedWalletId, "function");
+
+  // Simulate: background returns seed + wallet, popup restores without password
+  const fakeSeed = new Uint8Array(32).fill(42);
+  const fakeWallet = { id: "test-id", name: "Test", address: "mmx1test" };
+  app.restoreSession(fakeSeed, fakeWallet);
+  assert("restoreSession sets unlocked state", app.isUnlocked(), true);
+  assert("getUnlockedSeed returns the seed", JSON.stringify(Array.from(app.getUnlockedSeed())), JSON.stringify(Array.from(fakeSeed)));
+  assert("getUnlockedWalletId returns wallet id", app.getUnlockedWalletId(), "test-id");
+  assert("getUnlockedAddress returns address", app.getUnlockedAddress(), "mmx1test");
+
+  // Lock clears everything
+  app.lockWalletPub();
+  assert("Lock clears unlocked state", app.isUnlocked(), false);
+  assert("Lock clears seed", app.getUnlockedSeed(), null);
+  assert("Lock clears wallet id", app.getUnlockedWalletId(), null);
+
+  // Seed can be serialized to Array and back (for runtime.sendMessage)
+  app.restoreSession(fakeSeed, fakeWallet);
+  const seedArray = Array.from(app.getUnlockedSeed());
+  const restoredSeed = new Uint8Array(seedArray);
+  assert("Seed round-trips through Array serialization", JSON.stringify(Array.from(restoredSeed)), JSON.stringify(Array.from(fakeSeed)));
+
+  // Lock to clear the auto-lock timer (otherwise Node hangs for 5 min)
+  app.lockWalletPub();
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Regression tests: ${passed} passed, ${failed} failed`);

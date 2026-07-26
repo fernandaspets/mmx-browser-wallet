@@ -301,12 +301,29 @@ export async function unlockWallet(walletId, password) {
   return wallet;
 }
 
+// Restore session from background (popup reopen without re-entering password)
+export function restoreSession(seed, wallet) {
+  unlockedSeed = seed;
+  unlockedWallet = wallet;
+  resetAutoLock();
+}
+
+// Get the raw seed for background session storage
+export function getUnlockedSeed() {
+  return unlockedSeed;
+}
+
 export function lockWalletPub() {
   lockWallet();
 }
 
 export function isUnlocked() {
   return unlockedSeed !== null;
+}
+
+// For background session checks without exposing the seed
+export function getUnlockedWalletId() {
+  return unlockedWallet ? unlockedWallet.id : null;
 }
 
 export function getUnlockedWallet() {

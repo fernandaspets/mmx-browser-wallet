@@ -56,6 +56,17 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
   } catch {}
+
+  // Ping background on user activity to reset auto-lock timer
+  // (throttled — at most once per 10 seconds)
+  let lastPing = 0;
+  document.addEventListener("click", () => {
+    const now = Date.now();
+    if (now - lastPing > 10000) {
+      lastPing = now;
+      try { bgSend({ type: "SESSION_PING" }); } catch {}
+    }
+  });
 });
 
 // Check for pending dApp requests (address approval + send confirmation)
@@ -196,6 +207,48 @@ function setStatus(id, msg, type = "") {
   }
 }
 
+// --- Background session (avoids re-entering password on popup reopen) ---
+
+function bgSend(message) {
+  return new Promise((resolve) => {
+    try {
+      _browser.runtime.sendMessage(message, (response) => {
+        if (_browser.runtime.lastError) {
+          // Background might not be ready; resolve with null
+          resolve(null);
+        } else {
+          resolve(response);
+        }
+      });
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function saveSessionToBackground() {
+  const seed = app.getUnlockedSeed();
+  const wallet = app.getUnlockedWallet();
+  if (seed && wallet) {
+    await bgSend({ type: "SESSION_SET", seed: Array.from(seed), wallet });
+  }
+}
+
+async function clearSessionFromBackground() {
+  await bgSend({ type: "SESSION_CLEAR" });
+}
+
+async function tryRestoreFromBackground() {
+  try {
+    const resp = await bgSend({ type: "SESSION_GET" });
+    if (resp && resp.seed && resp.wallet) {
+      app.restoreSession(new Uint8Array(resp.seed), resp.wallet);
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 // --- Initialize ---
 
 async function init() {
@@ -224,9 +277,18 @@ async function init() {
       await app.setActiveWalletId(activeId);
     }
     const wallet = wallets.find(w => w.id === activeId) || wallets[0];
-    document.getElementById("unlockWalletName").textContent = wallet.name;
-    showView("unlockView");
-    document.getElementById("unlockPassword").focus();
+
+    // Check background for active session (popup reopened without closing extension)
+    const restored = await tryRestoreFromBackground();
+    if (restored && app.isUnlocked()) {
+      await renderDashboard();
+      // Check for pending dApp requests
+      try { checkPendingDapp(); } catch {}
+    } else {
+      document.getElementById("unlockWalletName").textContent = wallet.name;
+      showView("unlockView");
+      document.getElementById("unlockPassword").focus();
+    }
   }
 }
 
@@ -259,6 +321,7 @@ document.getElementById("createBtn").addEventListener("click", async () => {
 
   try {
     const { mnemonic } = await app.createWallet(name, pwd);
+    await saveSessionToBackground();
     document.getElementById("seedDisplay").textContent = mnemonic.join("  ");
     const wallet = app.getUnlockedWallet();
     document.getElementById("newAddress").textContent = wallet ? wallet.address : "";
@@ -296,6 +359,7 @@ document.getElementById("importBtn").addEventListener("click", async () => {
 
   try {
     await app.importWallet(name, words, pwd);
+    await saveSessionToBackground();
     await renderDashboard();
     setStatus("importStatus", "Wallet imported!", "success");
     try { checkPendingDapp(); } catch {}
@@ -335,6 +399,7 @@ document.getElementById("unlockBtn").addEventListener("click", async () => {
       return;
     }
     await app.unlockWallet(walletId, pwd);
+    await saveSessionToBackground();
     await renderDashboard();
     setStatus("unlockStatus", "Unlocked", "success");
     // Check for pending dApp requests now that wallet is unlocked
@@ -546,6 +611,7 @@ document.getElementById("reauthConfirmBtn").addEventListener("click", async () =
       const walletId = await app.getActiveWalletId();
       await app.unlockWallet(walletId, pwd); // throws if wrong
       await app.deleteWalletById(walletId);
+      await clearSessionFromBackground();
       const wallets = await app.getWalletsList();
       if (wallets.length === 0) {
         showView("onboardingView");
@@ -570,6 +636,7 @@ document.getElementById("reauthPassword").addEventListener("keydown", (e) => {
 app.onLock(() => {
   app.stopAutoRefresh();
   document.getElementById("unlockPassword").value = "";
+  clearSessionFromBackground();
   (async () => {
     try {
       const wid = await app.getActiveWalletId();
@@ -588,6 +655,7 @@ document.getElementById("showSeedBtn").addEventListener("click", () => {
 document.getElementById("lockBtn").addEventListener("click", async () => {
   app.stopAutoRefresh();
   app.lockWalletPub();
+  await clearSessionFromBackground();
   document.getElementById("unlockPassword").value = "";
   // Show unlock view directly
   const walletId = await app.getActiveWalletId();
@@ -710,6 +778,7 @@ async function showWalletList() {
       const id = el.dataset.id;
       await app.setActiveWalletId(id);
       app.lockWalletPub();
+      await clearSessionFromBackground();
       const wallets = await app.getWalletsList();
       const wallet = wallets.find(w => w.id === id);
       document.getElementById("unlockWalletName").textContent = wallet.name;
