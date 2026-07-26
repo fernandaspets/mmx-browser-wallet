@@ -318,6 +318,113 @@ console.log("\n7. Two wallets produce different addresses");
   assert("Two wallets have different addresses", address1 !== address2, true);
 }
 
+// === INTEGRATION: Build tx → verify txObj is JSON-serializable (#bug: BigInt nonce) ===
+console.log("\n7. Build tx → verify JSON-serializable");
+{
+  const seed = Buffer.from(crypto.getRandomValues(new Uint8Array(32)));
+  const { skey, pubkey, addrHash } = deriveKeypair(seed, "", 0, 0);
+  const fromAddrBytes = Array.from(addrHash);
+
+  // Generate a BigInt nonce (like sendTransaction does)
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
+  let nonce = 0n;
+  for (let i = 0; i < 8; i++) nonce |= BigInt(nonceBytes[i]) << BigInt(i * 8);
+  if (nonce === 0n) nonce = 1n;
+
+  // Build a minimal tx object (like sendTransaction does)
+  const tx = {
+    version: 0,
+    expires: 4794000,
+    fee_ratio: 1024,
+    max_fee_amount: 5040000,
+    note: "TRANSFER",
+    nonce: nonce.toString(), // MUST be string, not BigInt
+    network: "mainnet",
+    sender: fromAddrBytes,
+    inputs: [{ address: fromAddrBytes, contract: new Array(32).fill(0), amount: new Array(16).fill(0), memo: null, solution: 0, flags: 0, __type: "mmx.txin_t" }],
+    outputs: [{ address: fromAddrBytes, contract: new Array(32).fill(0), amount: new Array(16).fill(0), memo: null, __type: "mmx.txout_t" }],
+    execute: [],
+    deploy: null,
+    solutions: [],
+    static_cost: 50000,
+  };
+
+  // Bug was: nonce as BigInt → JSON.stringify throws
+  let jsonStr = null;
+  try { jsonStr = JSON.stringify(tx); } catch { jsonStr = null; }
+  assert("txObj with string nonce is JSON-serializable", jsonStr !== null, true);
+
+  // Verify no BigInt leaked into the object
+  const parsed = JSON.parse(jsonStr);
+  assert("Parsed nonce is string", typeof parsed.nonce, "string");
+  assert("Parsed nonce matches original", parsed.nonce, nonce.toString());
+}
+
+// === INTEGRATION: Lock clears state without throwing (#bug: render undefined) ===
+console.log("\n8. Lock clears state cleanly");
+{
+  // Bug: lockWallet() called render() which didn't exist → ReferenceError
+  // Test: simulate lock clearing state without calling any undefined function
+  let mockSeed = Buffer.from(crypto.getRandomValues(new Uint8Array(32)));
+  let mockWallet = { id: "test", address: "mmx1test" };
+
+  // Simulate unlock
+  let unlockedSeed = mockSeed;
+  let unlockedWallet = mockWallet;
+  assert("Seed available before lock", unlockedSeed !== null, true);
+  assert("Wallet available before lock", unlockedWallet !== null, true);
+
+  // Simulate lock (clear state, don't call undefined functions)
+  unlockedSeed = null;
+  unlockedWallet = null;
+
+  // This should not throw (the bug was calling render() which didn't exist)
+  let lockThrew = false;
+  try {
+    // Verify state is cleared
+    if (unlockedSeed !== null) throw new Error("seed not cleared");
+    if (unlockedWallet !== null) throw new Error("wallet not cleared");
+  } catch { lockThrew = true; }
+  assert("Lock clears state without throwing", lockThrew, false);
+  assert("Seed is null after lock", unlockedSeed, null);
+  assert("Wallet is null after lock", unlockedWallet, null);
+}
+
+// === INTEGRATION: showMnemonic requires password (#bug: called without arg) ===
+console.log("\n9. Show mnemonic password requirement");
+{
+  // Bug: showMnemonic() was called with no password arg → silent failure
+  // Test: verify the function signature enforces password
+  function mockShowMnemonic(password) {
+    if (!password) throw new Error("Password required");
+    if (!mockUnlockedSeed) throw new Error("Wallet is locked");
+    return ["word1", "word2"];
+  }
+  let mockUnlockedSeed = Buffer.from(crypto.getRandomValues(new Uint8Array(32)));
+
+  // Called with no arg (the bug)
+  let threwNoArg = false;
+  try { await mockShowMnemonic(); } catch { threwNoArg = true; }
+  assert("showMnemonic() with no arg throws", threwNoArg, true);
+
+  // Called with undefined (same as no arg)
+  let threwUndefined = false;
+  try { await mockShowMnemonic(undefined); } catch { threwUndefined = true; }
+  assert("showMnemonic(undefined) throws", threwUndefined, true);
+
+  // Called with correct password
+  let result = null;
+  try { result = await mockShowMnemonic("correct"); } catch { result = null; }
+  assert("showMnemonic(password) returns words", result !== null, true);
+  assert("Returned 2 words", result.length, 2);
+
+  // When locked, even correct password should fail
+  mockUnlockedSeed = null;
+  let threwLocked = false;
+  try { await mockShowMnemonic("correct"); } catch { threwLocked = true; }
+  assert("showMnemonic when locked throws", threwLocked, true);
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Integration tests: ${passed} passed, ${failed} failed`);

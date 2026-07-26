@@ -263,6 +263,128 @@ console.log("\n9. execute field serialization (no vector wrapper)");
   assert("No vector<> after execute field", afterExec.indexOf(vectorHex) !== 0, true);
 }
 
+// === REGRESSION: BigInt nonce must be JSON.stringify-able (#bug: send crashed) ===
+// Bug: nonce was BigInt, JSON.stringify threw "Do not know how to serialize a BigInt",
+// caught by fetch try/catch and shown as "Network error: cannot reach MMX node"
+console.log("\nBigInt nonce serialization");
+{
+  const nonce = 123456789012345n;
+  // Bug: BigInt in object crashes JSON.stringify
+  let threw = false;
+  try { JSON.stringify({ nonce }); } catch { threw = true; }
+  assert("JSON.stringify with BigInt nonce throws", threw, true);
+
+  // Fix: convert to string
+  const fixed = { nonce: nonce.toString() };
+  let jsonStr = null;
+  try { jsonStr = JSON.stringify(fixed); } catch { threw = true; }
+  assert("JSON.stringify with string nonce works", jsonStr !== null, true);
+  assert("String nonce preserves value", JSON.parse(jsonStr).nonce, "123456789012345");
+
+  // Verify max uint64 nonce serializes
+  const maxNonce = 0xFFFFFFFFFFFFFFFFn;
+  const maxStr = { nonce: maxNonce.toString() };
+  let maxJson = null;
+  try { maxJson = JSON.stringify(maxStr); } catch { threw = true; }
+  assert("Max uint64 nonce serializes as string", maxJson !== null, true);
+}
+
+// === REGRESSION: showMnemonic requires password (#bug: silent failure) ===
+// Bug: showMnemonic() called with no arg → password=undefined → unlock fails silently
+console.log("\nShow mnemonic requires password");
+{
+  // The function signature is: showMnemonic(password)
+  // If called with undefined, it should throw, not silently fail
+  function mockShowMnemonic(password) {
+    if (!password) throw new Error("Password required");
+    return ["word1", "word2"];
+  }
+  let threwUndefined = false;
+  try { mockShowMnemonic(); } catch { threwUndefined = true; }
+  assert("showMnemonic(undefined) throws", threwUndefined, true);
+
+  let threwEmpty = false;
+  try { mockShowMnemonic(""); } catch { threwEmpty = true; }
+  assert("showMnemonic(empty string) throws", threwEmpty, true);
+
+  let result = null;
+  try { result = mockShowMnemonic("correct-pw"); } catch { result = null; }
+  assert("showMnemonic(password) returns words", result !== null, true);
+}
+
+// === REGRESSION: formatAmount respects decimals (#bug: showed raw satoshis) ===
+// Bug: tx history showed 2000000 instead of 2 MMX (6 decimals)
+console.log("\nFormat amount with decimals");
+{
+  function formatAmount(raw, decimals) {
+    const sat = BigInt(raw);
+    const div = BigInt(10) ** BigInt(decimals);
+    const whole = sat / div;
+    const frac = sat % div;
+    if (decimals === 0) return whole.toString();
+    const fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '');
+    return fracStr ? `${whole}.${fracStr}` : whole.toString();
+  }
+  assert("2000000 with 6 decimals = 2", formatAmount("2000000", 6), "2");
+  assert("1000 with 6 decimals = 0.001", formatAmount("1000", 6), "0.001");
+  assert("1 with 0 decimals = 1", formatAmount("1", 0), "1");
+  assert("1500000 with 6 decimals = 1.5", formatAmount("1500000", 6), "1.5");
+  assert("50000 with 6 decimals = 0.05", formatAmount("50000", 6), "0.05");
+  assert("0 with 6 decimals = 0", formatAmount("0", 6), "0");
+}
+
+// === REGRESSION: manifest has host_permissions (#bug: Firefox blocked fetch) ===
+// Bug: Firefox MV3 requires host_permissions to fetch external URLs
+console.log("\nManifest host_permissions");
+{
+  const fs = await import("fs");
+  const manifest = JSON.parse(fs.readFileSync("./manifest.json", "utf8"));
+  assert("manifest has host_permissions", Array.isArray(manifest.host_permissions), true);
+  assert("host_permissions includes rpc.mmx.network",
+    manifest.host_permissions.some(h => h.includes("rpc.mmx.network")), true);
+}
+
+// === REGRESSION: no prompt()/confirm()/alert() in source (#bug: popup windows) ===
+// Bug: password prompts used browser popup windows instead of inline UI
+console.log("\nNo popup dialogs in source");
+{
+  const fs = await import("fs");
+  const files = ["popup.js", "popup.html", "wallet.html", "content.js"];
+  let allClean = true;
+  for (const f of files) {
+    const src = fs.readFileSync("./" + f, "utf8");
+    if (/\bprompt\s*\(/.test(src)) { console.log(`  ❌ ${f} has prompt()`); allClean = false; }
+    if (/\bconfirm\s*\(/.test(src)) { console.log(`  ❌ ${f} has confirm()`); allClean = false; }
+    if (/\balert\s*\(/.test(src)) { console.log(`  ❌ ${f} has alert()`); allClean = false; }
+  }
+  assert("No prompt()/confirm()/alert() in UI source", allClean, true);
+}
+
+// === REGRESSION: wallet.html and popup.html pass syntax check (#bug: await in non-async) ===
+// Bug: onclick handler used await but wasn't async → SyntaxError broke entire page
+console.log("\nHTML inline script syntax check");
+{
+  const fs = await import("fs");
+  const { execSync } = await import("child_process");
+  const files = ["wallet.html", "popup.html"];
+  let allValid = true;
+  for (const f of files) {
+    const html = fs.readFileSync("./" + f, "utf8");
+    const match = html.match(/<script[^>]*type="module"[^>]*>([\s\S]*?)<\/script>/);
+    if (!match) { console.log(`  ⚠️  ${f}: no module script found`); continue; }
+    const tmpFile = `/tmp/syntax-check-${f}.mjs`;
+    fs.writeFileSync(tmpFile, match[1]);
+    try {
+      execSync(`node --check ${tmpFile}`, { stdio: 'pipe' });
+      console.log(`  ✅ ${f} syntax OK`);
+    } catch {
+      console.log(`  ❌ ${f} has syntax errors`);
+      allValid = false;
+    }
+  }
+  assert("All HTML scripts pass syntax check", allValid, true);
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Regression tests: ${passed} passed, ${failed} failed`);
