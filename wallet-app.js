@@ -287,8 +287,12 @@ export function getUnlockedAddress() {
   return unlockedWallet.address;
 }
 
-export function getWalletsList() {
-  return store.getWallets();
+export async function getWalletsList() {
+  return await store.getWallets();
+}
+
+export async function hasWallets() {
+  return (await store.getWallets()).length > 0;
 }
 
 export async function getActiveWalletId() {

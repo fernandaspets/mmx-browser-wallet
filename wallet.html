@@ -506,8 +506,8 @@
       // --- Lock ---
       document.getElementById("lockBtn").onclick = () => {
         app.lockWalletPub();
-        const walletId = app.getActiveWalletId();
-        const wallet = app.getWalletsList().find(w => w.id === walletId);
+        const walletId = await app.getActiveWalletId();
+        const wallet = (await app.getWalletsList()).find(w => w.id === walletId);
         document.getElementById("unlockWalletName").textContent = wallet.name;
         document.getElementById("unlockPass").value = "";
         show("unlockView");

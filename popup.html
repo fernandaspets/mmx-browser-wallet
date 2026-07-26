@@ -14,7 +14,6 @@
       color: #e0e0e0;
     }
     .container { padding: 20px; }
-    
     .header {
       display: flex;
       justify-content: space-between;
@@ -23,194 +22,80 @@
       padding-bottom: 12px;
       border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    .logo {
-      font-size: 18px;
-      font-weight: 700;
-      color: #00d4ff;
-    }
+    .logo { font-size: 18px; font-weight: 700; color: #00d4ff; }
     .network-badge {
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      background: rgba(0,212,255,0.1);
-      border: 1px solid rgba(0,212,255,0.2);
-      color: #00d4ff;
+      font-size: 10px; padding: 2px 8px; border-radius: 10px;
+      background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.2); color: #00d4ff;
     }
-    
     .view { display: none; }
     .view.active { display: block; }
-    
-    /* Create wallet view */
-    .create-view h2 {
-      font-size: 20px;
-      margin-bottom: 8px;
+    h2 { font-size: 20px; margin-bottom: 8px; }
+    .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5; }
+    .input-group { margin-bottom: 16px; }
+    .input-group label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+    input {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+      background: rgba(0,0,0,0.3); color: #e0e0e0; font-size: 14px;
+      font-family: inherit;
     }
-    .create-view p {
-      font-size: 13px;
-      color: #888;
-      margin-bottom: 20px;
-      line-height: 1.5;
-    }
-    .input-group {
-      margin-bottom: 16px;
-    }
-    .input-group label {
-      display: block;
-      font-size: 12px;
-      color: #888;
-      margin-bottom: 4px;
-    }
-    input[type="password"] {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      background: rgba(0,0,0,0.3);
-      color: #e0e0e0;
-      font-size: 14px;
-    }
-    input[type="password"]:focus {
-      outline: none;
-      border-color: #00d4ff;
-    }
+    input:focus { outline: none; border-color: #00d4ff; }
+    input.mono { font-family: monospace; font-size: 12px; }
     .btn {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
+      width: 100%; padding: 12px; border: none; border-radius: 8px;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
     }
-    .btn-primary {
-      background: linear-gradient(135deg, #00d4ff, #0078d4);
-      color: white;
-    }
+    .btn-primary { background: linear-gradient(135deg, #00d4ff, #0078d4); color: white; }
     .btn-primary:hover { opacity: 0.9; }
-    .btn-secondary {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: #e0e0e0;
-    }
+    .btn-secondary { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e0e0e0; }
     .btn-secondary:hover { background: rgba(255,255,255,0.1); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    
-    /* Dashboard view */
+    .btn-danger { background: linear-gradient(135deg, #f44336, #c62828); color: white; }
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-row .btn { margin-top: 0; }
     .balance-card {
       background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(0,119,212,0.05));
-      border: 1px solid rgba(0,212,255,0.2);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 16px;
-      text-align: center;
+      border: 1px solid rgba(0,212,255,0.2); border-radius: 12px;
+      padding: 20px; margin-bottom: 16px; text-align: center;
     }
-    .balance-label {
-      font-size: 11px;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-    }
-    .balance-value {
-      font-size: 28px;
-      font-weight: 700;
-      color: #00d4ff;
-    }
-    .balance-symbol {
-      font-size: 14px;
-      color: #888;
-    }
-    
+    .balance-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .balance-value { font-size: 28px; font-weight: 700; color: #00d4ff; }
+    .balance-symbol { font-size: 14px; color: #888; }
+    .balance-row { display: flex; justify-content: space-between; padding: 6px 0; }
     .address-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 16px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; padding: 12px; margin-bottom: 16px;
     }
-    .address-label {
-      font-size: 11px;
-      color: #888;
-      margin-bottom: 4px;
-    }
-    .address-value {
-      font-family: monospace;
-      font-size: 12px;
-      color: #e0e0e0;
-      word-break: break-all;
-      cursor: pointer;
-    }
+    .address-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+    .address-value { font-family: monospace; font-size: 12px; color: #e0e0e0; word-break: break-all; cursor: pointer; }
     .address-value:hover { color: #00d4ff; }
-    .copy-feedback {
-      font-size: 11px;
-      color: #4caf50;
-      margin-top: 4px;
-      display: none;
-    }
-    
-    .actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    
-    .status {
-      font-size: 12px;
-      color: #888;
-      text-align: center;
-      min-height: 16px;
-    }
+    .copy-feedback { font-size: 11px; color: #4caf50; margin-top: 4px; display: none; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .status { font-size: 12px; color: #888; text-align: center; min-height: 16px; }
     .status.error { color: #f44336; }
     .status.success { color: #4caf50; }
-    
-    /* Send view */
-    .send-form { margin-bottom: 16px; }
-    .send-form .input-group { margin-bottom: 12px; }
-    input[type="text"] {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      background: rgba(0,0,0,0.3);
-      color: #e0e0e0;
-      font-size: 14px;
-      font-family: monospace;
-    }
-    input[type="text"]:focus {
-      outline: none;
-      border-color: #00d4ff;
-    }
-    
-    .back-btn {
-      background: none;
-      border: none;
-      color: #888;
-      font-size: 12px;
-      cursor: pointer;
-      margin-bottom: 12px;
-    }
+    .back-btn { background: none; border: none; color: #888; font-size: 12px; cursor: pointer; margin-bottom: 12px; }
     .back-btn:hover { color: #00d4ff; }
-    
     .seed-warning {
-      background: rgba(255,152,0,0.1);
-      border: 1px solid rgba(255,152,0,0.3);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 16px;
-      font-size: 12px;
-      line-height: 1.5;
+      background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.3);
+      border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 12px; line-height: 1.5;
     }
     .seed-display {
-      font-family: monospace;
-      font-size: 13px;
-      color: #ff9800;
-      word-break: break-all;
-      margin: 8px 0;
-      padding: 8px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 6px;
+      font-family: monospace; font-size: 13px; color: #4caf50; word-break: break-all;
+      margin: 8px 0; padding: 12px; background: rgba(76,175,80,0.05);
+      border: 1px solid rgba(76,175,80,0.2); border-radius: 6px; line-height: 1.8; text-align: center;
+    }
+    .wallet-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 14px; background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; margin-bottom: 8px; cursor: pointer;
+    }
+    .wallet-item:hover { border-color: rgba(0,212,255,0.3); }
+    .wallet-item.active { border-color: #00d4ff; background: rgba(0,212,255,0.05); }
+    .wallet-name { font-weight: 600; font-size: 14px; }
+    .wallet-addr { font-family: monospace; font-size: 11px; color: #888; margin-top: 2px; }
+    .tx-link {
+      font-family: monospace; font-size: 11px; padding: 6px; margin-top: 8px;
+      background: rgba(0,212,255,0.05); border-radius: 4px; word-break: break-all;
     }
   </style>
 </head>
@@ -221,11 +106,22 @@
       <div class="network-badge" id="networkBadge">mainnet</div>
     </div>
 
+    <!-- Onboarding (no wallets) -->
+    <div class="view active" id="onboardingView">
+      <h2>Welcome</h2>
+      <p class="subtitle">Create a new wallet or import an existing one from your 24-word mnemonic.</p>
+      <button class="btn btn-primary" id="onboardCreateBtn">🔑 Create New Wallet</button>
+      <div style="height:8px"></div>
+      <button class="btn btn-secondary" id="onboardImportBtn">📥 Import from Mnemonic</button>
+    </div>
+
     <!-- Create wallet view -->
-    <div class="view active" id="createView">
-      <h2>Create Wallet</h2>
-      <p>Generate a new MMX wallet. Choose a strong password — it encrypts your private keys.</p>
-      
+    <div class="view" id="createView">
+      <h2 style="font-size:18px;">Create Wallet</h2>
+      <div class="input-group">
+        <label>Wallet Name</label>
+        <input type="text" id="createName" placeholder="My Wallet" maxlength="30">
+      </div>
       <div class="input-group">
         <label>Password</label>
         <input type="password" id="createPassword" placeholder="Enter password">
@@ -234,100 +130,133 @@
         <label>Confirm Password</label>
         <input type="password" id="createPasswordConfirm" placeholder="Confirm password">
       </div>
-      
       <div class="status" id="createStatus"></div>
-      
       <button class="btn btn-primary" id="createBtn">Create Wallet</button>
+      <div style="height:8px"></div>
+      <button class="btn btn-secondary" id="createCancelBtn">Cancel</button>
+    </div>
+
+    <!-- Import wallet view -->
+    <div class="view" id="importView">
+      <h2 style="font-size:18px;">Import Wallet</h2>
+      <div class="input-group">
+        <label>Wallet Name</label>
+        <input type="text" id="importName" placeholder="Imported Wallet" maxlength="30">
+      </div>
+      <div class="input-group">
+        <label>Mnemonic (24 words)</label>
+        <input type="text" class="mono" id="importMnemonic" placeholder="word1 word2 ... word24" style="font-size:11px;">
+      </div>
+      <div class="input-group">
+        <label>Password (to encrypt this wallet)</label>
+        <input type="password" id="importPassword" placeholder="Choose a password">
+      </div>
+      <div class="status" id="importStatus"></div>
+      <button class="btn btn-primary" id="importBtn">Import Wallet</button>
+      <div style="height:8px"></div>
+      <button class="btn btn-secondary" id="importCancelBtn">Cancel</button>
     </div>
 
     <!-- Seed backup view -->
     <div class="view" id="seedView">
       <h2 style="font-size:18px;margin-bottom:8px;">🔑 Save Your Seed</h2>
       <div class="seed-warning">
-        <strong>⚠️ Important:</strong> This seed can restore your wallet if you lose access. Write it down and store it safely. Anyone with this seed can control your funds.
+        <strong>⚠️ Important:</strong> These 24 words can restore your wallet. Write them down and store safely. Anyone with this seed can control your funds.
       </div>
       <div class="seed-display" id="seedDisplay"></div>
       <p style="font-size:12px;color:#888;margin-bottom:16px;">
-        Your wallet address: <strong style="color:#00d4ff;" id="newAddress"></strong>
+        Address: <strong style="color:#00d4ff;" id="newAddress"></strong>
       </p>
-      <button class="btn btn-primary" id="seedDoneBtn">I've Saved It</button>
+      <button class="btn btn-primary" id="seedDoneBtn">I've Saved Them</button>
     </div>
 
     <!-- Unlock view -->
     <div class="view" id="unlockView">
-      <h2 style="font-size:18px;margin-bottom:8px;">Unlock Wallet</h2>
-      <p style="font-size:13px;color:#888;margin-bottom:20px;">Enter your password to unlock.</p>
-      
+      <h2 style="font-size:18px;margin-bottom:4px;">Unlock: <span id="unlockWalletName"></span></h2>
+      <p class="subtitle">Enter your password to unlock.</p>
       <div class="input-group">
         <input type="password" id="unlockPassword" placeholder="Password">
       </div>
-      
       <div class="status" id="unlockStatus"></div>
-      
       <button class="btn btn-primary" id="unlockBtn">Unlock</button>
+      <div style="height:8px"></div>
+      <button class="btn btn-secondary" id="unlockSwitchBtn">📋 Switch Wallet</button>
     </div>
 
     <!-- Dashboard view -->
     <div class="view" id="dashboardView">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:14px;font-weight:600;color:#00d4ff;" id="dashWalletName">Wallet</span>
+        <span style="font-size:11px;color:#888;" id="dashWalletCount"></span>
+      </div>
       <div class="balance-card">
-        <div class="balance-label">Balance</div>
-        <div>
-          <span class="balance-value" id="balanceValue">0</span>
-          <span class="balance-symbol"> MMX</span>
+        <div class="balance-label">Balances</div>
+        <div id="balanceList" style="text-align:left;margin-top:8px;">
+          <div style="color:#888;font-size:13px;">Loading...</div>
         </div>
       </div>
-      
       <div class="address-card">
         <div class="address-label">Your Address</div>
         <div class="address-value" id="addressDisplay" onclick="copyAddress()">mmx1...</div>
         <div class="copy-feedback" id="copyFeedback">Copied!</div>
       </div>
-      
       <div class="actions">
         <button class="btn btn-primary" id="sendBtn">📤 Send</button>
         <button class="btn btn-secondary" id="receiveBtn">📥 Receive</button>
       </div>
-      
-      <button class="btn btn-secondary" id="refreshBtn" style="margin-top:8px;">🔄 Refresh</button>
-      <button class="btn btn-secondary" id="lockBtn" style="margin-top:8px;">🔒 Lock Wallet</button>
-      
+      <button class="btn btn-secondary" id="refreshBtn" style="margin-top:4px;">🔄 Refresh</button>
+      <button class="btn btn-secondary" id="switchBtn" style="margin-top:4px;">📋 Switch Wallet</button>
+      <button class="btn btn-secondary" id="showSeedBtn" style="margin-top:4px;">👁 Show Mnemonic</button>
+      <button class="btn btn-secondary" id="lockBtn" style="margin-top:4px;">🔒 Lock Wallet</button>
+      <button class="btn btn-danger" id="deleteBtn" style="margin-top:4px;">🗑 Delete Wallet</button>
       <div class="status" id="dashStatus"></div>
     </div>
 
     <!-- Send view -->
     <div class="view" id="sendView">
       <button class="back-btn" id="sendBackBtn">← Back</button>
-      <h2 style="font-size:18px;margin-bottom:16px;">Send MMX</h2>
-      
-      <div class="send-form">
-        <div class="input-group">
-          <label>To Address</label>
-          <input type="text" id="sendTo" placeholder="mmx1...">
-        </div>
-        <div class="input-group">
-          <label>Amount</label>
-          <input type="text" id="sendAmount" placeholder="0.0">
-        </div>
+      <h2 style="font-size:18px;margin-bottom:16px;">Send</h2>
+      <div class="input-group">
+        <label>Currency</label>
+        <select class="input" id="sendCurrency" style="width:100%;padding:10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#e0e0e0;">
+          <option value="MMX">MMX</option>
+        </select>
       </div>
-      
+      <div class="input-group">
+        <label>To Address</label>
+        <input type="text" class="mono" id="sendTo" placeholder="mmx1...">
+      </div>
+      <div class="input-group">
+        <label>Amount</label>
+        <input type="text" id="sendAmount" placeholder="0.0001">
+      </div>
       <div class="status" id="sendStatus"></div>
-      
       <button class="btn btn-primary" id="sendConfirmBtn">Send</button>
     </div>
 
     <!-- Receive view -->
     <div class="view" id="receiveView">
       <button class="back-btn" id="receiveBackBtn">← Back</button>
-      <h2 style="font-size:18px;margin-bottom:16px;">Receive MMX</h2>
-      
+      <h2 style="font-size:18px;margin-bottom:16px;">Receive</h2>
       <div class="balance-card">
         <div class="address-label" style="margin-bottom:8px;">Your Address</div>
         <div class="address-value" style="font-size:14px;text-align:center;" id="receiveAddress">mmx1...</div>
       </div>
       <p style="font-size:12px;color:#888;text-align:center;margin-bottom:16px;">
-        Send MMX to this address to fund your wallet.
+        Send MMX or TRAIL to this address.
       </p>
       <button class="btn btn-primary" id="copyReceiveBtn">📋 Copy Address</button>
+    </div>
+
+    <!-- Wallet list view -->
+    <div class="view" id="walletListView">
+      <button class="back-btn" id="walletListBackBtn">← Back</button>
+      <h2 style="font-size:18px;margin-bottom:16px;">Your Wallets</h2>
+      <div id="walletListItems"></div>
+      <div style="height:12px"></div>
+      <button class="btn btn-primary" id="listCreateBtn">🔑 Create New Wallet</button>
+      <div style="height:8px"></div>
+      <button class="btn btn-secondary" id="listImportBtn">📥 Import Wallet</button>
     </div>
   </div>
 
