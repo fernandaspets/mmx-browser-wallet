@@ -51,16 +51,19 @@ window.addEventListener('message', async (event) => {
           _browser.action.setBadgeText({ text: '$' });
           _browser.action.setBadgeBackgroundColor({ color: '#4caf50' });
         }
-        // Wait for popup to confirm/reject
-        const sendListener = (msg) => {
-          if (msg && msg.type === 'SEND_RESULT' && msg.id === id) {
-            _browser.runtime.onMessage.removeListener(sendListener);
-            window.postMessage({ source: 'mmx-content', id, response: msg.response }, '*');
+        // Wait for popup to confirm/reject via storage
+        const sendListener = (changes, area) => {
+          if (area !== "local" || !changes.mmx_send_result) return;
+          const result = changes.mmx_send_result.newValue;
+          if (result && result.id === id) {
+            _browser.storage.onChanged.removeListener(sendListener);
+            window.postMessage({ source: 'mmx-content', id, response: result.response }, '*');
             _browser.storage.local.remove('mmx_pending_send');
+            _browser.storage.local.remove('mmx_send_result');
             if (_browser.action) _browser.action.setBadgeText({ text: '' });
           }
         };
-        _browser.runtime.onMessage.addListener(sendListener);
+        _browser.storage.onChanged.addListener(sendListener);
       } else {
         // Address request — respond immediately
         _browser.runtime.sendMessage({ type: 'GET_ADDRESS' }, (response) => {

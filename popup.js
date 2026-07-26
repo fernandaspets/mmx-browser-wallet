@@ -117,7 +117,7 @@ async function checkPendingDapp() {
           }
           const amountSat = app.mmxToSat(pending.params.amount, decimals);
           const txid = await app.sendTransaction(pending.params.to, amountSat, contractAddr);
-          _br.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { txid } });
+          _br.storage.local.set({ mmx_send_result: { id: pending.id, response: { txid } } });
           sendNotice.style.display = "none";
           _br.storage.local.remove("mmx_pending_send");
           _br.action.setBadgeText({ text: "" });
@@ -125,11 +125,11 @@ async function checkPendingDapp() {
         } catch (e) {
           document.getElementById("dappSendStatus").textContent = "Error: " + e.message;
           document.getElementById("dappSendConfirm").disabled = false;
-          _br.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { error: e.message } });
+          _br.storage.local.set({ mmx_send_result: { id: pending.id, response: { error: e.message } } });
         }
       };
       document.getElementById("dappSendReject").onclick = () => {
-        _br.runtime.sendMessage({ type: "SEND_RESULT", id: pending.id, response: { error: "User rejected" } });
+        _br.storage.local.set({ mmx_send_result: { id: pending.id, response: { error: "User rejected" } } });
         sendNotice.style.display = "none";
         _br.storage.local.remove("mmx_pending_send");
         _br.action.setBadgeText({ text: "" });
