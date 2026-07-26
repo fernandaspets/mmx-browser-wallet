@@ -9,7 +9,7 @@
 // Inject the MMX provider script
 const script = document.createElement('script');
 script.src = (typeof browser !== 'undefined' ? browser.runtime : chrome.runtime).getURL('inject.js');
-(script.onload = function() { this.remove(); })();
+script.onload = function() { script.remove(); };
 (document.head || document.documentElement).appendChild(script);
 
 // Permission cache per origin
