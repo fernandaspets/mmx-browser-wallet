@@ -435,6 +435,34 @@ console.log("\nTheme system");
   assert("wallet.html has theme toggle", walletHtml.includes("themeToggle"), true);
 }
 
+// === REGRESSION: Balance conversion — API returns float, not satoshis (#bug: showed 0.000001 MMX) ===
+// Bug: spendable=1.282603 (float), BigInt(Math.floor(1.282603))=1 sat → thought had 0.000001 MMX
+console.log("\nBalance conversion from float");
+{
+  // API returns spendable as human-readable float (e.g. 1.282603 MMX, 1.0 TRAIL)
+  const mmxSpendableFloat = 1.282603;
+  const trailSpendableFloat = 1.0;
+
+  // BUG: treating float as satoshis
+  const bugSat = BigInt(Math.floor(mmxSpendableFloat));
+  assert("BUG: 1.282603 treated as 1 sat", bugSat, 1n);
+  assert("BUG: displays as 0.000001 MMX", (Number(bugSat) / 1e6).toFixed(6), "0.000001");
+
+  // FIX: multiply by 10^decimals
+  const fixedMmxSat = BigInt(Math.floor(mmxSpendableFloat * Math.pow(10, 6)));
+  assert("FIX: 1.282603 MMX = 1282603 sat", fixedMmxSat, 1282603n);
+  assert("FIX: displays as 1.282603 MMX", (Number(fixedMmxSat) / 1e6).toFixed(6), "1.282603");
+
+  const fixedTrailSat = BigInt(Math.floor(trailSpendableFloat * Math.pow(10, 0)));
+  assert("FIX: 1.0 TRAIL = 1 unit", fixedTrailSat, 1n);
+
+  // Balance check should pass: have 1282603 sat, need 1000 + 0 (free mode) = 1000
+  const feeSat = 0n; // free mode on mainnet
+  const amountSat = 1000n;
+  assert("Sufficient balance with fix", fixedMmxSat >= amountSat + feeSat, true);
+  assert("Insufficient with bug", bugSat < amountSat + feeSat, true);
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Regression tests: ${passed} passed, ${failed} failed`);

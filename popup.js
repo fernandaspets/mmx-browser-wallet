@@ -680,7 +680,7 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   try {
     const balances = await app.fetchBalance();
     const token = balances.find(b => b.symbol === currency);
-    const spendable = token ? BigInt(Math.floor(token.spendable ?? 0)) : 0n;
+    const spendable = token ? BigInt(Math.floor(token.spendable * Math.pow(10, token.decimals || 0))) : 0n;
     if (currency === "MMX") {
       // Need amount + fee in MMX
       if (spendable < amountSat + feeSat) {
@@ -694,7 +694,7 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
         setStatus("sendStatus", `Insufficient ${currency}: have ${token?.spendable ?? 0}, need ${amount}`, "error"); return;
       }
       const mmxBal = balances.find(b => b.symbol === "MMX");
-      const mmxSpendable = mmxBal ? BigInt(Math.floor(mmxBal.spendable ?? 0)) : 0n;
+      const mmxSpendable = mmxBal ? BigInt(Math.floor(mmxBal.spendable * 1e6)) : 0n;
       if (mmxSpendable < feeSat) {
         setStatus("sendStatus", `Insufficient MMX for fee: need ${(Number(feeSat) / 1e6).toFixed(6)} MMX`, "error"); return;
       }
