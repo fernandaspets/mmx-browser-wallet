@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MMX Wallet</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 360px;
+      min-height: 500px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a1a;
+      color: #e0e0e0;
+    }
+    .container { padding: 20px; }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: #00d4ff;
+    }
+    .network-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(0,212,255,0.1);
+      border: 1px solid rgba(0,212,255,0.2);
+      color: #00d4ff;
+    }
+    
+    .view { display: none; }
+    .view.active { display: block; }
+    
+    /* Create wallet view */
+    .create-view h2 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    .create-view p {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .input-group {
+      margin-bottom: 16px;
+    }
+    .input-group label {
+      display: block;
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.3);
+      color: #e0e0e0;
+      font-size: 14px;
+    }
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #00d4ff;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #00d4ff, #0078d4);
+      color: white;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #e0e0e0;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    /* Dashboard view */
+    .balance-card {
+      background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(0,119,212,0.05));
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .balance-label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .balance-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #00d4ff;
+    }
+    .balance-symbol {
+      font-size: 14px;
+      color: #888;
+    }
+    
+    .address-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    .address-label {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .address-value {
+      font-family: monospace;
+      font-size: 12px;
+      color: #e0e0e0;
+      word-break: break-all;
+      cursor: pointer;
+    }
+    .address-value:hover { color: #00d4ff; }
+    .copy-feedback {
+      font-size: 11px;
+      color: #4caf50;
+      margin-top: 4px;
+      display: none;
+    }
+    
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .status {
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+      min-height: 16px;
+    }
+    .status.error { color: #f44336; }
+    .status.success { color: #4caf50; }
+    
+    /* Send view */
+    .send-form { margin-bottom: 16px; }
+    .send-form .input-group { margin-bottom: 12px; }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.3);
+      color: #e0e0e0;
+      font-size: 14px;
+      font-family: monospace;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #00d4ff;
+    }
+    
+    .back-btn {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 12px;
+      cursor: pointer;
+      margin-bottom: 12px;
+    }
+    .back-btn:hover { color: #00d4ff; }
+    
+    .seed-warning {
+      background: rgba(255,152,0,0.1);
+      border: 1px solid rgba(255,152,0,0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .seed-display {
+      font-family: monospace;
+      font-size: 13px;
+      color: #ff9800;
+      word-break: break-all;
+      margin: 8px 0;
+      padding: 8px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">⚡ MMX Wallet</div>
+      <div class="network-badge" id="networkBadge">mainnet</div>
+    </div>
+
+    <!-- Create wallet view -->
+    <div class="view active" id="createView">
+      <h2>Create Wallet</h2>
+      <p>Generate a new MMX wallet. Choose a strong password — it encrypts your private keys.</p>
+      
+      <div class="input-group">
+        <label>Password</label>
+        <input type="password" id="createPassword" placeholder="Enter password">
+      </div>
+      <div class="input-group">
+        <label>Confirm Password</label>
+        <input type="password" id="createPasswordConfirm" placeholder="Confirm password">
+      </div>
+      
+      <div class="status" id="createStatus"></div>
+      
+      <button class="btn btn-primary" id="createBtn">Create Wallet</button>
+    </div>
+
+    <!-- Seed backup view -->
+    <div class="view" id="seedView">
+      <h2 style="font-size:18px;margin-bottom:8px;">🔑 Save Your Seed</h2>
+      <div class="seed-warning">
+        <strong>⚠️ Important:</strong> This seed can restore your wallet if you lose access. Write it down and store it safely. Anyone with this seed can control your funds.
+      </div>
+      <div class="seed-display" id="seedDisplay"></div>
+      <p style="font-size:12px;color:#888;margin-bottom:16px;">
+        Your wallet address: <strong style="color:#00d4ff;" id="newAddress"></strong>
+      </p>
+      <button class="btn btn-primary" id="seedDoneBtn">I've Saved It</button>
+    </div>
+
+    <!-- Unlock view -->
+    <div class="view" id="unlockView">
+      <h2 style="font-size:18px;margin-bottom:8px;">Unlock Wallet</h2>
+      <p style="font-size:13px;color:#888;margin-bottom:20px;">Enter your password to unlock.</p>
+      
+      <div class="input-group">
+        <input type="password" id="unlockPassword" placeholder="Password">
+      </div>
+      
+      <div class="status" id="unlockStatus"></div>
+      
+      <button class="btn btn-primary" id="unlockBtn">Unlock</button>
+    </div>
+
+    <!-- Dashboard view -->
+    <div class="view" id="dashboardView">
+      <div class="balance-card">
+        <div class="balance-label">Balance</div>
+        <div>
+          <span class="balance-value" id="balanceValue">0</span>
+          <span class="balance-symbol"> MMX</span>
+        </div>
+      </div>
+      
+      <div class="address-card">
+        <div class="address-label">Your Address</div>
+        <div class="address-value" id="addressDisplay" onclick="copyAddress()">mmx1...</div>
+        <div class="copy-feedback" id="copyFeedback">Copied!</div>
+      </div>
+      
+      <div class="actions">
+        <button class="btn btn-primary" id="sendBtn">📤 Send</button>
+        <button class="btn btn-secondary" id="receiveBtn">📥 Receive</button>
+      </div>
+      
+      <button class="btn btn-secondary" id="lockBtn" style="margin-top:8px;">🔒 Lock Wallet</button>
+      
+      <div class="status" id="dashStatus"></div>
+    </div>
+
+    <!-- Send view -->
+    <div class="view" id="sendView">
+      <button class="back-btn" id="sendBackBtn">← Back</button>
+      <h2 style="font-size:18px;margin-bottom:16px;">Send MMX</h2>
+      
+      <div class="send-form">
+        <div class="input-group">
+          <label>To Address</label>
+          <input type="text" id="sendTo" placeholder="mmx1...">
+        </div>
+        <div class="input-group">
+          <label>Amount</label>
+          <input type="text" id="sendAmount" placeholder="0.0">
+        </div>
+      </div>
+      
+      <div class="status" id="sendStatus"></div>
+      
+      <button class="btn btn-primary" id="sendConfirmBtn">Send</button>
+    </div>
+
+    <!-- Receive view -->
+    <div class="view" id="receiveView">
+      <button class="back-btn" id="receiveBackBtn">← Back</button>
+      <h2 style="font-size:18px;margin-bottom:16px;">Receive MMX</h2>
+      
+      <div class="balance-card">
+        <div class="address-label" style="margin-bottom:8px;">Your Address</div>
+        <div class="address-value" style="font-size:14px;text-align:center;" id="receiveAddress">mmx1...</div>
+      </div>
+      <p style="font-size:12px;color:#888;text-align:center;margin-bottom:16px;">
+        Send MMX to this address to fund your wallet.
+      </p>
+      <button class="btn btn-primary" id="copyReceiveBtn">📋 Copy Address</button>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

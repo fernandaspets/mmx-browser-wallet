@@ -1,0 +1,10 @@
+node_modules/
+*.bak
+.DS_Store
+dist/
+lib/@noble/
+lib/bech32/
+lib/secp256k1.js
+lib/sha2.js
+lib/hmac.js
+lib/bech32.js
