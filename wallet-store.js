@@ -25,7 +25,13 @@ async function storageGet(key) {
     });
   }
   const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : null;
+  if (!data) return null;
+  try {
+    return JSON.parse(data);
+  } catch {
+    // Might be a raw string (old format) or corrupted data
+    return data;
+  }
 }
 
 async function storageSet(key, value) {
@@ -34,7 +40,12 @@ async function storageSet(key, value) {
       chrome.storage.local.set({ [key]: value }, () => resolve());
     });
   }
-  localStorage.setItem(key, JSON.stringify(value));
+  // Only JSON.stringify objects/arrays, store raw strings as-is
+  if (typeof value === "string") {
+    localStorage.setItem(key, value);
+  } else {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
 }
 
 async function storageRemove(key) {
@@ -121,7 +132,11 @@ function generateId() {
 // --- Wallet list management (all async now) ---
 
 export async function getWallets() {
-  return (await storageGet(STORAGE_KEY)) || [];
+  const data = await storageGet(STORAGE_KEY);
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  // Maybe stored as non-JSON string, try parsing
+  try { const parsed = JSON.parse(data); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
 }
 
 export async function getActiveWalletId() {
