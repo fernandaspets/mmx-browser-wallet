@@ -139,7 +139,7 @@ The wallet talks directly to `https://rpc.mmx.network` — a public MMX node wit
 | `wallet.html` | Full-page wallet UI (web page or extension tab) |
 | `wallet-app.js` | Main app logic (create, import, unlock, send, balance) |
 | `wallet-store.js` | Encrypted wallet storage (localStorage / chrome.storage) |
-| `wallet-app.js` | Main app logic + key derivation (inlined from mmx-crypto) |
+| `wallet-app.js` | Main app logic (includes key derivation, mnemonic, tx building) |
 | `mmx-tx.js` | Transaction serialization & signing (VNX binary format) |
 | `mmx-node-api.js` | Public RPC client (rpc.mmx.network) |
 | `background.js` | Extension background script |

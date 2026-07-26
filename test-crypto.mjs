@@ -129,6 +129,7 @@ console.log("1. Address Derivation");
 // Test 2: Full key derivation chain
 console.log("\n2. Key Derivation Chain");
 {
+  // Dummy seed — never funded, safe for public repo (verified 0 MMX balance on chain)
   const seed = Buffer.from("a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2", "hex");
   const { skey, pubkey, addrHash } = deriveKeypair(seed, "", 0, 0);
   const address = hashToAddress(addrHash);

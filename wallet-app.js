@@ -327,6 +327,9 @@ export async function fetchBalance() {
   return await api.getBalance(unlockedWallet.address);
 }
 export function mmxToSat(mmxStr, decimals = 6) {
+  // Validate input (M2: reject negative/malformed)
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(mmxStr)) throw new Error("Invalid amount");
+  if (parseFloat(mmxStr) < 0) throw new Error("Amount cannot be negative");
   // Parse decimal string to integer smallest units (respects token decimals)
   const [whole, frac = ""] = mmxStr.split(".");
   const fracPadded = (frac + "0".repeat(decimals)).substring(0, decimals);

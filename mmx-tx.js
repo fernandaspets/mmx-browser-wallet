@@ -125,25 +125,6 @@ class BinaryWriter {
   }
 }
 
-// --- Address helpers ---
-
-function addrToBytes(addr) {
-  // addr can be 32-byte array or bech32 string
-  if (typeof addr === "string") {
-    // Decode bech32m → 32 bytes (little-endian)
-    const { bech32m } = require("bech32");
-    const decoded = bech32m.decode(addr);
-    const words = decoded.words;
-    let bits = 0n;
-    for (let i = 0; i < 50; i++) { bits |= BigInt(words[i] & 0x1F); bits <<= 5n; }
-    bits |= BigInt(words[50] & 0x1F); bits <<= 1n;
-    bits |= BigInt((words[51] >> 4) & 1);
-    const hex = bits.toString(16).padStart(64, "0");
-    return Array.from(Buffer.from(hex, "hex").reverse()); // big-endian hex → LE bytes
-  }
-  return addr; // assume already 32-byte array
-}
-
 // --- Transaction serialization ---
 
 /**
@@ -333,42 +314,6 @@ export async function signTx(txHash, skey) {
     signature: Array.from(Buffer.from(signature)),
     version: 0,
   };
-}
-
-/**
- * Compute the solution hash (for content_hash computation).
- * The solution hash = calc_hash() of the PubKey solution.
- */
-export function calcSolutionHash(solution) {
-  // PubKey calc_hash: type_hash + pubkey + signature + version
-  const w = new BinaryWriter();
-  // PubKey type hash: need to find this constant
-  // For now, use placeholder — we'll need to get the real type hash
-  // TODO: Get PubKey VNX_TYPE_HASH
-  w.writeBytesType(solution.pubkey);
-  w.writeBytesType(solution.signature);
-  w.writeUint32LE(solution.version || 0);
-  return w.toHash();
-}
-
-/**
- * Build, sign, and finalize a transaction.
- */
-export async function buildAndSign(tx, skey) {
-  // 1. Compute tx id (hash without solutions)
-  const txId = calcTxId(tx);
-  
-  // 2. Sign the tx id
-  const solution = await signTx(txId, skey);
-  
-  // 3. Add solution to tx
-  tx.solutions = [solution];
-  
-  // 4. Compute content hash
-  // TODO: Need to compute solution hash properly for content_hash
-  // For now, the node might recompute this on validate
-  
-  return { tx, txId: Buffer.from(txId), solution };
 }
 
 export { TX_NOTE, BinaryWriter };
