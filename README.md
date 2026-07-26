@@ -6,15 +6,23 @@ Works as both a **browser extension** (Firefox/Chrome) and a **web page**.
 
 ## Features
 
-- ✅ **Create wallet** — generates keys locally, encrypts with password (AES-GCM + PBKDF2)
-- ✅ **Import from mnemonic** — restore any wallet from 24 words
-- ✅ **Password-protected** — wallet locked at rest, auto-lock after 5 min inactivity
-- ✅ **Send transactions** — builds, signs, and broadcasts entirely in the browser
-- ✅ **Balance display** — fetches from public RPC (`rpc.mmx.network`), no proxy needed
-- ✅ **Multi-wallet** — create/import/switch between multiple wallets
-- ✅ **Mnemonic backup** — 24-word recovery phrase (MMX custom BIP-0039 format)
-- ✅ **dApp integration** — `window.mmx` injector for web apps (like MetaMask's `window.ethereum`)
-- ✅ **CORS-free** — talks directly to public RPC node, no backend required
+- **Create wallet** — generates keys locally, encrypts with password (AES-GCM + PBKDF2)
+- **Import from mnemonic** — restore any wallet from 24 words
+- **Password-protected** — wallet locked at rest, auto-lock after 5 min inactivity
+- **Send transactions** — builds, signs, and broadcasts entirely in the browser
+- **Balance display** — auto-refreshes every 30 seconds from public RPC
+- **Transaction history** — paginated, with pending tx indicator and explorer links
+- **Multi-wallet** — create/import/switch between multiple wallets
+- **Address book** — auto-saves addresses you send to, name them, quick-select when sending
+- **Send confirmation** — review amount, destination, fee, and total before broadcasting
+- **Balance check** — verifies sufficient funds before send (prevents cryptic node errors)
+- **bech32m validation** — destination address checksum verified
+- **Send-to-self warning** — blocks sending to your own address (wastes fee)
+- **Dark/light theme** — toggle in header, choice persists across sessions
+- **Connection status** — network badge shows block height, green when connected
+- **Mnemonic backup** — 24-word recovery phrase (MMX custom BIP-0039 format)
+- **dApp integration** — `window.mmx` injector for web apps (deny-by-default)
+- **CORS-free** — talks directly to public RPC node, no backend required
 
 ## Quick Start
 
@@ -22,21 +30,15 @@ Works as both a **browser extension** (Firefox/Chrome) and a **web page**.
 
 1. **Clone the repo:**
    ```bash
-   git clone <your-repo-url> mmx-wallet
+   git clone https://github.com/fernandaspets/mmx-browser-wallet.git mmx-wallet
    cd mmx-wallet
    ```
 
-2. **Install dependencies** (copies `@noble` crypto libraries):
+2. **Install dependencies:**
    ```bash
-   npm install @noble/secp256k1 @noble/hashes
-   mkdir -p node_modules/@noble
-   cp -r ../node_modules/@noble/secp256k1 node_modules/@noble/secp256k1
-   cp -r ../node_modules/@noble/hashes node_modules/@noble/hashes
+   ./setup.sh
    ```
-   Or if you already have them in a parent `node_modules`:
-   ```bash
-   ln -sf ../node_modules node_modules
-   ```
+   Or manually: `npm install && cp -r node_modules/@noble .` (Firefox needs physical copies, not symlinks)
 
 3. **Load in Firefox:**
    - Go to `about:debugging#/runtime/this-firefox`
@@ -52,7 +54,7 @@ Works as both a **browser extension** (Firefox/Chrome) and a **web page**.
 ### Option B: Web Page (for development/testing)
 
 ```bash
-npm install @noble/secp256k1 @noble/hashes bech32 secp256k1
+npm install
 python3 -m http.server 5050
 ```
 
@@ -61,36 +63,30 @@ Open `http://localhost:5050/browser-wallet/wallet.html` in your browser.
 ### Run Tests
 
 ```bash
-npm test                    # run all 97 tests
+npm test                    # run all 169 tests
 npm run test:unit           # 22 unit tests
-test:regression            # 17 regression tests
-test:fuzz                   # 38 fuzz tests
-test:integration            # 20 integration tests
+npm run test:regression     # 55 regression tests
+npm run test:fuzz           # 38 fuzz tests
+npm run test:integration    # 54 integration tests
 ```
 
 | Suite | Tests | What it covers |
 |---|---|---|
 | `test-crypto.mjs` | 22 | Address derivation, mnemonic round-trip, bech32m, tx hash, signature cross-verification, encrypted storage |
-| `test-regression.mjs` | 17 | Prevents known bugs from returning: prehash trap, max_fee_amount size, bech32m fromWords, expires field, nonce entropy, account-based tx model, execute field serialization |
-| `test-fuzz.mjs` | 38 | Invalid inputs: bad mnemonics, invalid addresses, negative amounts, wrong-length keys, XSS names, large amounts, tx with memo, multi-input tx |
-| `test-integration.mjs` | 20 | Components together: create→unlock→verify, import→verify address, wrong password rejected, build→sign→verify, lock→clear→unlock, duplicate detection |
+| `test-regression.mjs` | 55 | Prevents known bugs from returning: prehash trap, max_fee_amount size, bech32m fromWords, expires field, nonce entropy, BigInt JSON, formatAmount, manifest, theme system, syntax checks |
+| `test-fuzz.mjs` | 38 | Invalid inputs: bad mnemonics, invalid addresses, negative amounts, wrong-length keys, XSS names, large amounts, multi-input tx |
+| `test-integration.mjs` | 54 | Create→unlock→verify, import→verify, wrong password, build→sign→verify, lock cycle, duplicate detection, send validation, contacts |
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│  popup.html / wallet.html (UI)               │
-│    ↓ imports                                  │
-│  wallet-app.js (app logic)                    │
-│    ├── wallet-store.js (encrypted storage)     │
-│    │     localStorage OR chrome.storage.local  │
-│    ├── mmx-node-api.js (public RPC client)    │
-│    │     https://rpc.mmx.network (CORS enabled)│
-│    ├── mmx-tx.js (transaction serialization)  │
-│    │     BinaryWriter → VNX format → SHA256   │
-│    └── wallet-app.js (key derivation inlined)    │
-│          HMAC-SHA512 KDF chain → secp256k1     │
-└─────────────────────────────────────────────┘
+popup.html / wallet.html  (UI)
+       ↓
+  wallet-app.js           (wallet logic)
+      ├── wallet-store.js     (encrypted storage: localStorage / chrome.storage)
+      ├── mmx-node-api.js    (public RPC: rpc.mmx.network)
+      ├── mmx-tx.js          (tx serialization + signing)
+      └── theme.css           (dark/light CSS variables)
 ```
 
 All crypto runs in pure JavaScript — no native bindings, no WebAssembly, no server calls.
@@ -111,7 +107,7 @@ seed (32 bytes, random or from mnemonic)
   → address = bech32m("mmx", SHA256(pubkey))
 ```
 
-Note: MMX stores hashes in little-endian (`bytes_t::from_uint` with `big_endian=false`).
+MMX stores hashes in little-endian (`bytes_t::from_uint` with `big_endian=false`).
 
 ### Transaction Signing
 
@@ -125,107 +121,81 @@ Ported from `mmx-node` `Transaction::hash_serialize()`:
 
 Key details:
 - `max_fee_amount` is `uint32` (8 bytes promoted to uint64), **not** uint128
-- `expires` is an **absolute block height**, not a relative offset
+- `expires` is an **absolute block height** (current + 100), not a relative offset
 - MMX is **account-based**: input amount = output amount, fee deducted separately
 - `@noble/secp256k1` v3 defaults to `prehash: true` — must override to `false`
+- `nonce` is a 64-bit BigInt — must call `.toString()` before `JSON.stringify`
 
 ### Public RPC
 
-The wallet talks directly to `https://rpc.mmx.network` — a public MMX node with CORS enabled (`Access-Control-Allow-Origin: *`). No API token needed.
+The wallet talks directly to `https://rpc.mmx.network` — CORS enabled, no API token.
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/balance?id=<addr>` | GET | All token balances for address |
-| `/headers?limit=1` | GET | Latest block height (for tx expires) |
+| `/balance?id=<addr>` | GET | Token balances for address |
+| `/headers?limit=1` | GET | Latest block height |
+| `/transactions?addr=<addr>&limit=N&offset=N` | GET | Transaction history |
 | `/transaction/validate` | POST | Validate a transaction |
 | `/transaction/broadcast` | POST | Broadcast a transaction |
-| `/contract?id=<addr>&field=<name>` | GET | Read contract state |
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `manifest.json` | Browser extension manifest (MV3, Firefox + Chrome) |
+| `manifest.json` | Extension manifest (MV3, Firefox + Chrome) |
 | `popup.html` / `popup.js` | Extension popup UI |
-| `wallet.html` | Full-page wallet UI (web page or extension tab) |
-| `wallet-app.js` | Main app logic (create, import, unlock, send, balance) |
-| `wallet-store.js` | Encrypted wallet storage (localStorage / chrome.storage) |
-| `wallet-app.js` | Main app logic (includes key derivation, mnemonic, tx building) |
-| `mmx-tx.js` | Transaction serialization & signing (VNX binary format) |
-| `mmx-node-api.js` | Public RPC client (rpc.mmx.network) |
-| `background.js` | Extension background script |
+| `wallet.html` | Full-page wallet UI + logic |
+| `wallet-app.js` | Wallet logic: keys, tx, balance, history, contacts |
+| `wallet-store.js` | Encrypted storage (AES-GCM), address book |
+| `mmx-tx.js` | Transaction serialization & signing (VNX binary) |
+| `mmx-node-api.js` | Public RPC client |
+| `theme.css` | CSS variables for dark/light themes |
+| `background.js` | Extension background (dApp request routing) |
 | `content.js` / `inject.js` | dApp integration (`window.mmx` API) |
-| `lib/bech32-esm.js` | bech32m encoder/decoder (ESM) |
+| `lib/bech32-esm.js` | bech32m encoder/decoder |
 | `lib/buffer-esm.js` | Buffer polyfill for browser |
-| `wordlist.txt` | BIP-0039 English wordlist (2048 words) |
-| `test-crypto.mjs` | Unit tests (22) |
-| `test-regression.mjs` | Regression tests (17) — prevents known bugs from returning |
-| `test-fuzz.mjs` | Fuzz tests (38) — invalid/malformed inputs rejected gracefully |
-| `test-integration.mjs` | Integration tests (20) — components work together |
+| `wordlist.txt` | BIP-0039 wordlist (2048 words) |
 
 ## Security
 
-- **Keys never leave the device.** All crypto happens in the browser via `@noble/secp256k1`.
-- **Wallets encrypted at rest** with AES-GCM. Password derived via PBKDF2 (600,000 iterations per OWASP).
-- **No server, no backend.** The wallet talks directly to the public MMX RPC node.
-- **No tracking, no analytics.** Pure client-side app.
+- **Keys never leave the device.** All crypto via `@noble/secp256k1` (pure JS, audited).
+- **Wallets encrypted at rest** with AES-GCM. Password via PBKDF2 (600k iterations, OWASP).
+- **No server, no backend.** Talks directly to public MMX RPC node.
 - **Auto-lock** after 5 minutes of inactivity.
+- **Password re-entry** required for mnemonic reveal and wallet deletion.
+- **dApp deny-by-default** — sites need explicit approval to read wallet address.
+- **64-bit crypto nonce** per transaction.
+- **skey zeroed** after signing.
 
 ### Security Warnings
 
 - This is MVP software. **Do not store large amounts** yet.
 - Always **save your 24-word mnemonic** — it's the only way to recover your wallet.
-- The password encrypts the wallet locally. If you forget it, the wallet is unrecoverable (but the mnemonic still works).
-- Browser extensions are "temporary" in Firefox — they unload on browser restart. The wallet data persists in `chrome.storage.local`, but you'll need to reload the extension.
+- The password encrypts the wallet locally. If forgotten, the wallet is unrecoverable (but the mnemonic still works on any MMX wallet).
+- Firefox "temporary" extensions unload on browser restart. Wallet data persists in `chrome.storage.local`, but the extension needs reloading.
 
 ## Dependencies
 
-### Dependency Analysis
-
-| What | Size | Files | What we use |
-|---|---|---|---|
-| `@noble/secp256k1` | 56 KB | 1 file | `getPublicKey`, `sign`, `verify` |
-| `@noble/hashes` (loaded) | 56 KB | 5 files | `sha256`, `sha512`, `hmac` |
-| `@noble/hashes` (full package) | 1.1 MB | 19 files | Only 5 of 19 loaded; rest never imported |
-| **Our code** | 92 KB | 10 files | Everything else |
-
-**Total external code loaded: ~112 KB.** The entire wallet including dependencies is ~200 KB.
-
-We use **6 functions** from external libraries:
-
-- `secp.getPublicKey(skey)` — derive public key
-- `secp.sign(hash, skey)` — sign transaction
-- `secp.verify(sig, hash, pubkey)` — verify signature (tests only)
-- `sha256(data)` — hash for addresses, tx ids
-- `sha512(data)` — HMAC-SHA512 for key derivation
-- `hmac(hash, key, data)` — HMAC for key derivation
-
-All external code is **pure JavaScript** — no native bindings, no WebAssembly, no binary blobs. Works in any browser. The `@noble` libraries are well-audited and widely used (Bitcoin projects, Ethereum wallets, etc.).
-
-The 1.1 MB `@noble/hashes` package includes algorithms we don't need (blake, sha3, scrypt, etc.) but the browser only loads what we import — 5 files, 56 KB. The rest is dead weight on disk but never loaded at runtime.
-
-### npm packages
-
-| Package | Purpose | Why |
+| Package | Size | What we use |
 |---|---|---|
-| `@noble/secp256k1` | ECDSA signing | Pure JS, no native bindings, browser-compatible |
-| `@noble/hashes` | SHA256, SHA512, HMAC | Pure JS, browser-compatible |
-| `bech32` (npm) | Reference for bech32m | Used in tests only; wallet uses custom `lib/bech32-esm.js` |
-| `secp256k1` (npm) | Native libsecp256k1 | Used in tests only (cross-verification) |
+| `@noble/secp256k1` | 56 KB | `getPublicKey`, `sign`, `verify` |
+| `@noble/hashes` | 56 KB | `sha256`, `sha512`, `hmac` |
+| **Total external** | **112 KB** | 6 functions |
 
-The wallet itself only needs `@noble/*` packages. The `bech32` and `secp256k1` npm packages are only used by `test-crypto.mjs` for cross-verification.
+All pure JavaScript — no native bindings, no WebAssembly. The `bech32` and `secp256k1` npm packages are used in tests only for cross-verification.
 
 ## dApp Integration
 
-The extension injects `window.mmx` into web pages, allowing dApps to request the wallet address:
+The extension injects `window.mmx` into web pages:
 
 ```javascript
-// Check if MMX wallet is available
 if (window.mmx) {
   const address = await window.mmx.getAddress();
   console.log("Wallet address:", address);
 }
 ```
+
+Requests are denied by default — the user must approve each site.
 
 ## License
 

@@ -8,7 +8,7 @@ const _browser = typeof browser !== "undefined" ? browser : chrome;
 
 // Listen for installation
 _browser.runtime.onInstalled.addListener(() => {
-  console.log("MMX Wallet installed");
+  // Background script runs on extension install/load
 });
 
 // Listen for messages from content scripts (dApp integration)

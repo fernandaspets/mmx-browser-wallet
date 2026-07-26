@@ -4,21 +4,21 @@
 
 set -e
 
-echo "📦 Installing npm dependencies..."
+echo "Installing npm dependencies..."
 npm install
 
-echo "📋 Copying @noble packages into browser-wallet/node_modules..."
+echo "Copying @noble packages into node_modules..."
 mkdir -p node_modules/@noble
 cp -r node_modules/@noble/secp256k1 node_modules/@noble/secp256k1 2>/dev/null || true
 cp -r ../../node_modules/@noble/secp256k1 node_modules/@noble/secp256k1 2>/dev/null || true
 cp -r node_modules/@noble/hashes node_modules/@noble/hashes 2>/dev/null || true
 cp -r ../../node_modules/@noble/hashes node_modules/@noble/hashes 2>/dev/null || true
 
-echo "🧪 Running tests..."
+echo "Running tests..."
 node test-crypto.mjs
 
 echo ""
-echo "✅ Setup complete!"
+echo "Setup complete!"
 echo ""
 echo "To load as browser extension:"
 echo "  Firefox: about:debugging → Load Temporary Add-on → select manifest.json"

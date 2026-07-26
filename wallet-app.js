@@ -20,7 +20,6 @@ import "./lib/buffer-esm.js";
 import * as store from "./wallet-store.js";
 import * as api from "./mmx-node-api.js";
 import { calcTxId, calcContentHash, signTx } from "./mmx-tx.js";
-
 // Configure secp256k1
 secp.hashes.sha256 = (data) => sha256(data);
 secp.hashes.hmacSha256 = (key, data) => sha256(Buffer.concat([Buffer.from(key), Buffer.from(data)]));
@@ -173,7 +172,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   // Cost: min_txfee(20000) + 1 input(10000) + 1 output(10000) + 1 solution(10000) = 50000
   const staticCost = 50000;
 
-  // Generate 64-bit random nonce using crypto (#93: was Math.random ~50 bits, now full 64 bits)
+  // 64-bit random nonce (crypto.getRandomValues, not Math.random)
   const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
   let nonce = 0n;
   for (let i = 0; i < 8; i++) nonce |= BigInt(nonceBytes[i]) << BigInt(i * 8);
@@ -249,7 +248,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   // Auto-track destination address in contacts (if not own and not already saved)
   try { await store.autoTrackAddress(toAddress, "Sent to"); } catch {}
 
-  // Clear sensitive variables from memory (#88)
+  // Clear sensitive data from memory after signing
   // skey and seed are local, but let's zero them out
   skey.fill(0);
   
@@ -342,7 +341,6 @@ export async function fetchBalance() {
   return await api.getBalance(unlockedWallet.address);
 }
 export function mmxToSat(mmxStr, decimals = 6) {
-  // Validate input (M2: reject negative/malformed)
   if (!/^(?:\d+\.?\d*|\.\d+)$/.test(mmxStr)) throw new Error("Invalid amount");
   if (parseFloat(mmxStr) < 0) throw new Error("Amount cannot be negative");
   // Parse decimal string to integer smallest units (respects token decimals)
@@ -434,7 +432,7 @@ if (typeof document !== "undefined") {
 // Re-export for UI
 export { seedToWords };
 
-// Show mnemonic for current unlocked wallet (#89: requires password re-entry)
+// Show mnemonic — requires password re-entry
 export async function showMnemonic(password) {
   if (!unlockedSeed) throw new Error("Wallet is locked");
   // Verify password before revealing mnemonic

@@ -29,7 +29,7 @@ async function storageGet(key) {
   try {
     return JSON.parse(data);
   } catch {
-    // L7: log warning when falling back to raw string (possible corruption)
+    // JSON.parse failed — return raw string as fallback
     console.warn(`[MMX Wallet] storageGet(${key}): JSON.parse failed, returning raw string`);
     return data;
   }
@@ -66,7 +66,7 @@ async function deriveKey(password, salt) {
     "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
   );
   return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 600000, hash: "SHA-256" }, // #87: 600k per OWASP
+    { name: "PBKDF2", salt, iterations: 600000, hash: "SHA-256" }, // 600k per OWASP
     keyMaterial,
     { name: "AES-GCM", length: 256 },
     false,

@@ -251,7 +251,7 @@ async function renderDashboard() {
   // Update network badge with connection status + block height
   updateNetworkBadge();
 
-  // M5: Check for pending dApp requests (badge notification)
+  // Check for pending dApp requests
   try {
     const _browser = typeof browser !== "undefined" ? browser : chrome;
     if (_browser.action && _browser.action.getBadgeText) {
@@ -473,7 +473,7 @@ document.getElementById("lockBtn").addEventListener("click", async () => {
   app.stopAutoRefresh();
   app.lockWalletPub();
   document.getElementById("unlockPassword").value = "";
-  // L8: just show unlock view directly, no need to re-init
+  // Show unlock view directly
   const walletId = await app.getActiveWalletId();
   const wallets = await app.getWalletsList();
   const wallet = wallets.find(w => w.id === walletId);
@@ -652,7 +652,7 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   if (!to || !to.startsWith("mmx1")) { setStatus("sendStatus", "Valid MMX address required", "error"); return; }
   if (!amount || parseFloat(amount) <= 0) { setStatus("sendStatus", "Valid amount required", "error"); return; }
 
-  // Validate address checksum (#95)
+  // Validate bech32m checksum
   try {
     const { bech32m } = await import("./lib/bech32-esm.js");
     const decoded = bech32m.decode(to);
@@ -722,7 +722,7 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   // Store pending send so broadcast reads from state, not DOM
   pendingSend = { to, amountSat, contractAddr, decimals, currency, feeSat };
 
-  // Show confirmation view (#90 + #100)
+  // Show confirmation view
   const feeMmx = (Number(feeSat) / 1e6).toFixed(6);
   const amountDisplay = decimals > 0 ? amount : amountSat.toString();
   const totalDisplay = currency === "MMX"
@@ -740,7 +740,7 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
 
 document.getElementById("sendBroadcastBtn").addEventListener("click", async () => {
   const btn = document.getElementById("sendBroadcastBtn");
-  // L5: rate limit — disable button for 3s to prevent double-clicks
+  // Rate limit — disable button for 3s to prevent double-clicks
   if (btn.disabled) return;
   btn.disabled = true;
   setTimeout(() => { btn.disabled = false; }, 3000);
