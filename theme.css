@@ -86,3 +86,17 @@
   border-color: var(--accent);
   background: var(--accent-bg);
 }
+
+/* === Status messages === */
+.status {
+  font-size: 12px;
+  margin-top: 8px;
+  text-align: center;
+  min-height: 16px;
+}
+.status.success {
+  color: #4ade80;
+}
+.status.error {
+  color: #f87171;
+}

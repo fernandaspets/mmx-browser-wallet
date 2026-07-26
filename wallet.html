@@ -355,6 +355,7 @@
         <input class="input mono" id="contactAddr" placeholder="mmx1..." style="font-size:12px;">
         <div style="height:8px"></div>
         <button class="btn" id="addContactBtn">➕ Add Contact</button>
+        <div class="status" id="contactStatus"></div>
         <div style="height:8px"></div>
         <button class="btn secondary" id="contactsBackBtn">← Back to Wallet</button>
       </div>
@@ -907,14 +908,21 @@
       document.getElementById("addContactBtn").onclick = async () => {
         const name = document.getElementById("contactName").value.trim();
         const addr = document.getElementById("contactAddr").value.trim();
-        if (!name || !addr || !addr.startsWith("mmx1")) return;
+        const status = document.getElementById("contactStatus");
+        if (!name) { status.textContent = "Enter a name"; status.className = "status error"; return; }
+        if (!addr || !addr.startsWith("mmx1")) { status.textContent = "Enter a valid MMX address"; status.className = "status error"; return; }
         try {
           await app.addContact(name, addr);
           document.getElementById("contactName").value = "";
           document.getElementById("contactAddr").value = "";
+          status.textContent = "Contact added!";
+          status.className = "status success";
           await renderContacts();
           await populateContactPicker();
-        } catch {}
+        } catch (e) {
+          status.textContent = e.message || "Failed to add contact";
+          status.className = "status error";
+        }
       };
       document.getElementById("sendToContact").onchange = (e) => {
         if (e.target.value) document.getElementById("sendTo").value = e.target.value;

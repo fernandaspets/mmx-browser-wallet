@@ -661,16 +661,20 @@ document.getElementById("contactsBackBtn").addEventListener("click", () => {
 document.getElementById("addContactBtn").addEventListener("click", async () => {
   const name = document.getElementById("contactName").value.trim();
   const addr = document.getElementById("contactAddr").value.trim();
-  if (!name) return;
-  if (!addr || !addr.startsWith("mmx1")) return;
+  const status = document.getElementById("contactStatus");
+  if (!name) { status.textContent = "Enter a name"; status.className = "status error"; return; }
+  if (!addr || !addr.startsWith("mmx1")) { status.textContent = "Enter a valid MMX address"; status.className = "status error"; return; }
   try {
     await app.addContact(name, addr);
     document.getElementById("contactName").value = "";
     document.getElementById("contactAddr").value = "";
+    status.textContent = "Contact added!";
+    status.className = "status success";
     await renderContacts();
     await populateContactPicker();
   } catch (e) {
-    // duplicate or error
+    status.textContent = e.message || "Failed to add contact";
+    status.className = "status error";
   }
 });
 
