@@ -404,6 +404,37 @@ console.log("\nDynamic fee estimate");
   assert("Fee is BigInt", typeof feeSat, "bigint");
 }
 
+// === REGRESSION: Theme system exists and has CSS variables (#bug: hardcoded colors) ===
+console.log("\nTheme system");
+{
+  const fs = await import("fs");
+  
+  // theme.css exists
+  assert("theme.css exists", fs.existsSync("./theme.css"), true);
+  
+  // theme.css has dark and light variables
+  const css = fs.readFileSync("./theme.css", "utf8");
+  assert("Dark theme defined", css.includes(".theme-dark"), true);
+  assert("Light theme defined", css.includes(".theme-light"), true);
+  assert("CSS variables used", css.includes("--bg:"), true);
+  assert("Theme toggle class defined", css.includes(".theme-toggle"), true);
+  
+  // manifest includes theme.css
+  const manifest = JSON.parse(fs.readFileSync("./manifest.json", "utf8"));
+  const resources = manifest.web_accessible_resources[0].resources;
+  assert("theme.css in web_accessible_resources", resources.includes("theme.css"), true);
+  
+  // HTML files reference theme.css
+  const popupHtml = fs.readFileSync("./popup.html", "utf8");
+  const walletHtml = fs.readFileSync("./wallet.html", "utf8");
+  assert("popup.html imports theme.css", popupHtml.includes("theme.css"), true);
+  assert("wallet.html imports theme.css", walletHtml.includes("theme.css"), true);
+  
+  // HTML files have theme toggle button
+  assert("popup.html has theme toggle", popupHtml.includes("themeToggle"), true);
+  assert("wallet.html has theme toggle", walletHtml.includes("themeToggle"), true);
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Regression tests: ${passed} passed, ${failed} failed`);

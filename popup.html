@@ -5,99 +5,106 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MMX Wallet</title>
   <style>
+    @import url("./theme.css");
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       width: 360px;
       min-height: 480px;
       max-height: 600px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a1a;
-      color: #e0e0e0;
+      background: var(--bg);
+      color: var(--text);
+      transition: background 0.3s, color 0.3s;
     }
     .container { padding: 16px; }
     .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px; padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
     }
-    .logo { font-size: 18px; font-weight: 700; color: #00d4ff; }
+    .logo { font-size: 17px; font-weight: 700; color: var(--accent); letter-spacing: -0.3px; }
     .network-badge {
-      font-size: 10px; padding: 2px 8px; border-radius: 10px;
-      background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.2); color: #00d4ff;
+      font-size: 10px; padding: 3px 8px; border-radius: 10px;
+      background: var(--accent-bg); border: 1px solid var(--accent-border); color: var(--accent);
+      transition: color 0.3s;
     }
     .view { display: none; }
     .view.active { display: block; }
-    h2 { font-size: 20px; margin-bottom: 8px; }
-    .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5; }
+    h2 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+    .subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
     .input-group { margin-bottom: 12px; }
-    .input-group label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+    .input-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
     input {
       width: 100%; padding: 10px 12px;
-      border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
-      background: rgba(0,0,0,0.3); color: #e0e0e0; font-size: 14px;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--bg-input); color: var(--text); font-size: 14px;
+      font-family: inherit; transition: border-color 0.2s;
+    }
+    input:focus { outline: none; border-color: var(--border-focus); }
+    input.mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+    select {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--bg-input); color: var(--text); font-size: 14px;
       font-family: inherit;
     }
-    input:focus { outline: none; border-color: #00d4ff; }
-    input.mono { font-family: monospace; font-size: 12px; }
+    select:focus { outline: none; border-color: var(--border-focus); }
     .btn {
-      width: 100%; padding: 10px; border: none; border-radius: 8px;
+      width: 100%; padding: 10px; border: none; border-radius: var(--radius);
       font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
     }
-    .btn-primary { background: linear-gradient(135deg, #00d4ff, #0078d4); color: white; }
-    .btn-primary:hover { opacity: 0.9; }
-    .btn-secondary { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e0e0e0; }
-    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
-    .btn-danger { background: linear-gradient(135deg, #f44336, #c62828); color: white; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--bg-card); border: 1px solid var(--border); color: var(--text); }
+    .btn-secondary:hover { background: var(--bg-elev); border-color: var(--border-hover); }
+    .btn-danger { background: var(--danger); color: white; }
     .btn-row { display: flex; gap: 8px; margin-top: 12px; }
     .btn-row .btn { margin-top: 0; }
     .balance-card {
-      background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(0,119,212,0.05));
-      border: 1px solid rgba(0,212,255,0.2); border-radius: 12px;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
       padding: 16px; margin-bottom: 12px; text-align: center;
     }
-    .balance-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-    .balance-value { font-size: 28px; font-weight: 700; color: #00d4ff; }
-    .balance-symbol { font-size: 14px; color: #888; }
+    .balance-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
     .balance-row { display: flex; justify-content: space-between; padding: 6px 0; }
+    .balance-symbol { font-weight: 600; font-size: 14px; color: var(--text); }
+    .balance-amount { font-family: 'SF Mono', monospace; font-size: 14px; color: var(--success); }
     .address-card {
-      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 8px; padding: 10px; margin-bottom: 12px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px; margin-bottom: 12px;
     }
-    .address-label { font-size: 11px; color: #888; margin-bottom: 4px; }
-    .address-value { font-family: monospace; font-size: 12px; color: #e0e0e0; word-break: break-all; cursor: pointer; }
-    .address-value:hover { color: #00d4ff; }
-    .copy-feedback { font-size: 11px; color: #4caf50; margin-top: 4px; display: none; }
+    .address-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .address-value { font-family: 'SF Mono', monospace; font-size: 12px; color: var(--text); word-break: break-all; cursor: pointer; }
+    .address-value:hover { color: var(--accent); }
+    .copy-feedback { font-size: 11px; color: var(--success); margin-top: 4px; display: none; }
     .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
     .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 8px; }
-    .status { font-size: 12px; color: #888; text-align: center; min-height: 16px; }
-    .status.error { color: #f44336; }
-    .status.success { color: #4caf50; }
-    .back-btn { background: none; border: none; color: #888; font-size: 12px; cursor: pointer; margin-bottom: 12px; }
-    .back-btn:hover { color: #00d4ff; }
+    .status { font-size: 12px; color: var(--text-muted); text-align: center; min-height: 16px; }
+    .status.error { color: var(--danger); }
+    .status.success { color: var(--success); }
+    .back-btn { background: none; border: none; color: var(--text-muted); font-size: 12px; cursor: pointer; margin-bottom: 12px; }
+    .back-btn:hover { color: var(--accent); }
     .seed-warning {
-      background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.3);
-      border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 12px; line-height: 1.5;
+      background: var(--warning-bg); border: 1px solid var(--warning-border);
+      border-radius: var(--radius); padding: 12px; margin-bottom: 16px; font-size: 12px; line-height: 1.5;
     }
     .seed-display {
-      font-family: monospace; font-size: 13px; color: #4caf50; word-break: break-all;
-      margin: 8px 0; padding: 12px; background: rgba(76,175,80,0.05);
-      border: 1px solid rgba(76,175,80,0.2); border-radius: 6px; line-height: 1.8; text-align: center;
+      font-family: 'SF Mono', monospace; font-size: 13px; color: var(--success); word-break: break-all;
+      margin: 8px 0; padding: 12px; background: var(--success-bg);
+      border: 1px solid var(--success-border); border-radius: 6px; line-height: 1.8; text-align: center;
     }
     .wallet-item {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 14px; background: rgba(255,255,255,0.02);
-      border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; margin-bottom: 8px; cursor: pointer;
+      padding: 12px 14px; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; cursor: pointer;
+      transition: border-color 0.2s;
     }
-    .wallet-item:hover { border-color: rgba(0,212,255,0.3); }
-    .wallet-item.active { border-color: #00d4ff; background: rgba(0,212,255,0.05); }
-    .wallet-name { font-weight: 600; font-size: 14px; }
-    .wallet-addr { font-family: monospace; font-size: 11px; color: #888; margin-top: 2px; }
+    .wallet-item:hover { border-color: var(--accent-border); }
+    .wallet-item.active { border-color: var(--accent); background: var(--accent-bg); }
+    .wallet-name { font-weight: 600; font-size: 14px; color: var(--text); }
+    .wallet-addr { font-family: 'SF Mono', monospace; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
     .tx-link {
-      font-family: monospace; font-size: 11px; padding: 6px; margin-top: 8px;
-      background: rgba(0,212,255,0.05); border-radius: 4px; word-break: break-all;
+      font-family: 'SF Mono', monospace; font-size: 11px; padding: 6px; margin-top: 8px;
+      background: var(--accent-bg); border-radius: 4px; word-break: break-all;
     }
   </style>
 </head>
@@ -105,7 +112,10 @@
   <div class="container">
     <div class="header">
       <div class="logo">⚡ MMX Wallet</div>
-      <div class="network-badge" id="networkBadge">mainnet · connecting...</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="network-badge" id="networkBadge">mainnet · connecting...</div>
+        <button class="theme-toggle" id="themeToggle">🌙</button>
+      </div>
     </div>
 
     <!-- Onboarding (no wallets) -->

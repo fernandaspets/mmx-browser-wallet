@@ -5,15 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MMX Wallet</title>
   <style>
+    @import url("./theme.css");
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0a0a1a;
-      color: #e0e0e0;
+      background: var(--bg);
+      color: var(--text);
       display: flex;
       justify-content: center;
       min-height: 100vh;
       padding: 20px;
+      transition: background 0.3s, color 0.3s;
     }
     .app {
       width: 100%;
@@ -26,153 +28,162 @@
       padding: 16px 0;
       margin-bottom: 8px;
     }
-    .header h1 { font-size: 20px; color: #00d4ff; }
+    .header h1 { font-size: 20px; color: var(--accent); font-weight: 700; letter-spacing: -0.3px; }
     .network-badge {
       font-size: 11px;
       padding: 4px 8px;
-      background: rgba(0,212,255,0.1);
-      border: 1px solid rgba(0,212,255,0.2);
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
       border-radius: 6px;
-      color: #00d4ff;
+      color: var(--accent);
+      transition: color 0.3s;
     }
     .card {
       padding: 24px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
       margin-bottom: 16px;
+      transition: background 0.3s, border-color 0.3s;
     }
-    .label { font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
     .input {
       width: 100%;
       padding: 12px 14px;
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 8px;
-      color: #e0e0e0;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
       font-size: 14px;
       font-family: inherit;
       outline: none;
       transition: border-color 0.2s;
     }
-    .input:focus { border-color: #00d4ff; }
-    .input.mono { font-family: monospace; font-size: 13px; }
-    .input::placeholder { color: #555; }
+    .input:focus { border-color: var(--border-focus); }
+    .input.mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; }
+    .input::placeholder { color: var(--text-dim); }
     .btn {
       width: 100%;
       padding: 12px;
       border: none;
-      border-radius: 8px;
+      border-radius: var(--radius);
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      background: linear-gradient(135deg, #00d4ff, #0078d4);
+      background: var(--accent);
       color: white;
       margin-top: 12px;
-      transition: opacity 0.2s;
+      transition: background 0.2s;
     }
-    .btn:hover { opacity: 0.9; }
+    .btn:hover { background: var(--accent-hover); }
     .btn:disabled { opacity: 0.4; cursor: wait; }
     .btn.secondary {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
     }
+    .btn.secondary:hover { background: var(--bg-elev); border-color: var(--border-hover); }
     .btn.danger {
-      background: linear-gradient(135deg, #f44336, #c62828);
+      background: var(--danger);
     }
     .btn-row { display: flex; gap: 8px; margin-top: 12px; }
     .btn-row .btn { margin-top: 0; }
     .address-box {
-      font-family: monospace;
+      font-family: 'SF Mono', 'Fira Code', monospace;
       font-size: 13px;
       padding: 10px 12px;
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       word-break: break-all;
       cursor: pointer;
       text-align: center;
+      color: var(--text);
+      transition: border-color 0.2s;
     }
-    .address-box:hover { border-color: rgba(0,212,255,0.3); }
+    .address-box:hover { border-color: var(--accent-border); }
     .balance-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 10px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--border);
     }
     .balance-row:last-child { border-bottom: none; }
-    .balance-symbol { font-weight: 600; font-size: 15px; }
-    .balance-amount { font-family: monospace; font-size: 15px; color: #4caf50; }
-    .balance-amount.pending { color: #ff9800; }
-    .status { font-size: 13px; color: #888; min-height: 24px; padding: 8px 0; }
-    .status.success { color: #4caf50; }
-    .status.error { color: #f44336; }
-    .status.loading { color: #ff9800; }
+    .balance-symbol { font-weight: 600; font-size: 15px; color: var(--text); }
+    .balance-amount { font-family: 'SF Mono', monospace; font-size: 15px; color: var(--success); }
+    .balance-amount.pending { color: var(--warning); }
+    .status { font-size: 13px; color: var(--text-muted); min-height: 24px; padding: 8px 0; }
+    .status.success { color: var(--success); }
+    .status.error { color: var(--danger); }
+    .status.loading { color: var(--warning); }
     .mnemonic-box {
       font-size: 15px;
-      color: #4caf50;
+      color: var(--success);
       padding: 16px;
-      background: rgba(76,175,80,0.05);
-      border: 1px solid rgba(76,175,80,0.2);
-      border-radius: 8px;
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      border-radius: var(--radius);
       line-height: 1.8;
       text-align: center;
       margin: 8px 0;
     }
     .warning {
-      background: rgba(255,152,0,0.08);
-      border: 1px solid rgba(255,152,0,0.2);
-      border-radius: 8px;
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      border-radius: var(--radius);
       padding: 12px;
       font-size: 12px;
       line-height: 1.5;
       margin-bottom: 16px;
     }
-    .copy-hint { font-size: 11px; color: #888; margin-top: 4px; text-align: center; }
+    .copy-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; text-align: center; }
     .wallet-list-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 12px 14px;
-      background: rgba(255,255,255,0.02);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       margin-bottom: 8px;
       cursor: pointer;
       transition: border-color 0.2s;
     }
-    .wallet-list-item:hover { border-color: rgba(0,212,255,0.3); }
-    .wallet-list-item.active { border-color: #00d4ff; background: rgba(0,212,255,0.05); }
-    .wallet-name { font-weight: 600; font-size: 14px; }
-    .wallet-addr { font-family: monospace; font-size: 11px; color: #888; margin-top: 2px; }
+    .wallet-list-item:hover { border-color: var(--accent-border); }
+    .wallet-list-item.active { border-color: var(--accent); background: var(--accent-bg); }
+    .wallet-name { font-weight: 600; font-size: 14px; color: var(--text); }
+    .wallet-addr { font-family: 'SF Mono', monospace; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
     .hidden { display: none !important; }
-    .link { color: #00d4ff; cursor: pointer; text-decoration: underline; font-size: 13px; }
+    .link { color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 13px; }
     .tx-hash {
-      font-family: monospace;
+      font-family: 'SF Mono', monospace;
       font-size: 12px;
       padding: 8px 10px;
-      background: rgba(0,212,255,0.05);
-      border: 1px solid rgba(0,212,255,0.15);
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
       border-radius: 6px;
       word-break: break-all;
       margin-top: 8px;
     }
     select.input {
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b8fa3' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 12px center;
       padding-right: 32px;
     }
-    select.input option { background: #1a1a2a; }
+    select.input option { background: var(--select-bg); color: var(--text); }
   </style>
 </head>
 <body>
   <div class="app">
     <div class="header">
       <h1>⚡ MMX Wallet</h1>
-      <span class="network-badge" id="networkBadge">mainnet · connecting...</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="network-badge" id="networkBadge">mainnet · connecting...</span>
+        <button class="theme-toggle" id="themeToggle">🌙</button>
+      </div>
     </div>
     <div class="status" id="status">Loading...</div>
 
@@ -385,6 +396,21 @@
         el.style.borderColor = "#4caf50";
         setTimeout(() => el.style.borderColor = orig, 1000);
       } catch {}
+    };
+
+    // --- Theme toggle ---
+    function applyTheme(theme) {
+      document.body.className = "theme-" + theme;
+      const btn = document.getElementById("themeToggle");
+      if (btn) btn.textContent = theme === "dark" ? "🌙" : "☀️";
+    }
+    const savedTheme = localStorage.getItem("mmx_theme") || "dark";
+    applyTheme(savedTheme);
+    document.getElementById("themeToggle").onclick = () => {
+      const isDark = document.body.className === "theme-dark";
+      const newTheme = isDark ? "light" : "dark";
+      applyTheme(newTheme);
+      localStorage.setItem("mmx_theme", newTheme);
     };
 
     // --- Load ---

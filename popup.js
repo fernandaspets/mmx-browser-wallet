@@ -7,6 +7,43 @@
 import * as app from "./wallet-app.js";
 import * as api from "./mmx-node-api.js";
 
+// --- Theme toggle ---
+function applyTheme(theme) {
+  document.body.className = "theme-" + theme;
+  const btn = document.getElementById("themeToggle");
+  if (btn) btn.textContent = theme === "dark" ? "🌙" : "☀️";
+}
+
+// Load saved theme
+const _browser = typeof browser !== "undefined" ? browser : chrome;
+(async () => {
+  try {
+    let saved;
+    if (_browser.storage) {
+      const result = await _browser.storage.local.get("mmx_theme");
+      saved = result.mmx_theme;
+    } else {
+      saved = localStorage.getItem("mmx_theme");
+    }
+    applyTheme(saved || "dark");
+  } catch { applyTheme("dark"); }
+})();
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("themeToggle");
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      const isDark = document.body.className === "theme-dark";
+      const newTheme = isDark ? "light" : "dark";
+      applyTheme(newTheme);
+      try {
+        if (_browser.storage) await _browser.storage.local.set({ mmx_theme: newTheme });
+        else localStorage.setItem("mmx_theme", newTheme);
+      } catch {}
+    });
+  }
+});
+
 // --- State ---
 let lastBalanceHash = null;
 let txOffset = 0;

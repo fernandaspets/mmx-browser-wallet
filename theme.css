@@ -1,0 +1,88 @@
+/**
+ * theme.css — Shared theme system for MMX Browser Wallet.
+ * CSS variables for dark (default) and light themes.
+ * Toggle by setting body class: "theme-dark" or "theme-light".
+ * Persists choice in localStorage key "mmx_theme".
+ */
+
+/* === Dark theme (default) === */
+.theme-dark {
+  --bg: #0d0f1a;
+  --bg-elev: #141826;
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --bg-input: rgba(0, 0, 0, 0.3);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.15);
+  --border-focus: #6c8aff;
+  --text: #e4e6ef;
+  --text-muted: #8b8fa3;
+  --text-dim: #5a5e6e;
+  --accent: #6c8aff;
+  --accent-bg: rgba(108, 138, 255, 0.1);
+  --accent-border: rgba(108, 138, 255, 0.2);
+  --accent-hover: #5a7aef;
+  --success: #4caf50;
+  --success-bg: rgba(76, 175, 80, 0.08);
+  --success-border: rgba(76, 175, 80, 0.2);
+  --warning: #ffa726;
+  --warning-bg: rgba(255, 167, 38, 0.08);
+  --warning-border: rgba(255, 167, 38, 0.2);
+  --danger: #ef5350;
+  --danger-bg: rgba(239, 83, 80, 0.08);
+  --danger-border: rgba(239, 83, 80, 0.2);
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --radius: 10px;
+  --radius-lg: 14px;
+  --select-bg: #1a1d2e;
+}
+
+/* === Light theme === */
+.theme-light {
+  --bg: #f7f8fa;
+  --bg-elev: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f0f1f5;
+  --border: #e2e4ea;
+  --border-hover: #c8ccd6;
+  --border-focus: #6c8aff;
+  --text: #1a1d2e;
+  --text-muted: #6b6f80;
+  --text-dim: #9a9eb0;
+  --accent: #5a7aef;
+  --accent-bg: rgba(108, 138, 255, 0.08);
+  --accent-border: rgba(108, 138, 255, 0.15);
+  --accent-hover: #4a6adf;
+  --success: #2e8b3e;
+  --success-bg: rgba(46, 139, 62, 0.06);
+  --success-border: rgba(46, 139, 62, 0.15);
+  --warning: #e8911a;
+  --warning-bg: rgba(232, 145, 26, 0.06);
+  --warning-border: rgba(232, 145, 26, 0.15);
+  --danger: #dc4444;
+  --danger-bg: rgba(220, 68, 68, 0.05);
+  --danger-border: rgba(220, 68, 68, 0.15);
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  --radius: 10px;
+  --radius-lg: 14px;
+  --select-bg: #ffffff;
+}
+
+/* === Theme toggle button === */
+.theme-toggle {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+.theme-toggle:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
