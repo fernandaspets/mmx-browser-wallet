@@ -322,7 +322,7 @@ document.getElementById("reauthConfirmBtn").addEventListener("click", async () =
   if (!pwd) { setStatus("reauthStatus", "Password required", "error"); return; }
   try {
     if (reauthAction === 'mnemonic') {
-      const mnemonic = app.showMnemonic(pwd);
+      const mnemonic = await app.showMnemonic(pwd);
       document.getElementById("seedDisplay").textContent = mnemonic.join("  ");
       document.getElementById("newAddress").textContent = app.getUnlockedWallet().address;
       showView("seedView");
