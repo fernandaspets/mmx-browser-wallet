@@ -281,18 +281,31 @@ async function renderDashboard() {
     console.error("Balance error:", e);
   }
 
-  // Fetch transaction history (first page)
+  // Fetch transaction history (first page, with retry)
   txOffset = 0;
   try {
     const txs = await app.getTransactionHistory(10, 0);
     allTxs = txs;
     renderTxHistory(txs);
-    await populateContactPicker();
     // Show load more if we got a full page
     document.getElementById("txLoadMore").style.display = txs.length >= 10 ? "block" : "none";
-  } catch {
-    document.getElementById("txHistory").innerHTML = '<div style="color:#888;font-size:11px;text-align:center;">Failed to load history</div>';
+  } catch(e) {
+    console.error("TX history error:", e.message);
+    // Retry once after 2s
+    setTimeout(async () => {
+      try {
+        const txs = await app.getTransactionHistory(10, 0);
+        allTxs = txs;
+        renderTxHistory(txs);
+        document.getElementById("txLoadMore").style.display = txs.length >= 10 ? "block" : "none";
+      } catch(e2) {
+        document.getElementById("txHistory").innerHTML = '<div style="color:#888;font-size:11px;text-align:center;">Failed to load history</div>';
+        console.error("TX history retry failed:", e2.message);
+      }
+    }, 2000);
   }
+  // Populate contact picker (separate so it works even if tx history fails)
+  try { await populateContactPicker(); } catch {}
 }
 
 function renderBalances(balances) {
