@@ -378,8 +378,18 @@ document.getElementById("sendConfirmBtn").addEventListener("click", async () => 
   setStatus("sendStatus", "Building & signing...", "");
 
   try {
-    const amountSat = app.mmxToSat(amount);
-    const txid = await app.sendTransaction(to, amountSat, null);
+    const amountSat = app.mmxToSat(amount, decimals);
+    // Pass currency contract address (null = MMX native, TRAIL contract for TRAIL)
+    const currency = document.getElementById("sendCurrency").value;
+    let contractAddr = null;
+    let decimals = 6;
+    if (currency !== "MMX") {
+      // Look up the contract address and decimals from balances
+      const balances = await app.fetchBalance();
+      const token = balances.find(b => b.symbol === currency);
+      if (token) { contractAddr = token.contract; decimals = token.decimals || 0; }
+    }
+    const txid = await app.sendTransaction(to, amountSat, contractAddr);
     setStatus("sendStatus", "✅ Sent!", "success");
     document.getElementById("sendTo").value = "";
     document.getElementById("sendAmount").value = "";

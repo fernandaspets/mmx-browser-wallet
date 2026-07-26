@@ -312,11 +312,11 @@ export async function fetchBalance() {
   if (!unlockedWallet) return [];
   return await api.getBalance(unlockedWallet.address);
 }
-export function mmxToSat(mmxStr) {
-  // Parse decimal string to integer satoshis
+export function mmxToSat(mmxStr, decimals = 6) {
+  // Parse decimal string to integer smallest units (respects token decimals)
   const [whole, frac = ""] = mmxStr.split(".");
-  const fracPadded = (frac + "000000").substring(0, 6);
-  return BigInt(whole) * 1000000n + BigInt(fracPadded || "0");
+  const fracPadded = (frac + "0".repeat(decimals)).substring(0, decimals);
+  return BigInt(whole) * (10n ** BigInt(decimals)) + BigInt(fracPadded || "0");
 }
 
 export function satToMmx(satStr) {
