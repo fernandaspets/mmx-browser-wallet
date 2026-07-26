@@ -614,7 +614,7 @@
         }
         // Delete button handlers
         for (const btn of document.querySelectorAll(".btn-delete-wallet")) {
-          btn.onclick = (e) => {
+          btn.onclick = async (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
             const wallets = await app.getWalletsList();
