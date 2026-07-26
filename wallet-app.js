@@ -146,7 +146,7 @@ function formatAmount(raw, decimals) {
   return fracStr ? `${whole}.${fracStr}` : whole.toString();
 }
 
-export async function sendTransaction(toAddress, amountSat, currencyContract) {
+export async function sendTransaction(toAddress, amountSat, currencyContract, memo = null) {
   if (!unlockedSeed) throw new Error("Wallet is locked");
 
   // Derive keys from unlocked seed
@@ -193,7 +193,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
       address: fromAddrBytes,
       contract: contractBytes,
       amount: uint128LE(amountSat),
-      memo: null,
+      memo: memo || null,
       solution: 0,
       flags: 0,
     }],
@@ -201,7 +201,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
       address: dstBytes,
       contract: contractBytes,
       amount: uint128LE(amountSat),
-      memo: null,
+      memo: memo || null,
     }],
     execute: [],
     deploy: null,

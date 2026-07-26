@@ -460,6 +460,39 @@ console.log("\n10. Send validation checks");
   assert("Exact balance passes (no leftover)", checkSufficient(60, 50, 10), true);
 }
 
+// === INTEGRATION: Memo field in transaction ===
+console.log("\n11. Transaction memo field");
+{
+  const seed = Buffer.from(crypto.getRandomValues(new Uint8Array(32)));
+  const { skey, pubkey, addrHash } = deriveKeypair(seed, "", 0, 0);
+  const fromAddrBytes = Array.from(addrHash);
+  const dstBytes = Array.from(addrHash); // send to self for testing
+
+  // Build tx WITHOUT memo
+  const txNoMemo = {
+    version: 0, expires: 4794000, fee_ratio: 1024, max_fee_amount: 5040000,
+    note: "TRANSFER", nonce: "12345", network: "mainnet",
+    sender: fromAddrBytes,
+    inputs: [{ address: fromAddrBytes, contract: new Array(32).fill(0), amount: new Array(16).fill(0), memo: null, solution: 0, flags: 0 }],
+    outputs: [{ address: dstBytes, contract: new Array(32).fill(0), amount: new Array(16).fill(0), memo: null }],
+    execute: [], deploy: null, solutions: [], static_cost: 50000,
+  };
+
+  // Build tx WITH memo
+  const txWithMemo = { ...txNoMemo,
+    inputs: [{ address: fromAddrBytes, contract: new Array(32).fill(0), amount: new Array(16).fill(0), memo: "test memo", solution: 0, flags: 0 }],
+    outputs: [{ address: dstBytes, contract: new Array(32).fill(0), amount: new Array(16).fill(0), memo: "test memo" }],
+  };
+
+  const hashNoMemo = calcTxId(txNoMemo);
+  const hashWithMemo = calcTxId(txWithMemo);
+  assert("Tx with memo has different hash than without", !hashNoMemo.equals(hashWithMemo), true);
+  assert("Tx with memo produces 32-byte hash", hashWithMemo.length, 32);
+
+  // Verify memo is optional (null = no memo bytes serialized)
+  assert("Tx without memo is deterministic", calcTxId(txNoMemo).equals(calcTxId(txNoMemo)), true);
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Integration tests: ${passed} passed, ${failed} failed`);
