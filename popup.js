@@ -64,6 +64,20 @@ async function checkPendingDapp() {
   const _br = typeof browser !== "undefined" ? browser : chrome;
   if (!_br.storage) return;
   
+  // Don't show dApp requests if wallet is not unlocked yet
+  if (!app.isUnlocked()) {
+    document.getElementById("dappNotice").style.display = "none";
+    document.getElementById("dappSendNotice").style.display = "none";
+    _br.storage.local.get(["mmx_pending_dapp", "mmx_pending_send"], (result) => {
+      if (result.mmx_pending_dapp || result.mmx_pending_send) {
+        // Keep badge so user knows there's a pending request
+        _br.action.setBadgeText({ text: "!" });
+        _br.action.setBadgeBackgroundColor({ color: "#ffa726" });
+      }
+    });
+    return;
+  }
+  
   // Check for pending address request
   _br.storage.local.get("mmx_pending_dapp", (result) => {
     const pending = result.mmx_pending_dapp;
@@ -249,6 +263,8 @@ document.getElementById("createBtn").addEventListener("click", async () => {
     document.getElementById("newAddress").textContent = wallet ? wallet.address : "";
     showView("seedView");
     setStatus("createStatus", "Wallet created!", "success");
+    // Check for pending dApp requests now that wallet is created
+    try { setTimeout(() => checkPendingDapp(), 100); } catch {}
   } catch (e) {
     setStatus("createStatus", "Error: " + e.message, "error");
     console.error("Create wallet error:", e);
@@ -281,6 +297,7 @@ document.getElementById("importBtn").addEventListener("click", async () => {
     await app.importWallet(name, words, pwd);
     await renderDashboard();
     setStatus("importStatus", "Wallet imported!", "success");
+    try { checkPendingDapp(); } catch {}
   } catch (e) {
     setStatus("importStatus", "Error: " + e.message, "error");
     console.error("Import error:", e);
@@ -319,6 +336,8 @@ document.getElementById("unlockBtn").addEventListener("click", async () => {
     await app.unlockWallet(walletId, pwd);
     await renderDashboard();
     setStatus("unlockStatus", "Unlocked", "success");
+    // Check for pending dApp requests now that wallet is unlocked
+    try { checkPendingDapp(); } catch {}
   } catch (e) {
     setStatus("unlockStatus", "Wrong password", "error");
     console.error("Unlock error:", e);
