@@ -145,13 +145,13 @@ async function checkPendingDapp() {
             if (token) { contractAddr = token.contract; decimals = token.decimals || 0; }
           }
           const amountSat = app.mmxToSat(pending.params.amount, decimals);
-          const txid = await app.sendTransaction(pending.params.to, amountSat, contractAddr);
-          _br.storage.local.set({ mmx_send_result: { id: pending.id, response: { txid } } });
+          const sendResult = await app.sendTransaction(pending.params.to, amountSat, contractAddr);
+          _br.storage.local.set({ mmx_send_result: { id: pending.id, response: { txid: sendResult.txid } } });
           sendNotice.style.display = "none";
           _br.storage.local.remove("mmx_pending_send");
           _br.action.setBadgeText({ text: "" });
           showView("dashboardView");
-          setStatus("dashStatus", `dApp payment sent! TXID: ${txid.substring(0, 20)}...`, "success");
+          setStatus("dashStatus", `dApp payment sent! TXID: ${sendResult.txid.substring(0, 20)}... Fee: ${sendResult.fee_value} MMX`, "success");
           setTimeout(() => renderDashboard(), 2000);
         } catch (e) {
           document.getElementById("dappSendStatus").textContent = "Error: " + e.message;
@@ -939,15 +939,15 @@ document.getElementById("sendBroadcastBtn").addEventListener("click", async () =
   setStatus("sendConfirmStatus", "Building & signing...", "");
 
   try {
-    const txid = await app.sendTransaction(pendingSend.to, pendingSend.amountSat, pendingSend.contractAddr);
-    setStatus("sendConfirmStatus", "✅ Sent!", "success");
+    const sendResult = await app.sendTransaction(pendingSend.to, pendingSend.amountSat, pendingSend.contractAddr);
+    setStatus("sendConfirmStatus", `✅ Sent! Fee: ${sendResult.fee_value} MMX`, "success");
     document.getElementById("sendTo").value = "";
     document.getElementById("sendAmount").value = "";
     pendingSend = null;
 
     const txLink = document.createElement("div");
     txLink.className = "tx-link";
-    txLink.innerHTML = `<a href="https://explore.mmx.network/#/explore/transaction/${txid}" target="_blank" style="color:#00d4ff;text-decoration:none;">${txid.substring(0,20)}...↗</a>`;
+    txLink.innerHTML = `<a href="https://explore.mmx.network/#/explore/transaction/${sendResult.txid}" target="_blank" style="color:#00d4ff;text-decoration:none;">${sendResult.txid.substring(0,20)}...↗</a>`;
     document.getElementById("sendConfirmStatus").appendChild(txLink);
 
     setTimeout(() => renderDashboard(), 3000);

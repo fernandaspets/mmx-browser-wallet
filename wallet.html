@@ -708,11 +708,11 @@
         btn.disabled = true;
         document.getElementById("sendConfirmStatus").textContent = "Sending...";
         try {
-          const txid = await app.sendTransaction(pendingSend.toAddr, pendingSend.amountSat, pendingSend.contractAddr);
+          const sendResult = await app.sendTransaction(pendingSend.toAddr, pendingSend.amountSat, pendingSend.contractAddr);
           document.getElementById("sendConfirmCard").style.display = "none";
           document.getElementById("sendTo").value = "";
           document.getElementById("sendAmount").value = "";
-          setStatus(`✅ Sent! TXID: ${txid}`, "success");
+          setStatus(`✅ Sent! TXID: ${sendResult.txid} Fee: ${sendResult.fee_value} MMX`, "success");
           await refreshBalance();
           // Fetch updated tx history (new tx will show as pending)
           try {

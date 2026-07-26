@@ -66,17 +66,33 @@ export async function getHeight() {
 // Estimate fee for a standard transfer (1 in, 1 out, 1 solution)
 // Fee = static_cost in satoshis (node charges this directly)
 // static_cost = min_txfee(20000) + 1in(10000) + 1out(10000) + 1sol(10000) = 50000
+/**
+ * Fee estimate for UI display before sending.
+ *
+ * The ACTUAL fee is determined by the node during validation and returned
+ * in exec_result.total_fee. For the local node wallet API, you can get it
+ * by calling send() with auto_send:false (dry-run) — the response includes
+ * exec_result.total_fee (satoshis) and total_fee_value (MMX units, /wapi only).
+ *
+ * For the public RPC, /transaction/validate returns exec_result with total_fee.
+ *
+ * For a standard transfer (1 input, 1 output, 1 PubKey solution):
+ *   static_cost = min_txfee(20000) + input(10000) + output(10000) + solution(10000) = 50000 sat
+ * This is what the node charges when max_fee_amount >= 50000.
+ *
+ * This function returns the static estimate for UI preview. The real fee
+ * is confirmed after validation in sendTransaction().
+ */
 export async function getFeeEstimate() {
-  // Fee is deterministic for standard transfers: 50000 sat = 0.05 MMX
-  // Could change with protocol upgrades, so we fetch average_txfee to verify
   try {
     const header = await getHeader();
-    // If average_txfee is 0, network is in a special mode
+    // If average_txfee is 0, no transactions in recent blocks (not "free mode")
+    // The fee is still 50000 sat — average_txfee just reflects block content
     if (header?.average_txfee?.amount && BigInt(header.average_txfee.amount) === 0n) {
-      return 0n; // free transactions
+      return 50000n; // still 50000, average_txfee=0 just means empty blocks
     }
   } catch {}
-  return 50000n; // standard transfer fee
+  return 50000n; // standard transfer: 20000 + 10000 + 10000 + 10000
 }
 
 // --- Transaction validate/broadcast ---

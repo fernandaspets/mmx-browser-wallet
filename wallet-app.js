@@ -241,7 +241,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
     content_hash: Array.from(contentHash),
   };
 
-  // Validate
+  // Validate — the node returns the actual fee in exec_result.total_fee
   const result = await api.validateTransaction(txObj);
   if (result.did_fail) throw new Error("Transaction validation failed: " + (result.error || "unknown"));
 
@@ -255,7 +255,11 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   // skey and seed are local, but let's zero them out
   skey.fill(0);
   
-  return Buffer.from(txId).toString("hex").toUpperCase();
+  return {
+    txid: Buffer.from(txId).toString("hex").toUpperCase(),
+    fee: result.total_fee || 50000,        // actual fee in satoshis
+    fee_value: (result.total_fee || 50000) / 1e6,  // human-readable MMX
+  };
 }
 
 // --- Public API for UI ---
