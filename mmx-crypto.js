@@ -14,10 +14,10 @@
  * Dependencies: @noble/secp256k1, @noble/hashes, bech32
  */
 
-import * as secp from "@noble/secp256k1";
-import { sha256, sha512 } from "@noble/hashes/sha2.js";
-import { hmac } from "@noble/hashes/hmac.js";
-import { bech32m } from "bech32";
+import * as secp from "/node_modules/@noble/secp256k1/index.js";
+import { sha256, sha512 } from "/node_modules/@noble/hashes/sha2.js";
+import { hmac } from "/node_modules/@noble/hashes/hmac.js";
+import { bech32m } from "./lib/bech32-esm.js";
 
 // Configure secp256k1 with hash functions (v3: utils is frozen, use hashes instead)
 secp.hashes.sha256 = (data) => sha256(data);

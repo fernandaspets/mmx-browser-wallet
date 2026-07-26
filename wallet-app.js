@@ -11,9 +11,10 @@
  *   - Auto-lock after inactivity
  */
 
-import * as secp from "@noble/secp256k1/index.js";
-import { sha256, sha512 } from "@noble/hashes/sha2.js";
-import { hmac } from "@noble/hashes/hmac.js";
+// Browser imports need full paths (bare specifiers don't work in browsers)
+import * as secp from "/node_modules/@noble/secp256k1/index.js";
+import { sha256, sha512 } from "/node_modules/@noble/hashes/sha2.js";
+import { hmac } from "/node_modules/@noble/hashes/hmac.js";
 import { bech32m } from "./lib/bech32-esm.js";
 import "./lib/buffer-esm.js";
 import * as store from "./wallet-store.js";
