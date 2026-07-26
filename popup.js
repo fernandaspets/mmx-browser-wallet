@@ -484,6 +484,7 @@ document.getElementById("copyReceiveBtn").addEventListener("click", async () => 
 });
 
 // --- Send (review step) ---
+let pendingSend = null; // stores { to, amountSat, contractAddr, decimals, currency }
 
 document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   const to = document.getElementById("sendTo").value.trim();
@@ -522,9 +523,46 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
     }
   }
 
-  // Show confirmation view (#90 + #100)
+  // Send-to-self warning
+  const myAddr = app.getUnlockedWallet()?.address;
+  if (to === myAddr) {
+    setStatus("sendStatus", "⚠️ That's your own address — sending to yourself just wastes a fee", "error"); return;
+  }
+
   const amountSat = app.mmxToSat(amount, decimals);
   const feeSat = 50000; // standard transfer fee
+
+  // Balance check: verify sufficient funds
+  try {
+    const balances = await app.fetchBalance();
+    const token = balances.find(b => b.symbol === currency);
+    const spendable = token ? BigInt(Math.floor(token.spendable ?? 0)) : 0n;
+    if (currency === "MMX") {
+      // Need amount + fee in MMX
+      if (spendable < amountSat + BigInt(feeSat)) {
+        const have = (Number(spendable) / 1e6).toFixed(6);
+        const need = (Number(amountSat + BigInt(feeSat)) / 1e6).toFixed(6);
+        setStatus("sendStatus", `Insufficient balance: have ${have} MMX, need ${need} MMX (incl. fee)`, "error"); return;
+      }
+    } else {
+      // Token balance + enough MMX for fee
+      if (spendable < amountSat) {
+        setStatus("sendStatus", `Insufficient ${currency}: have ${token?.spendable ?? 0}, need ${amount}`, "error"); return;
+      }
+      const mmxBal = balances.find(b => b.symbol === "MMX");
+      const mmxSpendable = mmxBal ? BigInt(Math.floor(mmxBal.spendable ?? 0)) : 0n;
+      if (mmxSpendable < BigInt(feeSat)) {
+        setStatus("sendStatus", `Insufficient MMX for fee: need 0.05 MMX`, "error"); return;
+      }
+    }
+  } catch {
+    // If balance check fails, continue — node will reject if insufficient
+  }
+
+  // Store pending send so broadcast reads from state, not DOM
+  pendingSend = { to, amountSat, contractAddr, decimals, currency };
+
+  // Show confirmation view (#90 + #100)
   const feeMmx = (feeSat / 1e6).toFixed(6);
   const amountDisplay = decimals > 0 ? amount : amountSat.toString();
   const totalDisplay = currency === "MMX"
@@ -547,25 +585,16 @@ document.getElementById("sendBroadcastBtn").addEventListener("click", async () =
   btn.disabled = true;
   setTimeout(() => { btn.disabled = false; }, 3000);
 
-  const to = document.getElementById("sendTo").value.trim();
-  const amount = document.getElementById("sendAmount").value.trim();
-  const currency = document.getElementById("sendCurrency").value;
+  if (!pendingSend) { setStatus("sendConfirmStatus", "No pending send", "error"); return; }
 
   setStatus("sendConfirmStatus", "Building & signing...", "");
 
   try {
-    let contractAddr = null;
-    let decimals = 6;
-    if (currency !== "MMX") {
-      const balances = await app.fetchBalance();
-      const token = balances.find(b => b.symbol === currency);
-      if (token) { contractAddr = token.contract; decimals = token.decimals || 0; }
-    }
-    const amountSat = app.mmxToSat(amount, decimals);
-    const txid = await app.sendTransaction(to, amountSat, contractAddr);
+    const txid = await app.sendTransaction(pendingSend.to, pendingSend.amountSat, pendingSend.contractAddr);
     setStatus("sendConfirmStatus", "✅ Sent!", "success");
     document.getElementById("sendTo").value = "";
     document.getElementById("sendAmount").value = "";
+    pendingSend = null;
 
     const txLink = document.createElement("div");
     txLink.className = "tx-link";

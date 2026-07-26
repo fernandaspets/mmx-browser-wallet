@@ -366,10 +366,12 @@
       setStatus("Loading crypto libraries...");
       const app = await import("./wallet-app.js");
       const api = await import("./mmx-node-api.js");
+      const { bech32m } = await import("./lib/bech32-esm.js");
       await app.init();
       setStatus("Ready");
       window.app = app;
       window.api = api;
+      window.bech32m = bech32m;
 
       const wallets = await app.getWalletsList();
       if (wallets.length === 0) {
@@ -558,6 +560,18 @@
         if (!toAddr || !toAddr.startsWith("mmx1")) return setStatus("Enter a valid MMX address", "error");
         if (!amountStr) return setStatus("Enter an amount", "error");
         
+        // Validate address checksum
+        try {
+          const decoded = bech32m.decode(toAddr);
+          if (!decoded || decoded.prefix !== "mmx") return setStatus("Invalid MMX address (checksum failed)", "error");
+          const bytes = bech32m.fromWords(decoded.words);
+          if (bytes.length !== 32) return setStatus("Invalid MMX address (wrong length)", "error");
+        } catch { return setStatus("Invalid MMX address", "error"); }
+        
+        // Send-to-self warning
+        const myAddr = app.getUnlockedWallet()?.address;
+        if (toAddr === myAddr) return setStatus("⚠️ That's your own address — sending to yourself just wastes a fee", "error");
+        
         // Look up currency contract address and decimals
         let contractAddr = null;
         let decimals = 6;
@@ -570,6 +584,28 @@
         }
         const amountSat = app.mmxToSat(amountStr, decimals);
         if (!amountSat || amountSat <= 0n) return setStatus("Invalid amount", "error");
+        
+        // Balance check: verify sufficient funds
+        try {
+          const balances = await app.fetchBalance();
+          const feeSat = 50000n;
+          const token = balances.find(b => b.symbol === currency);
+          const spendable = token ? BigInt(Math.floor(token.spendable ?? 0)) : 0n;
+          if (currency === "MMX") {
+            if (spendable < amountSat + feeSat) {
+              const have = (Number(spendable) / 1e6).toFixed(6);
+              const need = (Number(amountSat + feeSat) / 1e6).toFixed(6);
+              return setStatus(`Insufficient balance: have ${have} MMX, need ${need} MMX (incl. fee)`, "error");
+            }
+          } else {
+            if (spendable < amountSat)
+              return setStatus(`Insufficient ${currency}: have ${token?.spendable ?? 0}, need ${amountStr}`, "error");
+            const mmxBal = balances.find(b => b.symbol === "MMX");
+            const mmxSpendable = mmxBal ? BigInt(Math.floor(mmxBal.spendable ?? 0)) : 0n;
+            if (mmxSpendable < feeSat)
+              return setStatus("Insufficient MMX for fee: need 0.05 MMX", "error");
+          }
+        } catch {}
         
         // Show confirm card
         pendingSend = { toAddr, amountSat, contractAddr, decimals, currency, amountStr };

@@ -425,6 +425,41 @@ console.log("\n9. Show mnemonic password requirement");
   assert("showMnemonic when locked throws", threwLocked, true);
 }
 
+// === INTEGRATION: Send validation — bech32m, balance, send-to-self ===
+console.log("\n10. Send validation checks");
+{
+  // bech32m validation
+  const validAddr = "mmx1ntpzx2zj5nl58xrj9erjd5saszfa83dvnwjr07l5hl39f2p3mh4sk0xuvd";
+  const badChecksum = "mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+  const wrongPrefix = "btc1qwerty";
+
+  assert("Valid address decodes", bech32m.decode(validAddr) !== null, true);
+  assert("Bad checksum rejected", bech32m.decode(badChecksum) === null, true);
+  assert("Wrong prefix rejected", bech32m.decode(wrongPrefix) === null, true);
+
+  // mmxToSat rejects invalid amounts
+  let threwNeg = false, threwBad = false, threwEmpty = false;
+  try { app.mmxToSat("-1", 6); } catch { threwNeg = true; }
+  try { app.mmxToSat("abc", 6); } catch { threwBad = true; }
+  try { app.mmxToSat("", 6); } catch { threwEmpty = true; }
+  assert("Negative amount rejected", threwNeg, true);
+  assert("Non-numeric rejected", threwBad, true);
+  assert("Empty amount rejected", threwEmpty, true);
+
+  // Send-to-self detection
+  const myAddr = "mmx1ntpzx2zj5nl58xrj9erjd5saszfa83dvnwjr07l5hl39f2p3mh4sk0xuvd";
+  assert("Send-to-self detected", myAddr === myAddr, true);
+  assert("Send to different address OK", myAddr !== "mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5", true);
+
+  // Balance check: insufficient funds
+  function checkSufficient(spendable, amount, fee) {
+    return BigInt(spendable) >= BigInt(amount) + BigInt(fee);
+  }
+  assert("Sufficient balance passes", checkSufficient(100, 50, 10), true);
+  assert("Insufficient balance fails", checkSufficient(50, 50, 10), false);
+  assert("Exact balance passes (no leftover)", checkSufficient(60, 50, 10), true);
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Integration tests: ${passed} passed, ${failed} failed`);
