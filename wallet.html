@@ -221,7 +221,7 @@
     <div id="unlockView" class="hidden">
       <div class="card">
         <div class="label">Unlock: <span id="unlockWalletName"></span></div>
-        <input class="input" id="unlockPass" type="password" placeholder="Enter password">
+        <input class="input" id="unlockPass" type="password" placeholder="Enter password" autocomplete="current-password">
         <button class="btn" id="unlockBtn">Unlock</button>
         <button class="btn secondary" id="unlockCancel">Cancel</button>
       </div>
@@ -264,6 +264,12 @@
         <button class="btn secondary" id="lockBtn">🔒 Lock Wallet</button>
         <button class="btn danger" id="deleteBtn">🗑 Delete Wallet</button>
       </div>
+
+      <!-- Recent transactions -->
+      <div style="margin-top:16px;">
+        <div class="label" style="margin-bottom:8px;">Recent Transactions</div>
+        <div id="txHistoryList" style="max-height:300px;overflow-y:auto;"><div style="color:#888;font-size:12px;text-align:center;">Loading...</div></div>
+      </div>
     </div>
 
     <!-- ============ MNEMONIC DISPLAY ============ -->
@@ -273,6 +279,18 @@
         <div class="mnemonic-box" id="mnemonicDisplay" onclick="copyEl(this)"></div>
         <div class="copy-hint">Click to copy</div>
         <button class="btn secondary" id="mnemonicDone">I've Saved Them</button>
+      </div>
+    </div>
+
+    <!-- ============ REAUTH (inline password for show mnemonic / delete) ============ -->
+    <div id="reauthView" class="hidden">
+      <div class="card">
+        <div class="label" id="reauthTitle">Confirm Password</div>
+        <p style="font-size:13px;color:#888;margin-bottom:12px;" id="reauthMsg">Enter your password to continue.</p>
+        <input class="input" id="reauthPass" type="password" placeholder="Password" autocomplete="current-password">
+        <div class="status" id="reauthStatus"></div>
+        <button class="btn" id="reauthConfirmBtn">Confirm</button>
+        <button class="btn secondary" id="reauthCancelBtn">Cancel</button>
       </div>
     </div>
 
@@ -298,7 +316,7 @@
     }
 
     function show(viewId) {
-      for (const id of ["onboarding", "createView", "importView", "unlockView", "walletView", "mnemonicView", "walletListView"]) {
+      for (const id of ["onboarding", "createView", "importView", "unlockView", "walletView", "mnemonicView", "walletListView", "reauthView"]) {
         document.getElementById(id).classList.add("hidden");
       }
       document.getElementById(viewId).classList.remove("hidden");
@@ -406,6 +424,45 @@
         const wallet = app.getUnlockedWallet();
         document.getElementById("displayAddress").textContent = wallet.address;
         await refreshBalance();
+        // Start auto-refresh
+        app.startAutoRefresh(async () => {
+          await refreshBalance();
+          setStatus("Balance updated", "success");
+          setTimeout(() => setStatus(""), 2000);
+        });
+        // Fetch transaction history
+        try {
+          const txs = await app.getTransactionHistory(15);
+          renderTxHistory(txs);
+        } catch {
+          document.getElementById("txHistoryList").innerHTML = '<div style="color:#888;font-size:12px;">Failed to load history</div>';
+        }
+      }
+
+      function renderTxHistory(txs) {
+        const list = document.getElementById("txHistoryList");
+        if (!txs || txs.length === 0) {
+          list.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;">No transactions yet</div>';
+          return;
+        }
+        let html = "";
+        for (const tx of txs) {
+          const isSent = tx.direction === 'sent';
+          const arrow = isSent ? '📤' : '📥';
+          const color = isSent ? '#ff9800' : '#4caf50';
+          const addrShort = isSent ? (tx.id.substring(0, 12) + '...') : (tx.sender.substring(0, 12) + '...');
+          html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:16px;">${arrow}</span>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:${color};">${isSent ? '-' : '+'}${tx.amount} ${tx.symbol}</div>
+                <div style="font-family:monospace;font-size:10px;color:#666;">${addrShort} · block ${tx.height}</div>
+              </div>
+            </div>
+            <a href="https://explore.mmx.network/#/explore/transaction/${tx.id}" target="_blank" style="color:#555;font-size:12px;text-decoration:none;">↗</a>
+          </div>`;
+        }
+        list.innerHTML = html;
       }
 
       async function refreshBalance() {
@@ -473,13 +530,55 @@
       };
 
       // --- Mnemonic ---
-      document.getElementById("showMnemonicBtn").onclick = async () => {
-        // Re-derive mnemonic from seed (need to unlock first — already unlocked)
-        // The seed is in unlockedSeed, but wallet-app doesn't expose it directly.
-        // For security, we should ask for password again. For now, show from current unlock.
-        const mnemonic = await app.showMnemonic();
-        document.getElementById("mnemonicDisplay").textContent = mnemonic.join("  ");
-        show("mnemonicView");
+      // --- Reauth view (inline password for show mnemonic / delete) ---
+      let reauthAction = null;
+      let reauthDeleteId = null;
+      function showReauth(title, msg, action) {
+        reauthAction = action;
+        reauthDeleteId = null;
+        document.getElementById("reauthTitle").textContent = title;
+        document.getElementById("reauthMsg").textContent = msg;
+        document.getElementById("reauthPass").value = "";
+        document.getElementById("reauthStatus").textContent = "";
+        show("reauthView");
+        setTimeout(() => document.getElementById("reauthPass").focus(), 50);
+      }
+      document.getElementById("reauthCancelBtn").onclick = () => {
+        if (reauthDeleteId) { show("walletListView"); }
+        else { show("walletView"); }
+      };
+      document.getElementById("reauthConfirmBtn").onclick = async () => {
+        const pwd = document.getElementById("reauthPass").value;
+        if (!pwd) return setStatus("reauthStatus", "Password required", "error");
+        try {
+          if (reauthAction === 'mnemonic') {
+            const mnemonic = await app.showMnemonic(pwd);
+            document.getElementById("mnemonicDisplay").textContent = mnemonic.join("  ");
+            show("mnemonicView");
+          } else if (reauthAction === 'delete') {
+            const id = reauthDeleteId || await app.getActiveWalletId();
+            await app.unlockWallet(id, pwd); // verify password
+            await app.deleteWalletById(id);
+            const wallets = await app.getWalletsList();
+            if (wallets.length === 0) {
+              show("onboarding");
+              setStatus("Wallet deleted", "");
+            } else {
+              await app.setActiveWalletId(wallets[0].id);
+              document.getElementById("unlockWalletName").textContent = wallets[0].name;
+              show("unlockView");
+              setStatus("Wallet deleted", "");
+            }
+          }
+        } catch { setStatus("reauthStatus", "Wrong password", "error"); }
+      };
+      document.getElementById("reauthPass").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") document.getElementById("reauthConfirmBtn").click();
+      });
+
+      // --- Show mnemonic (requires password) ---
+      document.getElementById("showMnemonicBtn").onclick = () => {
+        showReauth("Show Mnemonic", "Enter your password to reveal your 24-word seed:", 'mnemonic');
       };
 
       // --- Switch wallet ---
@@ -515,22 +614,21 @@
         }
         // Delete button handlers
         for (const btn of document.querySelectorAll(".btn-delete-wallet")) {
-          btn.onclick = async (e) => {
+          btn.onclick = (e) => {
             e.stopPropagation();
             const id = btn.dataset.id;
             const wallets = await app.getWalletsList();
             const w = wallets.find(x => x.id === id);
             if (!w) return;
-            if (!confirm(`Delete "${w.name}"?\nMake sure you have your mnemonic saved!`)) return;
-            const pwd = prompt("Enter password to delete this wallet:");
-            if (!pwd) return;
-            try {
-              await app.unlockWallet(id, pwd);
-              await app.deleteWalletById(id);
-              await renderWalletList(); // L6: call function directly
-            } catch {
-              alert("Wrong password");
-            }
+            // Use reauth view for password
+            reauthAction = 'delete';
+            reauthDeleteId = id;
+            document.getElementById("reauthTitle").textContent = `Delete "${w.name}"`;
+            document.getElementById("reauthMsg").textContent = "Enter password to delete this wallet. Make sure you have your mnemonic saved!";
+            document.getElementById("reauthPass").value = "";
+            document.getElementById("reauthStatus").textContent = "";
+            show("reauthView");
+            setTimeout(() => document.getElementById("reauthPass").focus(), 50);
           };
         }
       }
@@ -551,30 +649,28 @@
       document.getElementById("listImportBtn").onclick = () => show("importView");
 
       // --- Lock ---
-      document.getElementById("lockBtn").onclick = async () => {
+      document.getElementById("lockBtn").onclick = () => {
+        app.stopAutoRefresh();
         app.lockWalletPub();
-        const walletId = await app.getActiveWalletId();
-        const wallet = (await app.getWalletsList()).find(w => w.id === walletId);
-        document.getElementById("unlockWalletName").textContent = wallet.name;
+      };
+
+      // Register lock callback for auto-lock
+      app.onLock(async () => {
+        app.stopAutoRefresh();
+        try {
+          const walletId = await app.getActiveWalletId();
+          const wallet = (await app.getWalletsList()).find(w => w.id === walletId);
+          if (wallet) document.getElementById("unlockWalletName").textContent = wallet.name;
+        } catch {}
         document.getElementById("unlockPass").value = "";
         show("unlockView");
         setStatus("Wallet locked", "");
-      };
+      });
 
       // --- Delete ---
-      document.getElementById("deleteBtn").onclick = async () => {
-        if (!confirm("Delete this wallet? Make sure you have your mnemonic words saved!")) return;
-        await app.deleteWalletById(await app.getActiveWalletId());
-        const wallets = await app.getWalletsList();
-        if (wallets.length === 0) {
-          show("onboarding");
-          setStatus("Wallet deleted", "");
-        } else {
-          await app.setActiveWalletId(wallets[0].id);
-          document.getElementById("unlockWalletName").textContent = wallets[0].name;
-          show("unlockView");
-          setStatus("Wallet deleted", "");
-        }
+      // --- Delete (requires password) ---
+      document.getElementById("deleteBtn").onclick = () => {
+        showReauth("Delete Wallet", "Enter your password to permanently delete this wallet. Make sure you have your mnemonic saved!", 'delete');
       };
 
       // --- Auto-lock on inactivity ---

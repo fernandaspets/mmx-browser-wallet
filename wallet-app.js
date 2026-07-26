@@ -122,7 +122,8 @@ function lockWallet() {
   unlockedSeed = null;
   unlockedWallet = null;
   if (autoLockTimer) { clearTimeout(autoLockTimer); autoLockTimer = null; }
-  render();
+  // Notify UI via callback if set (extension/web page handle their own view switching)
+  if (onLockCallback) onLockCallback();
 }
 
 // --- Transaction building ---
@@ -379,6 +380,10 @@ export async function getTransactionHistory(limit = 20) {
     };
   });
 }
+
+// --- Lock callback (UI sets this to handle view switching) ---
+let onLockCallback = null;
+export function onLock(cb) { onLockCallback = cb; }
 
 // --- Auto-refresh balance ---
 let autoRefreshTimer = null;

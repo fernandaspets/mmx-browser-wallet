@@ -177,7 +177,7 @@
       <h2 style="font-size:18px;margin-bottom:4px;">Unlock: <span id="unlockWalletName"></span></h2>
       <p class="subtitle">Enter your password to unlock.</p>
       <div class="input-group">
-        <input type="password" id="unlockPassword" placeholder="Password">
+        <input type="password" id="unlockPassword" placeholder="Password" autocomplete="current-password">
       </div>
       <div class="status" id="unlockStatus"></div>
       <button class="btn btn-primary" id="unlockBtn">Unlock</button>
@@ -301,6 +301,16 @@
       <button class="btn btn-primary" id="listCreateBtn">🔑 Create New Wallet</button>
       <div style="height:8px"></div>
       <button class="btn btn-secondary" id="listImportBtn">📥 Import Wallet</button>
+    </div>
+
+    <!-- Reauth view (inline password for show mnemonic / delete) -->
+    <div class="view" id="reauthView">
+      <button class="back-btn" id="reauthBackBtn">← Cancel</button>
+      <h2 style="font-size:18px;margin-bottom:16px;" id="reauthTitle">Confirm Password</h2>
+      <p style="font-size:12px;color:#888;margin-bottom:12px;" id="reauthMsg">Enter your password to continue.</p>
+      <input type="password" id="reauthPassword" class="input" placeholder="Password" autocomplete="current-password" style="width:100%;" />
+      <div class="status" id="reauthStatus"></div>
+      <button class="btn btn-primary" id="reauthConfirmBtn">Confirm</button>
     </div>
   </div>
 

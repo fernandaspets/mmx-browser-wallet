@@ -300,18 +300,73 @@ document.getElementById("switchBtn").addEventListener("click", () => {
   showWalletList();
 });
 
-document.getElementById("showSeedBtn").addEventListener("click", () => {
-  // Require password re-entry (#89: was showing mnemonic without re-auth)
-  const pwd = prompt("Enter your password to reveal your mnemonic:");
-  if (!pwd) return;
+// --- Reauth view (inline password for show mnemonic / delete) ---
+let reauthAction = null;
+
+function showReauth(title, msg, action) {
+  reauthAction = action;
+  document.getElementById("reauthTitle").textContent = title;
+  document.getElementById("reauthMsg").textContent = msg;
+  document.getElementById("reauthPassword").value = "";
+  document.getElementById("reauthStatus").textContent = "";
+  showView("reauthView");
+  setTimeout(() => document.getElementById("reauthPassword").focus(), 50);
+}
+
+document.getElementById("reauthBackBtn").addEventListener("click", () => {
+  showView("dashboardView");
+});
+
+document.getElementById("reauthConfirmBtn").addEventListener("click", async () => {
+  const pwd = document.getElementById("reauthPassword").value;
+  if (!pwd) { setStatus("reauthStatus", "Password required", "error"); return; }
   try {
-    const mnemonic = app.showMnemonic(pwd);
-    document.getElementById("seedDisplay").textContent = mnemonic.join("  ");
-    document.getElementById("newAddress").textContent = app.getUnlockedWallet().address;
-    showView("seedView");
+    if (reauthAction === 'mnemonic') {
+      const mnemonic = app.showMnemonic(pwd);
+      document.getElementById("seedDisplay").textContent = mnemonic.join("  ");
+      document.getElementById("newAddress").textContent = app.getUnlockedWallet().address;
+      showView("seedView");
+    } else if (reauthAction === 'delete') {
+      const walletId = await app.getActiveWalletId();
+      await app.unlockWallet(walletId, pwd); // throws if wrong
+      await app.deleteWalletById(walletId);
+      const wallets = await app.getWalletsList();
+      if (wallets.length === 0) {
+        showView("onboardingView");
+      } else {
+        await app.setActiveWalletId(wallets[0].id);
+        document.getElementById("unlockWalletName").textContent = wallets[0].name;
+        document.getElementById("unlockPassword").value = "";
+        showView("unlockView");
+      }
+      setStatus("dashStatus", "Wallet deleted", "");
+    }
   } catch {
-    setStatus("dashStatus", "Wrong password", "error");
+    setStatus("reauthStatus", "Wrong password", "error");
   }
+});
+
+document.getElementById("reauthPassword").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("reauthConfirmBtn").click();
+});
+
+// Register lock callback so wallet-app can notify UI on auto-lock
+app.onLock(() => {
+  app.stopAutoRefresh();
+  document.getElementById("unlockPassword").value = "";
+  (async () => {
+    try {
+      const wid = await app.getActiveWalletId();
+      const wallets = await app.getWalletsList();
+      const wallet = wallets.find(w => w.id === wid);
+      if (wallet) document.getElementById("unlockWalletName").textContent = wallet.name;
+    } catch {}
+  })();
+  showView("unlockView");
+});
+
+document.getElementById("showSeedBtn").addEventListener("click", () => {
+  showReauth("Show Mnemonic", "Enter your password to reveal your 24-word seed:", 'mnemonic');
 });
 
 document.getElementById("lockBtn").addEventListener("click", async () => {
@@ -327,28 +382,8 @@ document.getElementById("lockBtn").addEventListener("click", async () => {
   document.getElementById("unlockPassword").focus();
 });
 
-document.getElementById("deleteBtn").addEventListener("click", async () => {
-  // Require password before deleting (#92: was confirm() only)
-  const pwd = prompt("Enter your password to delete this wallet:\nMake sure you have your mnemonic saved!");
-  if (!pwd) return;
-  try {
-    // Verify password before deleting
-    const walletId = await app.getActiveWalletId();
-    await app.unlockWallet(walletId, pwd); // throws if wrong
-    await app.deleteWalletById(walletId);
-    const wallets = await app.getWalletsList();
-    if (wallets.length === 0) {
-      showView("onboardingView");
-    } else {
-      await app.setActiveWalletId(wallets[0].id);
-      document.getElementById("unlockWalletName").textContent = wallets[0].name;
-      document.getElementById("unlockPassword").value = "";
-      showView("unlockView");
-    }
-    setStatus("dashStatus", "Wallet deleted", "");
-  } catch {
-    setStatus("dashStatus", "Wrong password", "error");
-  }
+document.getElementById("deleteBtn").addEventListener("click", () => {
+  showReauth("Delete Wallet", "Enter your password to permanently delete this wallet. Make sure you have your mnemonic saved!", 'delete');
 });
 
 // --- Wallet list (switch) ---
