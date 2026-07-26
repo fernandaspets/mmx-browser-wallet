@@ -263,8 +263,13 @@ export async function importWallet(name, mnemonicWords, password) {
   const seed = wordsToSeed(mnemonicWords);
   const { addrHash } = deriveKeypair(seed, "", 0, 0);
   const address = hashToAddress(addrHash);
+  // Check for duplicate wallet (same address already imported)
+  const existing = await store.getWallets();
+  const dup = existing.find(w => w.address === address);
+  if (dup) {
+    throw new Error(`Wallet already imported as "${dup.name}" (${address.substring(0,16)}...)`);
+  }
   const wallet = await store.createWallet(name, password, seed, address);
-  // Verify address matches
   unlockedSeed = seed;
   unlockedWallet = wallet;
   resetAutoLock();
