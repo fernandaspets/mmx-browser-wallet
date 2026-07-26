@@ -8,3 +8,4 @@ lib/secp256k1.js
 lib/sha2.js
 lib/hmac.js
 lib/bech32.js
+test-wallet.json

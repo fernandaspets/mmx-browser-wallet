@@ -19,9 +19,7 @@ import { sha256, sha512 } from "@noble/hashes/sha2.js";
 import { hmac } from "@noble/hashes/hmac.js";
 import { bech32m } from "bech32";
 
-// Configure secp256k1 with hash functions
-secp.utils.hmacSha256Sync = (key, ...msgs) =>
-  sha256(Buffer.concat([Buffer.from(key), ...msgs.map(m => Buffer.from(m))]));
+// Configure secp256k1 with hash functions (v3: utils is frozen, use hashes instead)
 secp.hashes.sha256 = (data) => sha256(data);
 secp.hashes.hmacSha256 = (key, data) =>
   sha256(Buffer.concat([Buffer.from(key), Buffer.from(data)]));
@@ -54,7 +52,10 @@ function kdfHmacSha512(seed, key, iters) {
 
 // --- Mnemonic (MMX custom BIP-0039 variant, NOT standard BIP-39) ---
 
-const WORDLIST_URL = chrome.runtime.getURL("wordlist.txt");
+// In Chrome extension: chrome.runtime.getURL. In web page: relative path.
+const WORDLIST_URL = (typeof chrome !== "undefined" && chrome.runtime)
+  ? chrome.runtime.getURL("wordlist.txt")
+  : "wordlist.txt";
 
 let _wordlist = null;
 let _wordMap = null;
