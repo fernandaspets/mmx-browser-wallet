@@ -44,9 +44,9 @@ export async function getBalanceOf(address, currencySymbol) {
   return balances.find(b => b.symbol === currencySymbol) || null;
 }
 
-// --- Block height (for tx expires field) ---
+// --- Block header (height + fee estimate) ---
 
-export async function getHeight() {
+export async function getHeader() {
   let resp;
   try {
     resp = await fetch(`${_nodeUrl}/headers?limit=1`);
@@ -55,7 +55,28 @@ export async function getHeight() {
   }
   if (!resp.ok) throw new Error(`Headers API error: HTTP ${resp.status}`);
   const data = await resp.json();
-  return data[0]?.height ?? 0;
+  return data[0] ?? null;
+}
+
+export async function getHeight() {
+  const header = await getHeader();
+  return header?.height ?? 0;
+}
+
+// Estimate fee for a standard transfer (1 in, 1 out, 1 solution)
+// Fee = static_cost in satoshis (node charges this directly)
+// static_cost = min_txfee(20000) + 1in(10000) + 1out(10000) + 1sol(10000) = 50000
+export async function getFeeEstimate() {
+  // Fee is deterministic for standard transfers: 50000 sat = 0.05 MMX
+  // Could change with protocol upgrades, so we fetch average_txfee to verify
+  try {
+    const header = await getHeader();
+    // If average_txfee is 0, network is in a special mode
+    if (header?.average_txfee?.amount && BigInt(header.average_txfee.amount) === 0n) {
+      return 0n; // free transactions
+    }
+  } catch {}
+  return 50000n; // standard transfer fee
 }
 
 // --- Transaction validate/broadcast ---

@@ -530,7 +530,8 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   }
 
   const amountSat = app.mmxToSat(amount, decimals);
-  const feeSat = 50000; // standard transfer fee
+  let feeSat = 50000n; // fallback
+  try { feeSat = await api.getFeeEstimate(); } catch {}
 
   // Balance check: verify sufficient funds
   try {
@@ -539,9 +540,9 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
     const spendable = token ? BigInt(Math.floor(token.spendable ?? 0)) : 0n;
     if (currency === "MMX") {
       // Need amount + fee in MMX
-      if (spendable < amountSat + BigInt(feeSat)) {
+      if (spendable < amountSat + feeSat) {
         const have = (Number(spendable) / 1e6).toFixed(6);
-        const need = (Number(amountSat + BigInt(feeSat)) / 1e6).toFixed(6);
+        const need = (Number(amountSat + feeSat) / 1e6).toFixed(6);
         setStatus("sendStatus", `Insufficient balance: have ${have} MMX, need ${need} MMX (incl. fee)`, "error"); return;
       }
     } else {
@@ -551,8 +552,8 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
       }
       const mmxBal = balances.find(b => b.symbol === "MMX");
       const mmxSpendable = mmxBal ? BigInt(Math.floor(mmxBal.spendable ?? 0)) : 0n;
-      if (mmxSpendable < BigInt(feeSat)) {
-        setStatus("sendStatus", `Insufficient MMX for fee: need 0.05 MMX`, "error"); return;
+      if (mmxSpendable < feeSat) {
+        setStatus("sendStatus", `Insufficient MMX for fee: need ${(Number(feeSat) / 1e6).toFixed(6)} MMX`, "error"); return;
       }
     }
   } catch {
@@ -560,13 +561,13 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   }
 
   // Store pending send so broadcast reads from state, not DOM
-  pendingSend = { to, amountSat, contractAddr, decimals, currency };
+  pendingSend = { to, amountSat, contractAddr, decimals, currency, feeSat };
 
   // Show confirmation view (#90 + #100)
-  const feeMmx = (feeSat / 1e6).toFixed(6);
+  const feeMmx = (Number(feeSat) / 1e6).toFixed(6);
   const amountDisplay = decimals > 0 ? amount : amountSat.toString();
   const totalDisplay = currency === "MMX"
-    ? `${(Number(amountSat + BigInt(feeSat)) / 1e6).toFixed(6)} MMX`
+    ? `${(Number(amountSat + feeSat) / 1e6).toFixed(6)} MMX`
     : `${amountDisplay} ${currency} + ${feeMmx} MMX fee`;
 
   document.getElementById("confirmAmount").textContent = `${amountDisplay} ${currency}`;

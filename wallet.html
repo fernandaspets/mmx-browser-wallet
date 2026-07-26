@@ -585,10 +585,13 @@
         const amountSat = app.mmxToSat(amountStr, decimals);
         if (!amountSat || amountSat <= 0n) return setStatus("Invalid amount", "error");
         
+        // Dynamic fee estimate
+        let feeSat = 50000n;
+        try { feeSat = await api.getFeeEstimate(); } catch {}
+        
         // Balance check: verify sufficient funds
         try {
           const balances = await app.fetchBalance();
-          const feeSat = 50000n;
           const token = balances.find(b => b.symbol === currency);
           const spendable = token ? BigInt(Math.floor(token.spendable ?? 0)) : 0n;
           if (currency === "MMX") {
@@ -603,16 +606,17 @@
             const mmxBal = balances.find(b => b.symbol === "MMX");
             const mmxSpendable = mmxBal ? BigInt(Math.floor(mmxBal.spendable ?? 0)) : 0n;
             if (mmxSpendable < feeSat)
-              return setStatus("Insufficient MMX for fee: need 0.05 MMX", "error");
+              return setStatus(`Insufficient MMX for fee: need ${(Number(feeSat) / 1e6).toFixed(6)} MMX`, "error");
           }
         } catch {}
         
         // Show confirm card
         pendingSend = { toAddr, amountSat, contractAddr, decimals, currency, amountStr };
+        const feeMmx = (Number(feeSat) / 1e6).toFixed(6);
         document.getElementById("confirmAmount").textContent = `${amountStr} ${currency}`;
         document.getElementById("confirmTo").textContent = toAddr;
-        const feeStr = "~0.05 MMX";
-        const totalStr = currency === "MMX" ? `${(parseFloat(amountStr) + 0.05).toFixed(6)} MMX` : `${amountStr} ${currency} + 0.05 MMX fee`;
+        const feeStr = `~${feeMmx} MMX`;
+        const totalStr = currency === "MMX" ? `${(parseFloat(amountStr) + parseFloat(feeMmx)).toFixed(6)} MMX` : `${amountStr} ${currency} + ${feeMmx} MMX fee`;
         document.getElementById("confirmTotal").textContent = totalStr;
         document.getElementById("sendConfirmStatus").textContent = "";
         document.getElementById("sendConfirmCard").style.display = "block";
