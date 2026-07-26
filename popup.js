@@ -254,12 +254,33 @@ async function renderDashboard() {
   // Check for pending dApp requests
   try {
     const _browser = typeof browser !== "undefined" ? browser : chrome;
-    if (_browser.action && _browser.action.getBadgeText) {
-      _browser.action.getBadgeText({}, (text) => {
-        const notice = document.getElementById("dappNotice");
-        if (notice) notice.style.display = text ? "block" : "none";
-      });
-    }
+    _browser.storage.local.get("mmx_pending_dapp", (result) => {
+      const pending = result.mmx_pending_dapp;
+      const notice = document.getElementById("dappNotice");
+      if (pending && notice) {
+        notice.style.display = "block";
+        document.getElementById("dappMsg").textContent = `${pending.origin} wants to see your wallet address. Allow?`;
+        document.getElementById("dappAllow").onclick = async () => {
+          const perms = await new Promise(r => _browser.storage.local.get("mmx_dapp_permissions", r)) || {};
+          perms[pending.origin] = true;
+          _browser.storage.local.set({ mmx_dapp_permissions: perms });
+          _browser.runtime.sendMessage({ type: "DAPP_APPROVED", origin: pending.origin });
+          _browser.storage.local.remove("mmx_pending_dapp");
+          _browser.action.setBadgeText({ text: "" });
+          notice.style.display = "none";
+        };
+        document.getElementById("dappDeny").onclick = async () => {
+          const perms = await new Promise(r => _browser.storage.local.get("mmx_dapp_permissions", r)) || {};
+          perms[pending.origin] = false;
+          _browser.storage.local.set({ mmx_dapp_permissions: perms });
+          _browser.storage.local.remove("mmx_pending_dapp");
+          _browser.action.setBadgeText({ text: "" });
+          notice.style.display = "none";
+        };
+      } else if (notice) {
+        notice.style.display = "none";
+      }
+    });
   } catch {}
 
   // Fetch balance + tx history in parallel (non-blocking)

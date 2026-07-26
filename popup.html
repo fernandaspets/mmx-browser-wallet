@@ -233,8 +233,12 @@
         <button class="btn btn-secondary" id="openTabBtn">↗ Open Tab</button>
       </div>
       <div class="status" id="dashStatus"></div>
-      <div id="dappNotice" style="display:none;background:rgba(255,152,0,0.08);border:1px solid rgba(255,152,0,0.2);border-radius:6px;padding:8px;margin-top:8px;font-size:11px;color:#ff9800;">
-        🔔 A website is requesting access to your wallet address. Open the wallet tab to approve.
+      <div id="dappNotice" style="display:none;background:rgba(255,152,0,0.08);border:1px solid rgba(255,152,0,0.2);border-radius:6px;padding:10px;margin-top:8px;font-size:12px;color:#ffa726;">
+        <div id="dappMsg">A website wants to see your wallet address.</div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <button class="btn btn-primary" id="dappAllow" style="font-size:11px;padding:6px 12px;">Allow</button>
+          <button class="btn btn-secondary" id="dappDeny" style="font-size:11px;padding:6px 12px;">Deny</button>
+        </div>
       </div>
       <div style="margin-top:12px;">
         <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Recent Transactions</div>
