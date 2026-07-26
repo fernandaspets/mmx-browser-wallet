@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MMX Wallet</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a1a;
+      color: #e0e0e0;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .app {
+      width: 100%;
+      max-width: 480px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      margin-bottom: 8px;
+    }
+    .header h1 { font-size: 20px; color: #00d4ff; }
+    .network-badge {
+      font-size: 11px;
+      padding: 4px 8px;
+      background: rgba(0,212,255,0.1);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 6px;
+      color: #00d4ff;
+    }
+    .card {
+      padding: 24px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      margin-bottom: 16px;
+    }
+    .label { font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .input {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input:focus { border-color: #00d4ff; }
+    .input.mono { font-family: monospace; font-size: 13px; }
+    .input::placeholder { color: #555; }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(135deg, #00d4ff, #0078d4);
+      color: white;
+      margin-top: 12px;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:disabled { opacity: 0.4; cursor: wait; }
+    .btn.secondary {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .btn.danger {
+      background: linear-gradient(135deg, #f44336, #c62828);
+    }
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-row .btn { margin-top: 0; }
+    .address-box {
+      font-family: monospace;
+      font-size: 13px;
+      padding: 10px 12px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      word-break: break-all;
+      cursor: pointer;
+      text-align: center;
+    }
+    .address-box:hover { border-color: rgba(0,212,255,0.3); }
+    .balance-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .balance-row:last-child { border-bottom: none; }
+    .balance-symbol { font-weight: 600; font-size: 15px; }
+    .balance-amount { font-family: monospace; font-size: 15px; color: #4caf50; }
+    .balance-amount.pending { color: #ff9800; }
+    .status { font-size: 13px; color: #888; min-height: 24px; padding: 8px 0; }
+    .status.success { color: #4caf50; }
+    .status.error { color: #f44336; }
+    .status.loading { color: #ff9800; }
+    .mnemonic-box {
+      font-size: 15px;
+      color: #4caf50;
+      padding: 16px;
+      background: rgba(76,175,80,0.05);
+      border: 1px solid rgba(76,175,80,0.2);
+      border-radius: 8px;
+      line-height: 1.8;
+      text-align: center;
+      margin: 8px 0;
+    }
+    .warning {
+      background: rgba(255,152,0,0.08);
+      border: 1px solid rgba(255,152,0,0.2);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .copy-hint { font-size: 11px; color: #888; margin-top: 4px; text-align: center; }
+    .wallet-list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .wallet-list-item:hover { border-color: rgba(0,212,255,0.3); }
+    .wallet-list-item.active { border-color: #00d4ff; background: rgba(0,212,255,0.05); }
+    .wallet-name { font-weight: 600; font-size: 14px; }
+    .wallet-addr { font-family: monospace; font-size: 11px; color: #888; margin-top: 2px; }
+    .hidden { display: none !important; }
+    .link { color: #00d4ff; cursor: pointer; text-decoration: underline; font-size: 13px; }
+    .tx-hash {
+      font-family: monospace;
+      font-size: 12px;
+      padding: 8px 10px;
+      background: rgba(0,212,255,0.05);
+      border: 1px solid rgba(0,212,255,0.15);
+      border-radius: 6px;
+      word-break: break-all;
+      margin-top: 8px;
+    }
+    select.input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+    select.input option { background: #1a1a2a; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <h1>⚡ MMX Wallet</h1>
+      <span class="network-badge" id="networkBadge">mainnet</span>
+    </div>
+    <div class="status" id="status">Loading...</div>
+
+    <!-- ============ ONBOARDING (no wallets yet) ============ -->
+    <div id="onboarding" class="hidden">
+      <div class="card">
+        <h2 style="font-size:18px;margin-bottom:16px;color:#00d4ff;">Get Started</h2>
+        <button class="btn" id="onboardCreate">🔑 Create New Wallet</button>
+        <button class="btn secondary" id="onboardImport">📥 Import from Mnemonic</button>
+      </div>
+    </div>
+
+    <!-- ============ CREATE WALLET ============ -->
+    <div id="createView" class="hidden">
+      <div class="card">
+        <div class="label">Wallet Name</div>
+        <input class="input" id="createName" placeholder="My Wallet" maxlength="30">
+        <div style="height:12px"></div>
+        <div class="label">Password (encrypts your wallet)</div>
+        <input class="input" id="createPass" type="password" placeholder="Choose a strong password">
+        <div style="height:12px"></div>
+        <div class="label">Confirm Password</div>
+        <input class="input" id="createPass2" type="password" placeholder="Repeat password">
+        <button class="btn" id="createBtn">Create Wallet</button>
+        <button class="btn secondary" id="createCancel">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ============ IMPORT WALLET ============ -->
+    <div id="importView" class="hidden">
+      <div class="card">
+        <div class="label">Wallet Name</div>
+        <input class="input" id="importName" placeholder="Imported Wallet" maxlength="30">
+        <div style="height:12px"></div>
+        <div class="label">Mnemonic (24 words)</div>
+        <input class="input mono" id="importMnemonic" placeholder="word1 word2 word3 ... word24" style="font-size:12px">
+        <div style="height:12px"></div>
+        <div class="label">Password (to encrypt this wallet)</div>
+        <input class="input" id="importPass" type="password" placeholder="Choose a password">
+        <button class="btn" id="importBtn">Import Wallet</button>
+        <button class="btn secondary" id="importCancel">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ============ UNLOCK ============ -->
+    <div id="unlockView" class="hidden">
+      <div class="card">
+        <div class="label">Unlock: <span id="unlockWalletName"></span></div>
+        <input class="input" id="unlockPass" type="password" placeholder="Enter password">
+        <button class="btn" id="unlockBtn">Unlock</button>
+        <button class="btn secondary" id="unlockCancel">Cancel</button>
+      </div>
+    </div>
+
+    <!-- ============ MAIN WALLET VIEW ============ -->
+    <div id="walletView" class="hidden">
+      <!-- Balance card -->
+      <div class="card">
+        <div class="label">Address</div>
+        <div class="address-box" id="displayAddress" onclick="copyEl(this)">mmx1...</div>
+        <div class="copy-hint">Click to copy</div>
+        <div style="height:16px"></div>
+        <div class="label">Balances</div>
+        <div id="balanceList"><div style="color:#888;font-size:13px;">Loading balances...</div></div>
+        <button class="btn secondary" id="refreshBtn">🔄 Refresh</button>
+      </div>
+
+      <!-- Send card -->
+      <div class="card">
+        <div class="label">Send</div>
+        <div style="height:8px"></div>
+        <div class="label">Currency</div>
+        <select class="input" id="sendCurrency">
+          <option value="MMX">MMX</option>
+        </select>
+        <div style="height:12px"></div>
+        <div class="label">To Address</div>
+        <input class="input mono" id="sendTo" placeholder="mmx1...">
+        <div style="height:12px"></div>
+        <div class="label">Amount</div>
+        <input class="input" id="sendAmount" placeholder="0.0001" type="text">
+        <button class="btn" id="sendBtn">Send</button>
+      </div>
+
+      <!-- Actions -->
+      <div class="card">
+        <button class="btn secondary" id="showMnemonicBtn">👁 Show Mnemonic</button>
+        <button class="btn secondary" id="switchWalletBtn">📋 Switch Wallet</button>
+        <button class="btn secondary" id="lockBtn">🔒 Lock Wallet</button>
+        <button class="btn danger" id="deleteBtn">🗑 Delete Wallet</button>
+      </div>
+    </div>
+
+    <!-- ============ MNEMONIC DISPLAY ============ -->
+    <div id="mnemonicView" class="hidden">
+      <div class="card">
+        <div class="warning">⚠️ <strong>SAVE THESE WORDS!</strong> Anyone with these 24 words can access your wallet. Write them down and store safely.</div>
+        <div class="mnemonic-box" id="mnemonicDisplay" onclick="copyEl(this)"></div>
+        <div class="copy-hint">Click to copy</div>
+        <button class="btn secondary" id="mnemonicDone">I've Saved Them</button>
+      </div>
+    </div>
+
+    <!-- ============ WALLET LIST (switch) ============ -->
+    <div id="walletListView" class="hidden">
+      <div class="card">
+        <div class="label">Your Wallets</div>
+        <div id="walletListItems"></div>
+        <div style="height:12px"></div>
+        <button class="btn" id="listCreateBtn">🔑 Create New Wallet</button>
+        <button class="btn secondary" id="listImportBtn">📥 Import Wallet</button>
+        <button class="btn secondary" id="listCancel">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const status = document.getElementById("status");
+    
+    function setStatus(msg, type = "") {
+      status.textContent = msg;
+      status.className = "status " + type;
+    }
+
+    function show(viewId) {
+      for (const id of ["onboarding", "createView", "importView", "unlockView", "walletView", "mnemonicView", "walletListView"]) {
+        document.getElementById(id).classList.add("hidden");
+      }
+      document.getElementById(viewId).classList.remove("hidden");
+    }
+
+    window.copyEl = async function(el) {
+      try {
+        await navigator.clipboard.writeText(el.textContent);
+        const orig = el.style.borderColor;
+        el.style.borderColor = "#4caf50";
+        setTimeout(() => el.style.borderColor = orig, 1000);
+      } catch {}
+    };
+
+    // --- Load ---
+    try {
+      setStatus("Loading crypto libraries...");
+      const app = await import("./wallet-app.js");
+      await app.init();
+      setStatus("Ready");
+      window.app = app;
+
+      const wallets = app.getWalletsList();
+      if (wallets.length === 0) {
+        show("onboarding");
+      } else {
+        // Show unlock for active wallet (or first)
+        const activeId = app.getActiveWalletId() || wallets[0].id;
+        const wallet = wallets.find(w => w.id === activeId) || wallets[0];
+        app.setActiveWalletId(wallet.id);
+        document.getElementById("unlockWalletName").textContent = wallet.name;
+        show("unlockView");
+      }
+
+      // --- Onboarding ---
+      document.getElementById("onboardCreate").onclick = () => show("createView");
+      document.getElementById("onboardImport").onclick = () => show("importView");
+
+      // --- Create ---
+      document.getElementById("createCancel").onclick = () => show("onboarding");
+      document.getElementById("createBtn").onclick = async () => {
+        const name = document.getElementById("createName").value.trim() || "My Wallet";
+        const pass = document.getElementById("createPass").value;
+        const pass2 = document.getElementById("createPass2").value;
+        if (!pass) return setStatus("Password is required", "error");
+        if (pass !== pass2) return setStatus("Passwords don't match", "error");
+        if (pass.length < 4) return setStatus("Password too short (min 4 chars)", "error");
+        
+        setStatus("Creating wallet...", "loading");
+        try {
+          const { mnemonic } = await app.createWallet(name, pass);
+          // Show mnemonic
+          document.getElementById("mnemonicDisplay").textContent = mnemonic.join("  ");
+          show("mnemonicView");
+          setStatus("Wallet created! Save your mnemonic words.", "success");
+        } catch(e) { setStatus("Error: " + e.message, "error"); }
+      };
+
+      // --- Import ---
+      document.getElementById("importCancel").onclick = () => show("onboarding");
+      document.getElementById("importBtn").onclick = async () => {
+        const name = document.getElementById("importName").value.trim() || "Imported Wallet";
+        const mnemonicStr = document.getElementById("importMnemonic").value.trim();
+        const pass = document.getElementById("importPass").value;
+        const words = mnemonicStr.split(/\s+/).filter(w => w);
+        if (words.length !== 24) return setStatus("Mnemonic must be exactly 24 words", "error");
+        if (!pass) return setStatus("Password is required", "error");
+        
+        setStatus("Importing wallet...", "loading");
+        try {
+          await app.importWallet(name, words, pass);
+          await renderWallet();
+          setStatus("Wallet imported!", "success");
+        } catch(e) { setStatus("Error: " + e.message, "error"); }
+      };
+
+      // --- Unlock ---
+      document.getElementById("unlockCancel").onclick = () => show("walletListView");
+      document.getElementById("unlockBtn").onclick = async () => {
+        const pass = document.getElementById("unlockPass").value;
+        if (!pass) return setStatus("Enter password", "error");
+        const walletId = app.getActiveWalletId();
+        try {
+          await app.unlockWallet(walletId, pass);
+          await renderWallet();
+          setStatus("Unlocked", "success");
+        } catch(e) { setStatus("Wrong password", "error"); }
+      };
+
+      // --- Mnemonic view ---
+      document.getElementById("mnemonicDone").onclick = async () => {
+        await renderWallet();
+        setStatus("Welcome to your wallet!", "success");
+      };
+
+      // --- Wallet view ---
+      async function renderWallet() {
+        show("walletView");
+        const wallet = app.getUnlockedWallet();
+        document.getElementById("displayAddress").textContent = wallet.address;
+        await refreshBalance();
+      }
+
+      async function refreshBalance() {
+        document.getElementById("balanceList").innerHTML = '<div style="color:#888;font-size:13px;">Loading balances...</div>';
+        try {
+          const balances = await app.fetchBalance();
+          const sendCurrency = document.getElementById("sendCurrency");
+          sendCurrency.innerHTML = "";
+          if (balances.length === 0) {
+            document.getElementById("balanceList").innerHTML = '<div style="color:#888;font-size:13px;">No balances yet</div>';
+            return;
+          }
+          let html = "";
+          for (const b of balances) {
+            const spendable = b.spendable !== undefined ? b.spendable : b.total || 0;
+            html += `<div class="balance-row">
+              <span class="balance-symbol">${b.symbol || '?'}</span>
+              <span class="balance-amount">${spendable}</span>
+            </div>`;
+            sendCurrency.innerHTML += `<option value="${b.symbol}">${b.symbol}</option>`;
+          }
+          document.getElementById("balanceList").innerHTML = html;
+        } catch(e) {
+          document.getElementById("balanceList").innerHTML = `<div style="color:#f44336;font-size:13px;">${e.message}</div>`;
+        }
+      }
+
+      document.getElementById("refreshBtn").onclick = () => {
+        setStatus("Refreshing...", "loading");
+        refreshBalance().then(() => setStatus("Balances updated", "success"));
+      };
+
+      // --- Send ---
+      document.getElementById("sendBtn").onclick = async () => {
+        const toAddr = document.getElementById("sendTo").value.trim();
+        const amountStr = document.getElementById("sendAmount").value.trim();
+        const currency = document.getElementById("sendCurrency").value;
+        
+        if (!toAddr || !toAddr.startsWith("mmx1")) return setStatus("Enter a valid MMX address", "error");
+        if (!amountStr) return setStatus("Enter an amount", "error");
+        
+        setStatus("Sending...", "loading");
+        try {
+          // Convert amount to satoshis
+          const amountSat = app.mmxToSat(amountStr);
+          // For now only MMX native (will add token contracts later)
+          const txid = await app.sendTransaction(toAddr, amountSat, null);
+          setStatus("✅ Sent! TXID:", "success");
+          document.getElementById("sendTo").value = "";
+          document.getElementById("sendAmount").value = "";
+          // Show tx hash
+          const txEl = document.createElement("div");
+          txEl.className = "tx-hash";
+          txEl.innerHTML = `<a href="https://explore.mmx.network/#/explore/transaction/${txid}" target="_blank" style="color:#00d4ff;text-decoration:none;">${txid}</a>`;
+          status.appendChild(txEl);
+          await refreshBalance();
+        } catch(e) { setStatus("Error: " + e.message, "error"); }
+      };
+
+      // --- Mnemonic ---
+      document.getElementById("showMnemonicBtn").onclick = async () => {
+        // Re-derive mnemonic from seed (need to unlock first — already unlocked)
+        // The seed is in unlockedSeed, but wallet-app doesn't expose it directly.
+        // For security, we should ask for password again. For now, show from current unlock.
+        const mnemonic = await app.showMnemonic();
+        document.getElementById("mnemonicDisplay").textContent = mnemonic.join("  ");
+        show("mnemonicView");
+      };
+
+      // --- Switch wallet ---
+      document.getElementById("switchWalletBtn").onclick = () => {
+        const wallets = app.getWalletsList();
+        const activeId = app.getActiveWalletId();
+        let html = "";
+        for (const w of wallets) {
+          const isActive = w.id === activeId ? " active" : "";
+          html += `<div class="wallet-list-item${isActive}" data-id="${w.id}">
+            <div>
+              <div class="wallet-name">${w.name}</div>
+              <div class="wallet-addr">${w.address.substring(0,20)}...${w.address.substring(-8)}</div>
+            </div>
+          </div>`;
+        }
+        document.getElementById("walletListItems").innerHTML = html;
+        show("walletListView");
+        
+        for (const el of document.querySelectorAll(".wallet-list-item")) {
+          el.onclick = () => {
+            const id = el.dataset.id;
+            app.setActiveWalletId(id);
+            app.lockWalletPub();
+            const wallet = app.getWalletsList().find(w => w.id === id);
+            document.getElementById("unlockWalletName").textContent = wallet.name;
+            document.getElementById("unlockPass").value = "";
+            show("unlockView");
+          };
+        }
+      };
+
+      document.getElementById("listCancel").onclick = () => show("walletView");
+      document.getElementById("listCreateBtn").onclick = () => show("createView");
+      document.getElementById("listImportBtn").onclick = () => show("importView");
+
+      // --- Lock ---
+      document.getElementById("lockBtn").onclick = () => {
+        app.lockWalletPub();
+        const walletId = app.getActiveWalletId();
+        const wallet = app.getWalletsList().find(w => w.id === walletId);
+        document.getElementById("unlockWalletName").textContent = wallet.name;
+        document.getElementById("unlockPass").value = "";
+        show("unlockView");
+        setStatus("Wallet locked", "");
+      };
+
+      // --- Delete ---
+      document.getElementById("deleteBtn").onclick = async () => {
+        if (!confirm("Delete this wallet? Make sure you have your mnemonic words saved!")) return;
+        app.deleteWalletById(app.getActiveWalletId());
+        const wallets = app.getWalletsList();
+        if (wallets.length === 0) {
+          show("onboarding");
+          setStatus("Wallet deleted", "");
+        } else {
+          app.setActiveWalletId(wallets[0].id);
+          document.getElementById("unlockWalletName").textContent = wallets[0].name;
+          show("unlockView");
+          setStatus("Wallet deleted", "");
+        }
+      };
+
+      // --- Auto-lock on inactivity ---
+      document.addEventListener("click", () => { /* could reset timer */ });
+      
+    } catch(e) {
+      setStatus("Error: " + e.message, "error");
+      console.error(e);
+    }
+  </script>
+</body>
+</html>
