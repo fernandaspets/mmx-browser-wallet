@@ -135,6 +135,17 @@ function uint128LE(val) {
   return arr;
 }
 
+// Format raw satoshi amount to human-readable string based on decimals
+function formatAmount(raw, decimals) {
+  const sat = BigInt(raw);
+  const div = BigInt(10) ** BigInt(decimals);
+  const whole = sat / div;
+  const frac = sat % div;
+  if (decimals === 0) return whole.toString();
+  const fracStr = frac.toString().padStart(decimals, '0').replace(/0+$/, '');
+  return fracStr ? `${whole}.${fracStr}` : whole.toString();
+}
+
 export async function sendTransaction(toAddress, amountSat, currencyContract) {
   if (!unlockedSeed) throw new Error("Wallet is locked");
 
@@ -364,7 +375,9 @@ export async function getTransactionHistory(limit = 20) {
     let amount = '';
     let symbol = '';
     if (inputAmounts.length > 0) {
-      amount = inputAmounts[0].amount;
+      const raw = inputAmounts[0].amount;
+      const decimals = inputAmounts[0].decimals || 0;
+      amount = formatAmount(raw, decimals);
       symbol = inputAmounts[0].symbol || 'MMX';
     }
     return {
