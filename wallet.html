@@ -254,7 +254,33 @@
         <div style="height:12px"></div>
         <div class="label">Amount</div>
         <input class="input" id="sendAmount" placeholder="0.0001" type="text">
-        <button class="btn" id="sendBtn">Send</button>
+        <button class="btn" id="sendBtn">Review Send</button>
+      </div>
+
+      <!-- Send confirm -->
+      <div class="card" id="sendConfirmCard" style="display:none;">
+        <div class="label">Confirm Send</div>
+        <div style="height:8px"></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:#888;font-size:13px;">Sending</span>
+          <span style="font-weight:600;font-size:15px;color:#00d4ff;" id="confirmAmount">0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:#888;font-size:13px;">To</span>
+          <span style="font-family:monospace;font-size:11px;word-break:break-all;text-align:right;max-width:300px;" id="confirmTo">mmx1...</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:#888;font-size:13px;">Fee</span>
+          <span style="font-size:13px;color:#ff9800;">~0.05 MMX</span>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;display:flex;justify-content:space-between;">
+          <span style="color:#888;font-size:13px;">Total</span>
+          <span style="font-weight:600;font-size:14px;" id="confirmTotal">0.05 MMX</span>
+        </div>
+        <div class="status" id="sendConfirmStatus"></div>
+        <button class="btn" id="sendBroadcastBtn">✅ Confirm & Send</button>
+        <div style="height:8px"></div>
+        <button class="btn secondary" id="sendCancelBtn">Cancel</button>
       </div>
 
       <!-- Actions -->
@@ -496,6 +522,9 @@
       };
 
       // --- Send ---
+      // --- Send (review → confirm → broadcast) ---
+      let pendingSend = null; // { toAddr, amountSat, contractAddr, decimals, currency, amountStr }
+
       document.getElementById("sendBtn").onclick = async () => {
         const toAddr = document.getElementById("sendTo").value.trim();
         const amountStr = document.getElementById("sendAmount").value.trim();
@@ -504,29 +533,58 @@
         if (!toAddr || !toAddr.startsWith("mmx1")) return setStatus("Enter a valid MMX address", "error");
         if (!amountStr) return setStatus("Enter an amount", "error");
         
-        setStatus("Sending...", "loading");
-        try {
-          // Convert amount to satoshis
-          // Look up currency contract address and decimals
-          let contractAddr = null;
-          let decimals = 6;
-          if (currency !== "MMX") {
+        // Look up currency contract address and decimals
+        let contractAddr = null;
+        let decimals = 6;
+        if (currency !== "MMX") {
+          try {
             const balances = await app.fetchBalance();
             const token = balances.find(b => b.symbol === currency);
             if (token) { contractAddr = token.contract; decimals = token.decimals || 0; }
-          }
-          const amountSat = app.mmxToSat(amountStr, decimals);
-          const txid = await app.sendTransaction(toAddr, amountSat, contractAddr);
-          setStatus("✅ Sent! TXID:", "success");
+          } catch {}
+        }
+        const amountSat = app.mmxToSat(amountStr, decimals);
+        if (!amountSat || amountSat <= 0n) return setStatus("Invalid amount", "error");
+        
+        // Show confirm card
+        pendingSend = { toAddr, amountSat, contractAddr, decimals, currency, amountStr };
+        document.getElementById("confirmAmount").textContent = `${amountStr} ${currency}`;
+        document.getElementById("confirmTo").textContent = toAddr;
+        const feeStr = "~0.05 MMX";
+        const totalStr = currency === "MMX" ? `${(parseFloat(amountStr) + 0.05).toFixed(6)} MMX` : `${amountStr} ${currency} + 0.05 MMX fee`;
+        document.getElementById("confirmTotal").textContent = totalStr;
+        document.getElementById("sendConfirmStatus").textContent = "";
+        document.getElementById("sendConfirmCard").style.display = "block";
+      };
+
+      document.getElementById("sendCancelBtn").onclick = () => {
+        document.getElementById("sendConfirmCard").style.display = "none";
+        pendingSend = null;
+      };
+
+      document.getElementById("sendBroadcastBtn").onclick = async () => {
+        if (!pendingSend) return;
+        const btn = document.getElementById("sendBroadcastBtn");
+        btn.disabled = true;
+        document.getElementById("sendConfirmStatus").textContent = "Sending...";
+        try {
+          const txid = await app.sendTransaction(pendingSend.toAddr, pendingSend.amountSat, pendingSend.contractAddr);
+          document.getElementById("sendConfirmCard").style.display = "none";
           document.getElementById("sendTo").value = "";
           document.getElementById("sendAmount").value = "";
-          // Show tx hash
-          const txEl = document.createElement("div");
-          txEl.className = "tx-hash";
-          txEl.innerHTML = `<a href="https://explore.mmx.network/#/explore/transaction/${txid}" target="_blank" style="color:#00d4ff;text-decoration:none;">${txid}</a>`;
-          status.appendChild(txEl);
+          setStatus(`✅ Sent! TXID: ${txid}`, "success");
           await refreshBalance();
-        } catch(e) { setStatus("Error: " + e.message, "error"); }
+          // Fetch updated tx history
+          try {
+            const txs = await app.getTransactionHistory(15);
+            renderTxHistory(txs);
+          } catch {}
+          pendingSend = null;
+        } catch(e) {
+          document.getElementById("sendConfirmStatus").textContent = "Error: " + e.message;
+        } finally {
+          btn.disabled = false;
+        }
       };
 
       // --- Mnemonic ---
