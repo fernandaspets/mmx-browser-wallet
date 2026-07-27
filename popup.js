@@ -518,7 +518,7 @@ function renderBalances(balances) {
 
   sendCurrency.innerHTML = "";
   for (const b of balances) {
-    sendCurrency.innerHTML += `<option value="${b.symbol}">${b.symbol}</option>`;
+    sendCurrency.innerHTML += `<option value="${app.escapeHtml(b.symbol)}">${app.escapeHtml(b.symbol)}</option>`;
   }
 }
 
@@ -534,18 +534,18 @@ function renderTxHistory(txs, append = false) {
     const isSent = tx.direction === 'sent';
     const arrow = isSent ? '📤' : '📥';
     const color = isSent ? '#ff9800' : '#4caf50';
-    const addrShort = isSent ? (tx.id.substring(0, 12) + '...') : (tx.sender.substring(0, 12) + '...');
+    const addrShort = isSent ? (app.escapeHtml(tx.id.substring(0, 12)) + '...') : (app.escapeHtml(tx.sender.substring(0, 12)) + '...');
     const confirmations = tx.confirm || 0;
     const pendingBadge = confirmations < 1 ? ' <span style="color:#ff9800;font-size:9px;">⏳ pending</span>' : '';
     html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
       <div style="display:flex;align-items:center;gap:6px;">
         <span>${arrow}</span>
         <div>
-          <div style="font-size:12px;font-weight:600;color:${color};">${isSent ? '-' : '+'}${tx.amount} ${tx.symbol}${pendingBadge}</div>
-          <div style="font-family:monospace;font-size:9px;color:#666;">${addrShort} · h:${tx.height}</div>
+          <div style="font-size:12px;font-weight:600;color:${color};">${isSent ? '-' : '+'}${app.escapeHtml(tx.amount)} ${app.escapeHtml(tx.symbol)}${pendingBadge}</div>
+          <div style="font-family:monospace;font-size:9px;color:#666;">${addrShort} · h:${app.escapeHtml(tx.height)}</div>
         </div>
       </div>
-      <a href="https://explore.mmx.network/#/explore/transaction/${tx.id}" target="_blank" style="color:#555;font-size:10px;text-decoration:none;">↗</a>
+      <a href="https://explore.mmx.network/#/explore/transaction/${app.escapeHtml(tx.id)}" target="_blank" style="color:#555;font-size:10px;text-decoration:none;">↗</a>
     </div>`;
   }
   if (append) list.innerHTML += html;
@@ -685,11 +685,11 @@ async function renderContacts() {
     for (const c of contacts) {
       html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
         <div>
-          <div style="font-size:13px;font-weight:600;">${c.name}</div>
-          <div style="font-family:monospace;font-size:10px;color:#666;">${c.address.substring(0,20)}...</div>
+          <div style="font-size:13px;font-weight:600;">${app.escapeHtml(c.name)}</div>
+          <div style="font-family:monospace;font-size:10px;color:#666;">${app.escapeHtml(c.address.substring(0,20))}...</div>
         </div>
-        <button class="btn btn-secondary" data-id="${c.id}" data-addr="${c.address}" style="font-size:10px;padding:4px 8px;">Send</button>
-        <button class="btn btn-danger" data-del="${c.id}" style="font-size:10px;padding:4px 8px;margin-left:4px;">🗑</button>
+        <button class="btn btn-secondary" data-id="${app.escapeHtml(c.id)}" data-addr="${app.escapeHtml(c.address)}" style="font-size:10px;padding:4px 8px;">Send</button>
+        <button class="btn btn-danger" data-del="${app.escapeHtml(c.id)}" style="font-size:10px;padding:4px 8px;margin-left:4px;">🗑</button>
       </div>`;
     }
     list.innerHTML = html;
@@ -716,7 +716,7 @@ async function populateContactPicker() {
   const select = document.getElementById("sendToContact");
   select.innerHTML = '<option value="">Select from contacts...</option>';
   for (const c of contacts) {
-    select.innerHTML += `<option value="${c.address}">${c.name} — ${c.address.substring(0,12)}...</option>`;
+    select.innerHTML += `<option value="${app.escapeHtml(c.address)}">${app.escapeHtml(c.name)} — ${app.escapeHtml(c.address.substring(0,12))}...</option>`;
   }
 }
 
@@ -765,10 +765,10 @@ async function showWalletList() {
   for (const w of wallets) {
     const isActive = w.id === activeId ? " active" : "";
     const addrShort = w.address.substring(0, 16) + "..." + w.address.slice(-6);
-    html += `<div class="wallet-item${isActive}" data-id="${w.id}">
+    html += `<div class="wallet-item${isActive}" data-id="${app.escapeHtml(w.id)}">
       <div>
-        <div class="wallet-name">${w.name}</div>
-        <div class="wallet-addr">${addrShort}</div>
+        <div class="wallet-name">${app.escapeHtml(w.name)}</div>
+        <div class="wallet-addr">${app.escapeHtml(addrShort)}</div>
       </div>
     </div>`;
   }
@@ -950,7 +950,7 @@ document.getElementById("sendBroadcastBtn").addEventListener("click", async () =
 
     const txLink = document.createElement("div");
     txLink.className = "tx-link";
-    txLink.innerHTML = `<a href="https://explore.mmx.network/#/explore/transaction/${sendResult.txid}" target="_blank" style="color:#00d4ff;text-decoration:none;">${sendResult.txid.substring(0,20)}...↗</a>`;
+    txLink.innerHTML = `<a href="https://explore.mmx.network/#/explore/transaction/${app.escapeHtml(sendResult.txid)}" target="_blank" style="color:#00d4ff;text-decoration:none;">${app.escapeHtml(sendResult.txid.substring(0,20))}...↗</a>`;
     document.getElementById("sendConfirmStatus").appendChild(txLink);
 
     setTimeout(() => renderDashboard(), 3000);

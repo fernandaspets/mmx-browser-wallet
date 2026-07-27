@@ -29,6 +29,12 @@ async function setPermission(origin, allowed) {
   });
 }
 
+// Respond to the page using the page's own origin (not '*') so other
+// scripts on the page can't eavesdrop on wallet responses.
+function respondToPage(id, response) {
+  window.postMessage({ source: 'mmx-content', id, response }, window.location.origin);
+}
+
 // Listen for messages from the injected script (page context)
 window.addEventListener('message', async (event) => {
   if (event.source !== window) return;
@@ -57,7 +63,7 @@ window.addEventListener('message', async (event) => {
           const result = changes.mmx_send_result.newValue;
           if (result && result.id === id) {
             _browser.storage.onChanged.removeListener(sendListener);
-            window.postMessage({ source: 'mmx-content', id, response: result.response }, '*');
+            respondToPage(id, result.response);
             _browser.storage.local.remove('mmx_pending_send');
             _browser.storage.local.remove('mmx_send_result');
             if (_browser.action) _browser.action.setBadgeText({ text: '' });
@@ -67,12 +73,12 @@ window.addEventListener('message', async (event) => {
       } else {
         // Address request — respond immediately
         _browser.runtime.sendMessage({ type: 'GET_ADDRESS' }, (response) => {
-          window.postMessage({ source: 'mmx-content', id, response }, '*');
+          respondToPage(id, response);
         });
       }
     } else if (perms[origin] === false) {
       // Already denied
-      window.postMessage({ source: 'mmx-content', id, response: { address: null, error: 'Permission denied' } }, '*');
+      respondToPage(id, { address: null, error: 'Permission denied' });
     } else {
       // No permission yet — ask the user via popup
       _browser.storage.local.set({ 
@@ -82,14 +88,14 @@ window.addEventListener('message', async (event) => {
         _browser.action.setBadgeText({ text: '!' });
         _browser.action.setBadgeBackgroundColor({ color: '#ffa726' });
       }
-      window.postMessage({ source: 'mmx-content', id, response: { address: null, error: 'Approval required. Open the MMX wallet extension popup to approve.' } }, '*');
+      respondToPage(id, { address: null, error: 'Approval required. Open the MMX wallet extension popup to approve.' });
       
       // Listen for approval
       const approvalListener = (msg) => {
         if (msg && msg.type === 'DAPP_APPROVED' && msg.origin === origin) {
           _browser.runtime.onMessage.removeListener(approvalListener);
           _browser.runtime.sendMessage({ type: 'GET_ADDRESS' }, (response) => {
-            window.postMessage({ source: 'mmx-content', id, response }, '*');
+            respondToPage(id, response);
           });
           _browser.storage.local.remove('mmx_pending_dapp');
           if (_browser.action) _browser.action.setBadgeText({ text: '' });

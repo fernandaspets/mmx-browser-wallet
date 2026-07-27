@@ -55,6 +55,7 @@ for f in \
   icon48.png \
   icon128.png \
   PRIVACY.md \
+  demo/paywall.html \
   lib/bech32-esm.js \
   lib/buffer-esm.js
 do

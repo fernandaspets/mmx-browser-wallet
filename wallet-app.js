@@ -121,6 +121,7 @@ function resetAutoLock() {
 }
 
 function lockWallet() {
+  if (unlockedSeed && unlockedSeed.fill) unlockedSeed.fill(0);
   unlockedSeed = null;
   unlockedWallet = null;
   if (autoLockTimer) { clearTimeout(autoLockTimer); autoLockTimer = null; }
@@ -454,6 +455,17 @@ if (typeof document !== "undefined") {
 }
 
 // Re-export for UI
+// --- HTML escape helper (prevents XSS when inserting user data into innerHTML) ---
+export function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export { seedToWords };
 
 // Show mnemonic — requires password re-entry

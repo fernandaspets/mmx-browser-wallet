@@ -22,6 +22,8 @@ All tests must pass before submitting changes.
 
 ## Project Structure
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture.
+
 ```
 wallet-app.js          Wallet logic (keys, tx, balance, history)
 wallet-store.js         Encrypted storage (AES-GCM + PBKDF2)
@@ -33,7 +35,8 @@ wallet.html              Web page wallet UI + logic
 background.js            Extension background (session persistence, dApp message routing, content script registration)
 content.js / inject.js   dApp integration (window.mmx API) — opt-in only, loaded when user enables
 lib/                     bech32m encoder, Buffer polyfill
-test/                    Test suites (169 tests)
+test/                    Test suites (205 tests)
+docs/                    Documentation (architecture, security, dApp, store submission)
 wordlist.txt             BIP-0039 wordlist (MMX variant)
 ```
 

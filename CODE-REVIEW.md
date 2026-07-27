@@ -15,7 +15,7 @@
 | Send flow | Good — validation, balance check, confirm dialog, bech32m address check |
 | Address book | Good — auto-tracks sent addresses, duplicate detection |
 | Theme system | Good — CSS variables, persists choice |
-| Tests | 184 tests across 4 suites |
+| Tests | 205 tests across 4 suites |
 | Security | No known vulnerabilities in current version |
 
 ---
@@ -51,6 +51,13 @@ environment (localStorage vs chrome.storage.local).
 - **Send-to-self blocked** (wastes fee).
 - **Balance check** before send (prevents cryptic node errors).
 - **bech32m checksum validation** on destination address.
+- **XSS prevention** — all user-supplied data (contact names, wallet names, tx fields)
+  is HTML-escaped via `escapeHtml()` before insertion into `innerHTML`.
+- **Seed zeroed on lock** — `unlockedSeed.fill(0)` before nulling, both in
+  wallet-app.js and background.js session.
+- **postMessage origin-restricted** — content.js responds to page using
+  `window.location.origin`, not `'*'`, preventing eavesdropping by other scripts.
+- **CSP enabled** — `script-src 'self'; object-src 'self'` in manifest.
 
 ---
 
@@ -78,10 +85,10 @@ environment (localStorage vs chrome.storage.local).
 | Suite | Tests | Covers |
 |---|---|---|
 | `test-crypto.mjs` | 22 | Address derivation, mnemonic round-trip, bech32m, tx hash, signature, storage |
-| `test-regression.mjs` | 70 | All past bugs: prehash trap, max_fee_amount, bech32m fromWords, expires, nonce, BigInt JSON, formatAmount, manifest, no prompt(), syntax check, theme system, session persistence, dApp opt-in manifest |
+| `test-regression.mjs` | 91 | All past bugs: prehash trap, max_fee_amount, bech32m fromWords, expires, nonce, BigInt JSON, formatAmount, manifest, no prompt(), syntax check, theme system, session persistence, dApp opt-in manifest |
 | `test-fuzz.mjs` | 38 | Invalid mnemonics, addresses, amounts, keys, XSS, large amounts, multi-io |
 | `test-integration.mjs` | 54 | Create→unlock→verify, import, wrong password, build→sign, lock cycle, memo, contacts, send validation |
-| **Total** | **184** | |
+| **Total** | **205** | |
 
 ---
 

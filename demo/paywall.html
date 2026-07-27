@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrailShare — Unlock Content</title>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+  
+  :root {
+    --bg: #0d0f1a;
+    --bg-card: rgba(255,255,255,0.03);
+    --bg-input: rgba(0,0,0,0.3);
+    --border: rgba(255,255,255,0.08);
+    --text: #e4e6ef;
+    --text-muted: #8b8fa3;
+    --accent: #6c8aff;
+    --accent-bg: rgba(108,138,255,0.1);
+    --success: #4caf50;
+    --warning: #ffa726;
+    --danger: #ef5350;
+    --radius: 12px;
+  }
+  
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  
+  .app { width: 100%; max-width: 520px; }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    background: var(--accent-bg);
+    border: 1px solid rgba(108,138,255,0.2);
+    border-radius: 20px;
+    color: var(--accent);
+  }
+  .badge.connected { color: var(--success); border-color: rgba(76,175,80,0.2); background: rgba(76,175,80,0.08); }
+  
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  
+  .price-tag {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 8px 0;
+  }
+  .price-tag small { font-size: 16px; color: var(--text-muted); font-weight: 400; }
+  
+  .content-preview {
+    position: relative;
+    margin: 20px 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  
+  .locked-svg {
+    filter: blur(14px);
+    transition: filter 1.5s ease;
+  }
+  .locked-svg.unlocked { filter: blur(0px); }
+  
+  .lock-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    transition: opacity 0.5s;
+  }
+  .lock-overlay.hidden { opacity: 0; pointer-events: none; }
+  .lock-icon { font-size: 48px; }
+  
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  
+  .status {
+    font-size: 13px;
+    color: var(--text-muted);
+    min-height: 20px;
+    margin: 12px 0;
+  }
+  .status.success { color: var(--success); }
+  .status.error { color: var(--danger); }
+  .status.pending { color: var(--warning); }
+  
+  .info-box {
+    background: rgba(108,138,255,0.06);
+    border: 1px solid rgba(108,138,255,0.12);
+    border-radius: 8px;
+    padding: 14px;
+    margin: 12px 0;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: left;
+  }
+  .info-box strong { color: var(--accent); }
+  
+  .addr-box {
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    padding: 8px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    word-break: break-all;
+    margin: 8px 0;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .addr-box:hover { border-color: var(--accent); }
+  
+  .tx-link {
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    word-break: break-all;
+  }
+  .tx-link:hover { text-decoration: underline; }
+  
+  .unlocked-banner {
+    display: none;
+    background: rgba(76,175,80,0.08);
+    border: 1px solid rgba(76,175,80,0.2);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .unlocked-banner.show { display: block; animation: fadeIn 0.5s; }
+  
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  
+  .no-wallet {
+    display: none;
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .no-wallet.show { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>TrailShare Content</h1>
+    <div class="badge" id="statusBadge">checking...</div>
+  </div>
+  
+  <!-- No wallet detected -->
+  <div class="no-wallet" id="noWallet">
+    <div class="card">
+      <div style="font-size:48px;margin-bottom:16px;">🔌</div>
+      <h2 style="font-size:18px;margin-bottom:8px;">MMX Wallet Not Detected</h2>
+      <p style="color:var(--text-muted);font-size:13px;line-height:1.5;margin-bottom:16px;">
+        Install the MMX Browser Wallet extension and unlock your wallet to access this content.
+      </p>
+      <a href="https://github.com/fernandaspets/mmx-browser-wallet" target="_blank" class="btn btn-primary" style="text-decoration:none;display:inline-block;width:auto;padding:12px 24px;">
+        Get MMX Wallet
+      </a>
+    </div>
+  </div>
+  
+  <!-- Wallet detected -->
+  <div id="walletView" style="display:none;">
+    <div class="card">
+      <h2 style="font-size:16px;margin-bottom:8px;">Pack Walk Content</h2>
+      <p style="color:var(--text-muted);font-size:13px;">Unlock the full pack walk animation</p>
+      <div class="price-tag">1 <small>TRAIL</small></div>
+      
+      <div class="info-box">
+        <strong>Your wallet:</strong>
+        <div class="addr-box" id="userAddr" onclick="copyAddr(this)">Loading...</div>
+        <strong>Pay to (Morpheus):</strong>
+        <div class="addr-box" id="payAddr" onclick="copyAddr(this)">mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5</div>
+      </div>
+    </div>
+    
+    <div class="unlocked-banner" id="unlockedBanner">
+      <h2 style="color:var(--success);font-size:18px;">Content Unlocked!</h2>
+      <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">Thanks for supporting TrailShare.</p>
+    </div>
+    
+    <div class="card">
+      <div class="content-preview">
+        <div class="locked-svg" id="svgContainer">
+          <svg width="100%" height="220" viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#FF6B6B"/>
+                <stop offset="50%" stop-color="#FFE66D"/>
+                <stop offset="100%" stop-color="#4ECDC4"/>
+              </linearGradient>
+              <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#8B7355"/>
+                <stop offset="100%" stop-color="#5D4E37"/>
+              </linearGradient>
+            </defs>
+            <rect width="400" height="180" fill="url(#sky)" rx="8"/>
+            <circle cx="320" cy="60" r="25" fill="#FFD93D" opacity="0.9"/>
+            <circle cx="320" cy="60" r="20" fill="#FF9F43" opacity="0.5"/>
+            <path d="M0,180 L60,100 L120,160 L180,80 L240,140 L300,90 L360,130 L400,110 L400,180 Z" fill="#2C3E50" opacity="0.3"/>
+            <path d="M0,180 L80,120 L140,170 L200,110 L280,160 L340,120 L400,150 L400,180 Z" fill="#34495E" opacity="0.5"/>
+            <rect y="180" width="400" height="70" fill="url(#ground)" rx="8"/>
+            <path d="M0,200 Q100,195 200,200 T400,200" stroke="#D4A574" stroke-width="3" fill="none" opacity="0.4"/>
+            
+            <g transform="translate(50,140)">
+              <rect x="0" y="10" width="6" height="35" rx="3" fill="#3498DB"/>
+              <circle cx="3" cy="5" r="8" fill="#F8C8A0"/>
+              <path d="M-3,0 Q3,-8 9,0 Z" fill="#E74C3C"/>
+              <line x1="1" y1="45" x2="-2" y2="55" stroke="#2C3E50" stroke-width="3" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 1 45;15 1 45;0 1 45;15 1 45;0 1 45" dur="0.5s" repeatCount="indefinite"/>
+              </line>
+              <line x1="5" y1="45" x2="8" y2="55" stroke="#2C3E50" stroke-width="3" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 5 45;-15 5 45;0 5 45;-15 5 45;0 5 45" dur="0.5s" repeatCount="indefinite"/>
+              </line>
+              <line x1="6" y1="20" x2="20" y2="25" stroke="#7F8C8D" stroke-width="2"/>
+            </g>
+            
+            <g transform="translate(75,150)">
+              <ellipse cx="15" cy="20" rx="18" ry="10" fill="#8B4513"/>
+              <circle cx="30" cy="15" r="9" fill="#A0522D"/>
+              <path d="M24,8 Q22,2 26,4 Z" fill="#6B3410"/>
+              <path d="M34,8 Q36,2 32,4 Z" fill="#6B3410"/>
+              <circle cx="32" cy="13" r="1.5" fill="#000"/>
+              <circle cx="37" cy="15" r="1" fill="#000"/>
+              <line x1="0" y1="15" x2="-8" y2="8" stroke="#8B4513" stroke-width="4" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 0 15;20 0 15;-20 0 15;0 0 15" dur="0.3s" repeatCount="indefinite"/>
+              </line>
+              <line x1="8" y1="28" x2="6" y2="35" stroke="#6B3410" stroke-width="3" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 8 28;-10 8 28;0 8 28" dur="0.4s" repeatCount="indefinite"/>
+              </line>
+              <line x1="20" y1="28" x2="22" y2="35" stroke="#6B3410" stroke-width="3" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 20 28;10 20 28;0 20 28" dur="0.4s" repeatCount="indefinite"/>
+              </line>
+            </g>
+            
+            <g transform="translate(110,155)">
+              <ellipse cx="10" cy="18" rx="12" ry="7" fill="#F4E1C1"/>
+              <circle cx="20" cy="14" r="6" fill="#E8D5A8"/>
+              <path d="M16,9 Q14,4 18,6 Z" fill="#C4A96A"/>
+              <path d="M22,9 Q24,4 20,6 Z" fill="#C4A96A"/>
+              <circle cx="22" cy="12" r="1" fill="#000"/>
+              <circle cx="25" cy="14" r="0.8" fill="#000"/>
+              <line x1="0" y1="14" x2="-5" y2="9" stroke="#F4E1C1" stroke-width="3" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 0 14;25 0 14;-25 0 14;0 0 14" dur="0.25s" repeatCount="indefinite"/>
+              </line>
+              <line x1="5" y1="24" x2="3" y2="30" stroke="#C4A96A" stroke-width="2" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 5 24;-10 5 24;0 5 24" dur="0.35s" repeatCount="indefinite"/>
+              </line>
+              <line x1="14" y1="24" x2="16" y2="30" stroke="#C4A96A" stroke-width="2" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 14 24;10 14 24;0 14 24" dur="0.35s" repeatCount="indefinite"/>
+              </line>
+            </g>
+            
+            <g transform="translate(140,158)">
+              <ellipse cx="7" cy="17" rx="8" ry="5" fill="#5C4033"/>
+              <circle cx="14" cy="13" r="4" fill="#6B4226"/>
+              <path d="M11,10 Q10,6 13,8 Z" fill="#3D2817"/>
+              <circle cx="15" cy="11" r="0.8" fill="#000"/>
+              <line x1="0" y1="13" x2="-3" y2="9" stroke="#5C4033" stroke-width="2" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 0 13;30 0 13;-30 0 13;0 0 13" dur="0.2s" repeatCount="indefinite"/>
+              </line>
+              <line x1="3" y1="21" x2="1" y2="26" stroke="#3D2817" stroke-width="1.5" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 3 21;-10 3 21;0 3 21" dur="0.3s" repeatCount="indefinite"/>
+              </line>
+              <line x1="10" y1="21" x2="12" y2="26" stroke="#3D2817" stroke-width="1.5" stroke-linecap="round">
+                <animateTransform attributeName="transform" type="rotate" values="0 10 21;10 10 21;0 10 21" dur="0.3s" repeatCount="indefinite"/>
+              </line>
+            </g>
+            
+            <g opacity="0.6">
+              <path d="M250,40 Q255,35 260,40 Q265,35 270,40" stroke="#333" stroke-width="1.5" fill="none">
+                <animate attributeName="transform" type="translate" values="0,0;5,-3;0,0" dur="2s" repeatCount="indefinite"/>
+              </path>
+              <path d="M280,55 Q283,52 286,55 Q289,52 292,55" stroke="#333" stroke-width="1" fill="none">
+                <animate attributeName="transform" type="translate" values="0,0;-3,2;0,0" dur="2.5s" repeatCount="indefinite"/>
+              </path>
+            </g>
+            
+            <g fill="#4A7C59" opacity="0.6">
+              <path d="M10,210 L12,200 L14,210 L16,202 L18,210 Z"/>
+              <path d="M380,212 L382,204 L384,212 L386,206 L388,212 Z"/>
+              <path d="M200,208 L202,200 L204,208 L206,202 L208,208 Z"/>
+            </g>
+          </svg>
+        </div>
+        <div class="lock-overlay" id="lockOverlay">
+          <div class="lock-icon">🔒</div>
+          <div style="color:var(--text-muted);font-size:13px;">Content locked</div>
+        </div>
+      </div>
+      
+      <div class="status" id="statusMsg"></div>
+      
+      <button class="btn btn-primary" id="payBtn" onclick="startPayment()">
+        Unlock for 1 TRAIL
+      </button>
+      
+      <div id="txSection" style="display:none;margin-top:12px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Payment TX:</div>
+        <a class="tx-link" id="txLink" target="_blank" href="#"></a>
+      </div>
+    </div>
+    
+    <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:16px;">
+      Powered by MMX public RPC · No server required
+    </div>
+  </div>
+</div>
+
+<script>
+// === Constants ===
+const RPC = "https://rpc.mmx.network";
+const MORPHEUS = "mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5";
+const TRAIL_CONTRACT = "mmx1q8cdxjwutex5t3s69d4nc0kdsvtcn2h207vcgvced78nzlvyh8mskhhgq7";
+const PRICE_TRAIL = 1;
+
+// === State ===
+let userAddress = null;
+let unlocked = false;
+
+// === Check for MMX wallet extension ===
+async function init() {
+  // Wait briefly for window.mmx to be injected
+  await new Promise(r => setTimeout(r, 500));
+  
+  if (typeof window.mmx === "undefined" || !window.mmx.isMMX) {
+    document.getElementById("noWallet").classList.add("show");
+    document.getElementById("statusBadge").textContent = "no wallet";
+    document.getElementById("statusBadge").style.color = "var(--danger)";
+    return;
+  }
+  
+  document.getElementById("walletView").style.display = "block";
+  document.getElementById("statusBadge").textContent = "wallet found";
+  document.getElementById("statusBadge").classList.add("connected");
+  
+  // Get user's wallet address
+  try {
+    userAddress = await window.mmx.getAddress();
+    if (!userAddress) {
+      document.getElementById("statusBadge").textContent = "wallet locked";
+      document.getElementById("statusBadge").style.color = "var(--warning)";
+      document.getElementById("userAddr").textContent = "Wallet is locked. Unlock your MMX wallet extension.";
+      document.getElementById("payBtn").disabled = true;
+      // Retry every 3s until wallet is unlocked
+      setTimeout(init, 3000);
+      return;
+    }
+    document.getElementById("userAddr").textContent = userAddress;
+    document.getElementById("statusBadge").textContent = "connected";
+    document.getElementById("payBtn").disabled = false;
+  } catch (e) {
+    document.getElementById("userAddr").textContent = "Permission needed. Approve in MMX wallet extension.";
+    document.getElementById("payBtn").disabled = true;
+    // Retry every 5s
+    setTimeout(init, 5000);
+    return;
+  }
+}
+
+// === Payment flow ===
+async function startPayment() {
+  if (!userAddress || unlocked) return;
+  
+  const btn = document.getElementById("payBtn");
+  const status = document.getElementById("statusMsg");
+  
+  btn.disabled = true;
+  status.className = "status pending";
+  status.textContent = "Sending 1 TRAIL to Morpheus...";
+  
+  try {
+    // Send TRAIL via wallet extension (user confirms in popup)
+    const result = await window.mmx.send({
+      to: MORPHEUS,
+      amount: String(PRICE_TRAIL),
+      currency: "TRAIL"
+    });
+    
+    if (result && result.error) throw new Error(result.error);
+    
+    const txid = result?.txid;
+    status.className = "status success";
+    status.textContent = "Payment sent! Unlocking...";
+    
+    // Show tx link
+    document.getElementById("txSection").style.display = "block";
+    const txLink = document.getElementById("txLink");
+    if (txid) {
+      txLink.href = `https://explore.mmx.network/#/explore/transaction/${txid}`;
+      txLink.textContent = txid;
+    }
+    
+    // Unlock content
+    setTimeout(() => {
+      document.getElementById("lockOverlay").classList.add("hidden");
+      document.getElementById("svgContainer").classList.add("unlocked");
+      document.getElementById("unlockedBanner").classList.add("show");
+      btn.style.display = "none";
+    }, 500);
+    
+    unlocked = true;
+    
+  } catch (e) {
+    status.className = "status error";
+    status.textContent = e.message || "Payment failed";
+    btn.disabled = false;
+  }
+}
+
+// === Helpers ===
+function copyAddr(el) {
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const orig = el.style.borderColor;
+    el.style.borderColor = "var(--success)";
+    setTimeout(() => { el.style.borderColor = orig; }, 1000);
+  });
+}
+
+// Listen for wallet extension injection
+window.addEventListener("mmx#initialized", init);
+
+// Also try init on load (in case event already fired)
+init();
+</script>
+</body>
+</html>

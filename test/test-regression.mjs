@@ -506,6 +506,62 @@ console.log("\nBalance conversion from float");
   app.lockWalletPub();
 }
 
+// === XSS prevention: escapeHtml ===
+console.log("\nXSS prevention (escapeHtml)");
+{
+  const app = await import("../wallet-app.js");
+  assert("escapeHtml is a function", typeof app.escapeHtml, "function");
+  assert("escapes <", app.escapeHtml("<script>"), "&lt;script&gt;");
+  assert("escapes >", app.escapeHtml("a>b"), "a&gt;b");
+  assert("escapes \"", app.escapeHtml('a"b'), "a&quot;b");
+  assert("escapes '", app.escapeHtml("a'b"), "a&#39;b");
+  assert("escapes &", app.escapeHtml("a&b"), "a&amp;b");
+  assert("null returns empty", app.escapeHtml(null), "");
+  assert("undefined returns empty", app.escapeHtml(undefined), "");
+  assert("number converts to string", app.escapeHtml(42), "42");
+  // Real XSS payload
+  const payload = '<img src=x onerror=alert(1)>';
+  const escaped = app.escapeHtml(payload);
+  assert("XSS payload is escaped", escaped.includes("&lt;img"), true);
+  assert("XSS payload has no raw <", escaped.includes("<img"), false);
+}
+
+// === Seed zeroing on lock ===
+console.log("\nSeed zeroing on lock");
+{
+  const app = await import("../wallet-app.js");
+  const seed = new Uint8Array(32).fill(99);
+  app.restoreSession(seed, { id: "test", name: "T", address: "mmx1test" });
+  const seedBefore = Array.from(app.getUnlockedSeed());
+  assert("Seed is set", seedBefore[0], 99);
+  app.lockWalletPub();
+  assert("Seed is null after lock", app.getUnlockedSeed(), null);
+  // The original seed array should have been filled with zeros
+  assert("Seed bytes were zeroed", seed[0], 0);
+  assert("All seed bytes zeroed", seed.every(b => b === 0), true);
+}
+
+// === content.js postMessage uses origin, not '*' ===
+console.log("\ncontent.js postMessage origin");
+{
+  const fs = await import("fs");
+  const contentSrc = fs.readFileSync(import.meta.dirname + "/../content.js", "utf8");
+  // Should NOT have any postMessage with '*'
+  assert("no postMessage with '*'", contentSrc.includes("}, '*')"), false);
+  assert("uses respondToPage helper", contentSrc.includes("function respondToPage"), true);
+  assert("respondToPage uses location.origin", contentSrc.includes("window.location.origin"), true);
+}
+
+// === CSP in manifest ===
+console.log("\nCSP in manifest");
+{
+  const fs = await import("fs");
+  const manifest = JSON.parse(fs.readFileSync(import.meta.dirname + "/../manifest.json", "utf8"));
+  assert("manifest has content_security_policy", !!manifest.content_security_policy, true);
+  assert("CSP restricts script-src to self", manifest.content_security_policy.extension_pages.includes("script-src 'self'"), true);
+  assert("CSP restricts object-src to self", manifest.content_security_policy.extension_pages.includes("object-src 'self'"), true);
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Regression tests: ${passed} passed, ${failed} failed`);

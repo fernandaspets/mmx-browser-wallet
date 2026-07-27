@@ -28,6 +28,7 @@ function resetAutoLock() {
 }
 
 function clearSession() {
+  if (sessionSeed && sessionSeed.fill) sessionSeed.fill(0);
   sessionSeed = null;
   sessionWallet = null;
   if (autoLockTimer) { clearTimeout(autoLockTimer); autoLockTimer = null; }
