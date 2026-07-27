@@ -443,6 +443,9 @@ async function renderDashboard() {
   // Check for pending dApp requests (address + send)
   try { checkPendingDapp(); } catch {}
 
+  // Initialize dApp toggle
+  try { initDappToggle(); } catch {}
+
   // Fetch balance + tx history in parallel (non-blocking)
   setStatus("dashStatus", "Fetching balance...", "");
   txOffset = 0;
@@ -985,6 +988,76 @@ document.getElementById("openTabBtn").addEventListener("click", () => {
   }
   window.close();
 });
+
+// --- dApp integration toggle (opt-in) ---
+
+async function initDappToggle() {
+  const toggle = document.getElementById("dappToggle");
+  const slider = document.getElementById("dappSlider");
+  const status = document.getElementById("dappToggleStatus");
+  if (!toggle || !slider) return;
+
+  // Check current state: is the content script registered?
+  let enabled = false;
+  try {
+    const resp = await bgSend({ type: "DAPP_STATUS" });
+    enabled = resp?.registered || false;
+  } catch {}
+
+  function updateUI(on) {
+    toggle.checked = on;
+    slider.style.background = on ? "#4caf50" : "#444";
+    // Move the slider knob
+    slider.style.transform = on ? "translateX(20px)" : "translateX(0)";
+  }
+  updateUI(enabled);
+
+  toggle.addEventListener("change", async () => {
+    if (toggle.checked) {
+      // Enable: request <all_urls> permission (must be in popup with user gesture)
+      status.textContent = "Requesting permission...";
+      status.className = "status";
+      try {
+        const granted = await _browser.permissions.request({ origins: ["<all_urls>"] });
+        if (!granted) {
+          status.textContent = "Permission denied";
+          status.className = "status error";
+          updateUI(false);
+          return;
+        }
+        // Tell background to register content script
+        const resp = await bgSend({ type: "DAPP_ENABLE" });
+        if (resp?.ok) {
+          status.textContent = "dApp integration enabled";
+          status.className = "status success";
+          updateUI(true);
+        } else {
+          status.textContent = resp?.error || "Failed to enable";
+          status.className = "status error";
+          updateUI(false);
+        }
+      } catch (e) {
+        status.textContent = e.message;
+        status.className = "status error";
+        updateUI(false);
+      }
+    } else {
+      // Disable: unregister content script + remove permission
+      status.textContent = "Disabling...";
+      status.className = "status";
+      try {
+        await bgSend({ type: "DAPP_DISABLE" });
+        await _browser.permissions.remove({ origins: ["<all_urls>"] });
+        status.textContent = "dApp integration disabled";
+        status.className = "status success";
+        updateUI(false);
+      } catch (e) {
+        status.textContent = e.message;
+        status.className = "status error";
+      }
+    }
+  });
+}
 
 // --- Start ---
 init();

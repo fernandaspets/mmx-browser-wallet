@@ -102,4 +102,50 @@ _browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
+  // --- dApp content script registration (opt-in) ---
+
+  if (message.type === "DAPP_ENABLE") {
+    const _chrome = _browser.scripting ? _browser : (typeof chrome !== "undefined" ? chrome : null);
+    if (!_chrome || !_chrome.scripting) {
+      sendResponse({ ok: false, error: "scripting API not available" });
+      return false;
+    }
+    _chrome.scripting.registerContentScripts([{
+      id: "mmx-dapp",
+      matches: ["<all_urls>"],
+      js: ["content.js"],
+      runAt: "document_start"
+    }]).then(() => {
+      _browser.storage.local.set({ mmx_dapp_enabled: true });
+      sendResponse({ ok: true });
+    }).catch(e => {
+      sendResponse({ ok: false, error: e.message });
+    });
+    return true; // async
+  }
+
+  if (message.type === "DAPP_DISABLE") {
+    const _chrome = _browser.scripting ? _browser : (typeof chrome !== "undefined" ? chrome : null);
+    if (_chrome && _chrome.scripting) {
+      _chrome.scripting.unregisterContentScripts({ ids: ["mmx-dapp"] }).catch(() => {});
+    }
+    _browser.storage.local.set({ mmx_dapp_enabled: false });
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message.type === "DAPP_STATUS") {
+    const _chrome = _browser.scripting ? _browser : (typeof chrome !== "undefined" ? chrome : null);
+    if (!_chrome || !_chrome.scripting) {
+      sendResponse({ registered: false });
+      return false;
+    }
+    _chrome.scripting.getRegisteredContentScripts({ ids: ["mmx-dapp"] }).then(scripts => {
+      sendResponse({ registered: scripts.length > 0 });
+    }).catch(() => {
+      sendResponse({ registered: false });
+    });
+    return true; // async
+  }
 });

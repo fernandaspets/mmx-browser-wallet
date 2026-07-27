@@ -15,7 +15,7 @@
 | Send flow | Good — validation, balance check, confirm dialog, bech32m address check |
 | Address book | Good — auto-tracks sent addresses, duplicate detection |
 | Theme system | Good — CSS variables, persists choice |
-| Tests | 180 tests across 4 suites |
+| Tests | 183 tests across 4 suites |
 | Security | No known vulnerabilities in current version |
 
 ---
@@ -64,7 +64,11 @@ environment (localStorage vs chrome.storage.local).
   preview; the real fee is confirmed post-validation. For the local node wallet
   API, `auto_send: false` dry-run also returns `exec_result.total_fee`.
   Note: `average_txfee=0` from headers means empty blocks, NOT free transactions.
-- **No QR codes** — planned but not yet implemented.
+- **dApp integration is opt-in** — no `<all_urls>` permission at install.
+  User toggles it on in dashboard → extension requests permission at runtime →
+  dynamically registers content script via `chrome.scripting.registerContentScripts`.
+  When off: zero page access, no content script registered. This keeps the install-time
+  permission footprint minimal (only `storage`, `activeTab`, `scripting`, + RPC host).
 - **No network selector** — public RPC only. Local node support planned.
 - **Public RPC gives no error details** — `/transaction/validate` returns
   "invalid tx" with no explanation, making debugging difficult.
@@ -76,10 +80,10 @@ environment (localStorage vs chrome.storage.local).
 | Suite | Tests | Covers |
 |---|---|---|
 | `test-crypto.mjs` | 22 | Address derivation, mnemonic round-trip, bech32m, tx hash, signature, storage |
-| `test-regression.mjs` | 66 | All past bugs: prehash trap, max_fee_amount, bech32m fromWords, expires, nonce, BigInt JSON, formatAmount, manifest, no prompt(), syntax check, theme system, session persistence |
+| `test-regression.mjs` | 69 | All past bugs: prehash trap, max_fee_amount, bech32m fromWords, expires, nonce, BigInt JSON, formatAmount, manifest, no prompt(), syntax check, theme system, session persistence, dApp opt-in manifest |
 | `test-fuzz.mjs` | 38 | Invalid mnemonics, addresses, amounts, keys, XSS, large amounts, multi-io |
 | `test-integration.mjs` | 54 | Create→unlock→verify, import, wrong password, build→sign, lock cycle, memo, contacts, send validation |
-| **Total** | **180** | |
+| **Total** | **183** | |
 
 ---
 

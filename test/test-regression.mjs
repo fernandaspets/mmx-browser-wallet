@@ -342,6 +342,13 @@ console.log("\nManifest host_permissions");
   assert("manifest has host_permissions", Array.isArray(manifest.host_permissions), true);
   assert("host_permissions includes rpc.mmx.network",
     manifest.host_permissions.some(h => h.includes("rpc.mmx.network")), true);
+  // dApp integration is opt-in: no content_scripts in manifest, uses dynamic registration
+  assert("no content_scripts in manifest (opt-in via scripting API)",
+    !manifest.content_scripts, true);
+  assert("manifest has scripting permission",
+    manifest.permissions.includes("scripting"), true);
+  assert("manifest has optional_permissions for <all_urls>",
+    manifest.optional_permissions?.includes("<all_urls>"), true);
 }
 
 // === REGRESSION: no prompt()/confirm()/alert() in source (#bug: popup windows) ===

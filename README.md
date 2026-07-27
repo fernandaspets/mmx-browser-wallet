@@ -18,6 +18,9 @@ Works as both a **browser extension** (Firefox/Chrome) and a **web page**.
 - **Balance check** — verifies sufficient funds before send (prevents cryptic node errors)
 - **bech32m validation** — destination address checksum verified
 - **Send-to-self warning** — blocks sending to your own address (wastes fee)
+- **dApp integration (opt-in)** — toggle in dashboard enables `window.mmx` injection.
+  Off by default: zero page access, no content script. On: requests `<all_urls>` permission
+  and dynamically registers content script via `chrome.scripting` API. Same pattern as MetaMask.
 - **Dark/light theme** — toggle in header, choice persists across sessions
 - **Connection status** — network badge shows block height, green when connected
 - **Mnemonic backup** — 24-word recovery phrase (MMX custom BIP-0039 format)
@@ -63,9 +66,9 @@ Open `http://localhost:5050/browser-wallet/wallet.html` in your browser.
 ### Run Tests
 
 ```bash
-npm test                    # run all 180 tests
+npm test                    # run all 183 tests
 npm run test:unit           # 22 unit tests
-npm run test:regression     # 66 regression tests
+npm run test:regression     # 69 regression tests
 npm run test:fuzz           # 38 fuzz tests
 npm run test:integration    # 54 integration tests
 ```
@@ -73,7 +76,7 @@ npm run test:integration    # 54 integration tests
 | Suite | Tests | What it covers |
 |---|---|---|
 | `test/test-crypto.mjs` | 22 | Address derivation, mnemonic round-trip, bech32m, tx hash, signature cross-verification, encrypted storage |
-| `test/test-regression.mjs` | 66 | Prevents known bugs from returning: prehash trap, max_fee_amount size, bech32m fromWords, expires field, nonce entropy, BigInt JSON, formatAmount, manifest, theme system, syntax checks, session persistence |
+| `test/test-regression.mjs` | 69 | Prevents known bugs from returning: prehash trap, max_fee_amount size, bech32m fromWords, expires field, nonce entropy, BigInt JSON, formatAmount, manifest, theme system, syntax checks, session persistence, dApp opt-in manifest |
 | `test/test-fuzz.mjs` | 38 | Invalid inputs: bad mnemonics, invalid addresses, negative amounts, wrong-length keys, XSS names, large amounts, multi-input tx |
 | `test/test-integration.mjs` | 54 | Create→unlock→verify, import→verify, wrong password, build→sign→verify, lock cycle, duplicate detection, send validation, contacts |
 
@@ -215,7 +218,9 @@ Requests are denied by default — the user must approve each site.
 1. Pay $5 one-time fee at [chrome.google.com/webstore/devconsole](https://chrome.google.com/webstore/devconsole)
 2. Run `./pack.sh` to build `mmx-wallet-v1.0.0.zip`
 3. Upload the ZIP, provide screenshots (1280×800px) and privacy policy URL
-4. Review takes days to weeks. The `<all_urls>` permission will get scrutiny — justify it as dApp integration (same as MetaMask)
+4. Review takes days to weeks. The `<all_urls>` permission is now opt-in (not at install time),
+   which significantly reduces review friction. Reviewers see minimal install permissions
+   (`storage`, `activeTab`, `scripting`, RPC host only). dApp injection is user-activated.
 
 ### Packaging
 

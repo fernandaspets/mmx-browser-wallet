@@ -5,7 +5,8 @@
   "description": "Lightweight MMX wallet for the browser — keys never leave your device",
   "author": "FernandasPets",
   "homepage_url": "https://github.com/fernandaspets/mmx-browser-wallet",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "scripting"],
+  "optional_permissions": ["<all_urls>"],
   "host_permissions": ["https://rpc.mmx.network/*"],
   "action": {
     "default_popup": "popup.html",
@@ -19,13 +20,6 @@
   "background": {
     "scripts": ["background.js"]
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "run_at": "document_start"
-    }
-  ],
   "web_accessible_resources": [
     {
       "resources": ["wordlist.txt", "inject.js", "wallet.html", "wallet-app.js", "wallet-store.js", "mmx-node-api.js", "mmx-tx.js", "theme.css", "lib/bech32-esm.js", "lib/buffer-esm.js", "node_modules/@noble/secp256k1/*", "node_modules/@noble/hashes/*"],
