@@ -83,7 +83,8 @@ The seed lives in background memory only — never written to disk.
 |---|---|
 | `manifest.json` | Extension manifest (MV3, Firefox + Chrome) |
 | `popup.html` / `popup.js` | Extension popup UI |
-| `wallet.html` | Full-page wallet UI + logic |
+| `wallet.html` | Full-page wallet UI (opened via "Open Tab" button) |
+| `wallet-page.js` | Full-page wallet logic (external script for CSP compliance) |
 | `wallet-app.js` | Wallet logic: keys, tx, balance, history, contacts |
 | `wallet-store.js` | Encrypted storage (AES-GCM), address book |
 | `mmx-tx.js` | Transaction serialization & signing (VNX binary) |

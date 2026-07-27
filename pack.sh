@@ -44,6 +44,7 @@ for f in \
   popup.html \
   popup.js \
   wallet.html \
+  wallet-page.js \
   wallet-app.js \
   wallet-store.js \
   mmx-node-api.js \

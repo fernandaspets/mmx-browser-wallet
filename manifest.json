@@ -21,7 +21,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["wordlist.txt", "inject.js", "wallet.html", "wallet-app.js", "wallet-store.js", "mmx-node-api.js", "mmx-tx.js", "theme.css", "lib/bech32-esm.js", "lib/buffer-esm.js", "node_modules/@noble/secp256k1/*", "node_modules/@noble/hashes/*"],
+      "resources": ["wordlist.txt", "inject.js", "wallet.html", "wallet-page.js", "wallet-app.js", "wallet-store.js", "mmx-node-api.js", "mmx-tx.js", "theme.css", "lib/bech32-esm.js", "lib/buffer-esm.js", "node_modules/@noble/secp256k1/*", "node_modules/@noble/hashes/*"],
       "matches": ["<all_urls>"]
     }
   ],
