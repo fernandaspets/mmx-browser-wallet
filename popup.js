@@ -998,35 +998,71 @@ async function initDappToggle() {
   if (!toggle || !slider) return;
 
   // Check current state: is the content script registered?
-  let enabled = false;
+  let registered = false;
   try {
     const resp = await bgSend({ type: "DAPP_STATUS" });
-    enabled = resp?.registered || false;
+    registered = resp?.registered || false;
   } catch {}
+
+  // Check if user previously requested dApp but popup closed during permission prompt
+  let desired = false;
+  try {
+    const result = await _browser.storage.local.get("mmx_dapp_desired");
+    desired = result.mmx_dapp_desired || false;
+  } catch {}
+
+  // Auto-resume: user toggled on, last time, popup closed during permission dialog,
+  // but permission was granted. Finish enabling now.
+  if (desired && !registered) {
+    let hasPermission = false;
+    try {
+      hasPermission = await _browser.permissions.contains({ origins: ["<all_urls>"] });
+    } catch {}
+    if (hasPermission) {
+      // Permission granted while popup was closed — register now
+      const resp = await bgSend({ type: "DAPP_ENABLE" });
+      if (resp?.ok) {
+        registered = true;
+        await _browser.storage.local.remove("mmx_dapp_desired");
+        status.textContent = "dApp integration enabled";
+        status.className = "status success";
+      }
+    } else {
+      // Permission was denied or dismissed — clear the intent
+      await _browser.storage.local.remove("mmx_dapp_desired");
+    }
+  }
 
   function updateUI(on) {
     toggle.checked = on;
-    slider.style.background = on ? "#4caf50" : "#444";
-    // Move the slider knob
-    slider.style.transform = on ? "translateX(20px)" : "translateX(0)";
+    // Track background + knob color
+    slider.style.background = on ? "#4caf50" : "#555";
+    const knob = slider.querySelector("span");
+    if (knob) {
+      knob.style.transform = on ? "translateX(20px)" : "translateX(0)";
+      knob.style.background = on ? "#fff" : "#ccc";
+    }
   }
-  updateUI(enabled);
+  updateUI(registered);
 
   toggle.addEventListener("change", async () => {
     if (toggle.checked) {
-      // Enable: request <all_urls> permission (must be in popup with user gesture)
-      status.textContent = "Requesting permission...";
+      // Store intent BEFORE requesting permission (popup may close during dialog)
+      await _browser.storage.local.set({ mmx_dapp_desired: true });
+      status.textContent = "Click allow in the permission prompt...";
       status.className = "status";
       try {
         const granted = await _browser.permissions.request({ origins: ["<all_urls>"] });
         if (!granted) {
+          await _browser.storage.local.remove("mmx_dapp_desired");
           status.textContent = "Permission denied";
           status.className = "status error";
           updateUI(false);
           return;
         }
-        // Tell background to register content script
+        // Permission granted — register content script
         const resp = await bgSend({ type: "DAPP_ENABLE" });
+        await _browser.storage.local.remove("mmx_dapp_desired");
         if (resp?.ok) {
           status.textContent = "dApp integration enabled";
           status.className = "status success";
@@ -1037,6 +1073,7 @@ async function initDappToggle() {
           updateUI(false);
         }
       } catch (e) {
+        await _browser.storage.local.remove("mmx_dapp_desired");
         status.textContent = e.message;
         status.className = "status error";
         updateUI(false);
@@ -1048,6 +1085,7 @@ async function initDappToggle() {
       try {
         await bgSend({ type: "DAPP_DISABLE" });
         await _browser.permissions.remove({ origins: ["<all_urls>"] });
+        await _browser.storage.local.remove("mmx_dapp_desired");
         status.textContent = "dApp integration disabled";
         status.className = "status success";
         updateUI(false);
