@@ -1047,20 +1047,23 @@ async function initDappToggle() {
 
   toggle.addEventListener("change", async () => {
     if (toggle.checked) {
-      // Store intent BEFORE requesting permission (popup may close during dialog)
-      await _browser.storage.local.set({ mmx_dapp_desired: true });
+      // permissions.request() MUST be the first call — any await before it
+      // loses the user gesture context (Firefox throws 'may only be called
+      // from a user input handler'). So we request permission FIRST, then
+      // do storage operations after.
       status.textContent = "Click allow in the permission prompt...";
       status.className = "status";
       try {
         const granted = await _browser.permissions.request({ origins: ["<all_urls>"] });
         if (!granted) {
-          await _browser.storage.local.remove("mmx_dapp_desired");
           status.textContent = "Permission denied";
           status.className = "status error";
           updateUI(false);
           return;
         }
-        // Permission granted — register content script
+        // Permission granted — store intent (in case popup closes during
+        // background registration) then register content script
+        await _browser.storage.local.set({ mmx_dapp_desired: true });
         const resp = await bgSend({ type: "DAPP_ENABLE" });
         await _browser.storage.local.remove("mmx_dapp_desired");
         if (resp?.ok) {
