@@ -1004,38 +1004,8 @@ async function initDappToggle() {
     registered = resp?.registered || false;
   } catch {}
 
-  // Check if user previously requested dApp but popup closed during permission prompt
-  let desired = false;
-  try {
-    const result = await _browser.storage.local.get("mmx_dapp_desired");
-    desired = result.mmx_dapp_desired || false;
-  } catch {}
-
-  // Auto-resume: user toggled on, last time, popup closed during permission dialog,
-  // but permission was granted. Finish enabling now.
-  if (desired && !registered) {
-    let hasPermission = false;
-    try {
-      hasPermission = await _browser.permissions.contains({ origins: ["<all_urls>"] });
-    } catch {}
-    if (hasPermission) {
-      // Permission granted while popup was closed — register now
-      const resp = await bgSend({ type: "DAPP_ENABLE" });
-      if (resp?.ok) {
-        registered = true;
-        await _browser.storage.local.remove("mmx_dapp_desired");
-        status.textContent = "dApp integration enabled";
-        status.className = "status success";
-      }
-    } else {
-      // Permission was denied or dismissed — clear the intent
-      await _browser.storage.local.remove("mmx_dapp_desired");
-    }
-  }
-
   function updateUI(on) {
     toggle.checked = on;
-    // Track background + knob color
     slider.style.background = on ? "#4caf50" : "#555";
     const knob = slider.querySelector("span");
     if (knob) {
@@ -1047,25 +1017,10 @@ async function initDappToggle() {
 
   toggle.addEventListener("change", async () => {
     if (toggle.checked) {
-      // permissions.request() MUST be the first call — any await before it
-      // loses the user gesture context (Firefox throws 'may only be called
-      // from a user input handler'). So we request permission FIRST, then
-      // do storage operations after.
-      status.textContent = "Click allow in the permission prompt...";
+      status.textContent = "Enabling...";
       status.className = "status";
       try {
-        const granted = await _browser.permissions.request({ origins: ["<all_urls>"] });
-        if (!granted) {
-          status.textContent = "Permission denied";
-          status.className = "status error";
-          updateUI(false);
-          return;
-        }
-        // Permission granted — store intent (in case popup closes during
-        // background registration) then register content script
-        await _browser.storage.local.set({ mmx_dapp_desired: true });
         const resp = await bgSend({ type: "DAPP_ENABLE" });
-        await _browser.storage.local.remove("mmx_dapp_desired");
         if (resp?.ok) {
           status.textContent = "dApp integration enabled";
           status.className = "status success";
@@ -1076,19 +1031,15 @@ async function initDappToggle() {
           updateUI(false);
         }
       } catch (e) {
-        await _browser.storage.local.remove("mmx_dapp_desired");
         status.textContent = e.message;
         status.className = "status error";
         updateUI(false);
       }
     } else {
-      // Disable: unregister content script + remove permission
       status.textContent = "Disabling...";
       status.className = "status";
       try {
         await bgSend({ type: "DAPP_DISABLE" });
-        await _browser.permissions.remove({ origins: ["<all_urls>"] });
-        await _browser.storage.local.remove("mmx_dapp_desired");
         status.textContent = "dApp integration disabled";
         status.className = "status success";
         updateUI(false);

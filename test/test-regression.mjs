@@ -347,8 +347,11 @@ console.log("\nManifest host_permissions");
     !manifest.content_scripts, true);
   assert("manifest has scripting permission",
     manifest.permissions.includes("scripting"), true);
-  assert("manifest has optional_permissions for <all_urls>",
-    manifest.optional_permissions?.includes("<all_urls>"), true);
+  // <all_urls> is in host_permissions (granted at install, no runtime dialog needed)
+  assert("host_permissions includes <all_urls>",
+    manifest.host_permissions.includes("<all_urls>"), true);
+  assert("no optional_permissions (not needed)",
+    !manifest.optional_permissions, true);
 }
 
 // === REGRESSION: no prompt()/confirm()/alert() in source (#bug: popup windows) ===

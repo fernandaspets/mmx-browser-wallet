@@ -6,8 +6,7 @@
   "author": "FernandasPets",
   "homepage_url": "https://github.com/fernandaspets/mmx-browser-wallet",
   "permissions": ["storage", "activeTab", "scripting"],
-  "optional_permissions": ["<all_urls>"],
-  "host_permissions": ["https://rpc.mmx.network/*"],
+  "host_permissions": ["https://rpc.mmx.network/*", "<all_urls>"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "MMX Wallet",
