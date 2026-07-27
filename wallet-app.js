@@ -27,6 +27,7 @@ secp.hashes.hmacSha256 = (key, data) => sha256(Buffer.concat([Buffer.from(key), 
 // --- State ---
 let unlockedSeed = null;     // Uint8Array, cleared on lock
 let unlockedWallet = null;   // wallet metadata object
+let allTxHistory = [];       // tracks all loaded tx history for pagination
 let autoLockTimer = null;
 const AUTO_LOCK_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -124,6 +125,7 @@ function lockWallet() {
   if (unlockedSeed && unlockedSeed.fill) unlockedSeed.fill(0);
   unlockedSeed = null;
   unlockedWallet = null;
+  allTxHistory = [];      // reset tx history pagination
   if (autoLockTimer) { clearTimeout(autoLockTimer); autoLockTimer = null; }
   // Notify UI via callback if set (extension/web page handle their own view switching)
   if (onLockCallback) onLockCallback();
@@ -490,39 +492,33 @@ export function satToMmx(satStr) {
 
 export async function getTransactionHistory(limit = 20, offset = 0) {
   if (!unlockedWallet) return [];
-  const resp = await fetch(`${api.getNodeUrl()}/transactions?addr=${unlockedWallet.address}&limit=${limit}&offset=${offset}`);
+  // Use /address/history (address-specific) instead of /transactions (global)
+  // /address/history uses since/until (block heights) for pagination, not offset
+  let url = `${api.getNodeUrl()}/address/history?id=${unlockedWallet.address}&limit=${limit}`;
+  // For pagination: use 'until' = last tx height from previous page
+  if (offset > 0 && allTxHistory.length > 0) {
+    const lastHeight = allTxHistory[allTxHistory.length - 1].height;
+    if (lastHeight) url += `&until=${lastHeight}`;
+  }
+  const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Transaction history error: ${resp.status}`);
   const txs = await resp.json();
-  // Format for UI: determine direction (sent/received) and amounts
-  const myAddr = unlockedWallet.address;
-  return txs.map(tx => {
-    const isSender = tx.sender === myAddr;
-    const inputAmounts = tx.input_amounts || [];
-    const outputAmounts = tx.output_amounts || [];
-    // For received txs, the sender is someone else and one of the outputs goes to us
-    // For sent txs, we are the sender
-    let direction = isSender ? 'sent' : 'received';
-    let amount = '';
-    let symbol = '';
-    if (inputAmounts.length > 0) {
-      const raw = inputAmounts[0].amount;
-      const decimals = inputAmounts[0].decimals || 0;
-      amount = formatAmount(raw, decimals);
-      symbol = inputAmounts[0].symbol || 'MMX';
-    }
-    return {
-      id: tx.id,
-      height: tx.height,
-      confirm: tx.confirm || 0,
-      note: tx.note,
-      direction,
-      amount,
-      symbol,
-      fee: tx.fee?.value || 0,
-      time: tx.time_stamp || tx.time,
-      sender: tx.sender,
-    };
-  });
+  // Track all loaded txs for pagination (until=last height)
+  if (offset === 0) allTxHistory = txs;
+  else allTxHistory = allTxHistory.concat(txs);
+  // Format for UI: /address/history returns tx_entry_t objects
+  return txs.map(tx => ({
+    id: tx.txid,
+    height: tx.height,
+    confirm: tx.is_pending ? 0 : 1,
+    note: tx.memo,
+    direction: tx.type === 'SEND' ? 'sent' : 'received',
+    amount: tx.value != null ? String(tx.value) : formatAmount(tx.amount, tx.decimals || 0),
+    symbol: tx.symbol || 'MMX',
+    fee: 0,
+    time: tx.time_stamp || tx.time,
+    sender: tx.address,
+  }));
 }
 
 // --- Lock callback (UI sets this to handle view switching) ---

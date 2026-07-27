@@ -695,6 +695,17 @@ console.log("\nsignTransactionObject security");
   assert("signTransactionObject uses prehash:false", funcBody.includes("prehash: false"), false); // signTx handles that
 }
 
+// === REGRESSION: transaction history uses /address/history (not /transactions) ===
+// Bug: /transactions endpoint returns GLOBAL txs, not address-specific.
+// /address/history?id=<addr> returns address-specific txs.
+console.log("\nTransaction history endpoint");
+{
+  const fs = await import("fs");
+  const appSrc = fs.readFileSync(import.meta.dirname + "/../wallet-app.js", "utf8");
+  assert("getTransactionHistory uses /address/history", appSrc.includes("/address/history?id="), true);
+  assert("getTransactionHistory does NOT use /transactions?addr=", !appSrc.includes("/transactions?addr="), true);
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Regression tests: ${passed} passed, ${failed} failed`);

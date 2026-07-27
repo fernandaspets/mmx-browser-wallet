@@ -191,7 +191,7 @@ const status = document.getElementById("status");
           const isSent = tx.direction === 'sent';
           const arrow = isSent ? '📤' : '📥';
           const color = isSent ? '#ff9800' : '#4caf50';
-          const addrShort = isSent ? (app.escapeHtml(tx.id.substring(0, 12)) + '...') : (app.escapeHtml(tx.sender.substring(0, 12)) + '...');
+          const addrShort = app.escapeHtml(tx.id.substring(0, 12)) + '...';
           const confirmations = tx.confirm || 0;
           const pendingBadge = confirmations < 1 ? ' <span style="color:#ff9800;font-size:10px;">⏳ pending</span>' : '';
           html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
