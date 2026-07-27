@@ -27,18 +27,18 @@ No other servers are contacted. No analytics, no tracking, no telemetry.
 
 - We do **not** collect your name, email, or any personal information.
 - We do **not** read, store, or transmit your private keys, seeds, or passwords.
-- We do **not** access page content on websites you visit. The content script only listens for `mmx-inject` postMessage events from our own `inject.js` — it never reads the DOM.
+- We do **not** access page content on websites you visit. The content script only listens for `mmx-inject` postMessage events from our own `inject.js` — it never reads the DOM. By default, no content script runs at all (dApp integration is off).
 - We do **not** use cookies, analytics SDKs, or third-party scripts.
 - We do **not** sell, share, or transfer any data to third parties.
 
-## dApp Integration
+## dApp Integration (Opt-In)
 
-The extension injects a `window.mmx` object into web pages so that websites can request your wallet address or ask you to approve transactions. This works like MetaMask's `window.ethereum`:
+The extension can inject a `window.mmx` object into web pages so that websites can request your wallet address or ask you to approve transactions. This works like MetaMask's `window.ethereum`. **dApp integration is off by default** — you must explicitly enable it in the wallet dashboard. When enabled, the extension requests permission to access all sites, and a content script is registered dynamically. When disabled, the content script is removed and no page access occurs.
 
 - **`window.mmx.getAddress()`** — websites can request your address. You see an Allow/Deny prompt. We never share your address without your explicit approval.
 - **`window.mmx.send()`** — websites can request a transaction. You see a confirmation dialog with amount, destination, and fee. We never sign or broadcast without your explicit approval.
 
-Permissions are per-site and deny-by-default. You can revoke any site's permission at any time.
+Permissions are per-site and deny-by-default. You can revoke any site's permission at any time. You can disable dApp integration entirely via the toggle in the dashboard.
 
 ## Open Source
 

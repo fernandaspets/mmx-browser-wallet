@@ -156,8 +156,8 @@ The wallet talks directly to `https://rpc.mmx.network` — CORS enabled, no API 
 | `mmx-tx.js` | Transaction serialization & signing (VNX binary) |
 | `mmx-node-api.js` | Public RPC client |
 | `theme.css` | CSS variables for dark/light themes |
-| `background.js` | Extension background (dApp request routing) |
-| `content.js` / `inject.js` | dApp integration (`window.mmx` API) |
+| `background.js` | Extension background (session persistence, dApp request routing, content script registration) |
+| `content.js` / `inject.js` | dApp integration (`window.mmx` API) — only loaded when user opts in |
 | `lib/bech32-esm.js` | bech32m encoder/decoder |
 | `lib/buffer-esm.js` | Buffer polyfill for browser |
 | `wordlist.txt` | BIP-0039 wordlist (2048 words) |
@@ -190,9 +190,13 @@ The wallet talks directly to `https://rpc.mmx.network` — CORS enabled, no API 
 
 All pure JavaScript — no native bindings, no WebAssembly. The `bech32` and `secp256k1` npm packages are used in tests only for cross-verification.
 
-## dApp Integration
+## dApp Integration (Opt-In)
 
-The extension injects `window.mmx` into web pages:
+dApp integration is **off by default** — no content script runs, no `window.mmx` is injected.
+Users enable it via a toggle in the dashboard, which requests `<all_urls>` permission at runtime
+and dynamically registers the content script via the `chrome.scripting` API.
+
+When enabled, the extension injects `window.mmx` into web pages:
 
 ```javascript
 if (window.mmx) {

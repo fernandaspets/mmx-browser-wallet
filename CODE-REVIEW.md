@@ -100,7 +100,7 @@ environment (localStorage vs chrome.storage.local).
 | `popup.js` | Extension popup logic |
 | `wallet.html` | Web page wallet UI + logic (single file) |
 | `background.js` | Extension background script (dApp request routing) |
-| `content.js` | Extension content script (injects `window.mmx` provider) |
+| `content.js` | Extension content script (injects `window.mmx` provider) — opt-in only |
 | `inject.js` | `window.mmx` API definition (dApp integration) |
 | `manifest.json` | Extension manifest (MV3, Firefox/Chrome compatible) |
 | `wordlist.txt` | 2048-word BIP-0039 wordlist (MMX custom variant) |

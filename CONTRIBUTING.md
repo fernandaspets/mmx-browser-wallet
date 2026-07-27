@@ -30,8 +30,8 @@ mmx-node-api.js         Public RPC client (rpc.mmx.network)
 theme.css                Dark/light theme CSS variables
 popup.html / popup.js   Extension popup UI
 wallet.html              Web page wallet UI + logic
-background.js            Extension background (dApp message routing)
-content.js / inject.js   dApp integration (window.mmx API)
+background.js            Extension background (session persistence, dApp message routing, content script registration)
+content.js / inject.js   dApp integration (window.mmx API) — opt-in only, loaded when user enables
 lib/                     bech32m encoder, Buffer polyfill
 test/                    Test suites (169 tests)
 wordlist.txt             BIP-0039 wordlist (MMX variant)
