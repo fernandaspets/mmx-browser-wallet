@@ -19,7 +19,7 @@ import { bech32m } from "./lib/bech32-esm.js";
 import "./lib/buffer-esm.js";
 import * as store from "./wallet-store.js";
 import * as api from "./mmx-node-api.js";
-import { calcTxId, calcContentHash, signTx } from "./mmx-tx.js";
+import { calcTxId, calcContentHash, signTx, TX_NOTE } from "./mmx-tx.js";
 // Configure secp256k1
 secp.hashes.sha256 = (data) => sha256(data);
 secp.hashes.hmacSha256 = (key, data) => sha256(Buffer.concat([Buffer.from(key), Buffer.from(data)]));
@@ -338,6 +338,110 @@ export function getUnlockedWallet() {
 export function getUnlockedAddress() {
   if (!unlockedWallet) return null;
   return unlockedWallet.address;
+}
+
+// --- Official MMX dApp API functions (window.mmx_wallet) ---
+
+export function getPublicKeyHex() {
+  if (!unlockedSeed) return null;
+  const { pubkey } = deriveKeypair(unlockedSeed, "", 0, 0);
+  return Buffer.from(pubkey).toString("hex").toUpperCase();
+}
+
+export function getNetwork() {
+  return "MMX/mainnet";
+}
+
+// Sign a message with prefix "MMX/sign_message/" using SHA-256
+// Returns: { signature: hex, public_key: hex } or null
+export async function signMessage(msg) {
+  if (!unlockedSeed) throw new Error("Wallet is locked");
+  const { skey, pubkey } = deriveKeypair(unlockedSeed, "", 0, 0);
+  const msgHash = Buffer.from(sha256(Buffer.from("MMX/sign_message/" + msg)));
+  const sig = await secp.sign(msgHash, skey, { prehash: false });
+  const result = {
+    signature: Buffer.from(sig).toString("hex").toUpperCase(),
+    public_key: Buffer.from(pubkey).toString("hex").toUpperCase(),
+  };
+  skey.fill(0);
+  return result;
+}
+
+// Sign a transaction object (VNX format). Returns the signed tx or null if rejected.
+// The tx object must match interface/Transaction.vni format.
+export async function signTransactionObject(txObj) {
+  if (!unlockedSeed) throw new Error("Wallet is locked");
+  const { skey, addrHash } = deriveKeypair(unlockedSeed, "", 0, 0);
+
+  // Ensure sender is set to our address
+  if (!txObj.sender) txObj.sender = Array.from(addrHash);
+
+  // Ensure nonce is set (generate if missing)
+  if (!txObj.nonce || txObj.nonce === "0") {
+    const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
+    let nonce = 0n;
+    for (let i = 0; i < 8; i++) nonce |= BigInt(nonceBytes[i]) << BigInt(i * 8);
+    if (nonce === 0n) nonce = 1n;
+    txObj.nonce = nonce.toString();
+  }
+
+  // Ensure network is set
+  if (!txObj.network) txObj.network = "mainnet";
+
+  // Ensure expires is set (current height + 100)
+  if (!txObj.expires) {
+    const height = await api.getHeight();
+    txObj.expires = height + 100;
+  }
+
+  // Build tx from the VNX object for hashing
+  const tx = {
+    version: txObj.version || 0,
+    expires: txObj.expires,
+    fee_ratio: txObj.fee_ratio || 1024,
+    max_fee_amount: txObj.max_fee_amount || 5040000,
+    note: typeof txObj.note === "string" ? (TX_NOTE[txObj.note] || txObj.note || 0) : (txObj.note || 0),
+    nonce: BigInt(txObj.nonce),
+    network: txObj.network,
+    sender: txObj.sender,
+    inputs: (txObj.inputs || []).map(i => ({
+      address: i.address,
+      contract: i.contract,
+      amount: i.amount,
+      memo: i.memo,
+      solution: i.solution || 0,
+      flags: i.flags || 0,
+    })),
+    outputs: (txObj.outputs || []).map(o => ({
+      address: o.address,
+      contract: o.contract,
+      amount: o.amount,
+      memo: o.memo,
+    })),
+    execute: txObj.execute || [],
+    deploy: txObj.deploy,
+    static_cost: txObj.static_cost || 50000,
+  };
+
+  // Compute tx id and sign
+  const txId = calcTxId(tx);
+  const solution = await signTx(txId, skey);
+  tx.solutions = [solution];
+  const contentHash = calcContentHash(tx);
+
+  skey.fill(0);
+
+  // Return the full signed transaction object
+  return {
+    ...txObj,
+    __type: "mmx.Transaction",
+    nonce: tx.nonce.toString(),
+    sender: tx.sender,
+    expires: tx.expires,
+    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
+    id: Array.from(txId),
+    content_hash: Array.from(contentHash),
+  };
 }
 
 export async function getWalletsList() {

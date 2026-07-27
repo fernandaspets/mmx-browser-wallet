@@ -358,13 +358,121 @@ const PRICE_TRAIL = 1;
 // === State ===
 let userAddress = null;
 let unlocked = false;
+let walletAPI = null;   // "mmx" (our extension) or "mmx_wallet" (official/native)
 
-// === Check for MMX wallet extension ===
+// === Wallet detection — supports both window.mmx (our extension) and
+//     window.mmx_wallet (official API, native desktop wallet or our extension) ===
+
+function detectWallet() {
+  // Our extension: window.mmx with send() (simplest — handles build+sign+broadcast)
+  if (typeof window.mmx !== "undefined" && window.mmx.isMMX && window.mmx.send) {
+    return "mmx";
+  }
+  // Official API: window.mmx_wallet (native desktop wallet or our extension)
+  if (typeof window.mmx_wallet !== "undefined" && window.mmx_wallet.isMMX) {
+    return "mmx_wallet";
+  }
+  return null;
+}
+
+// === Get address — works with both APIs ===
+
+async function getAddress() {
+  if (walletAPI === "mmx") return await window.mmx.getAddress();
+  if (walletAPI === "mmx_wallet") return await window.mmx_wallet.get_address();
+  return null;
+}
+
+// === Get network — uses official API if available ===
+
+async function getNetwork() {
+  if (walletAPI === "mmx_wallet") {
+    try { return await window.mmx_wallet.get_network(); } catch {}
+  }
+  return "MMX/mainnet";
+}
+
+// === Send payment — two paths depending on wallet type ===
+
+async function sendPayment(to, amount, currency) {
+  if (walletAPI === "mmx") {
+    // Our extension: send() handles everything (build + sign + broadcast)
+    const result = await window.mmx.send({ to, amount: String(amount), currency });
+    return result?.txid || null;
+  }
+  
+  if (walletAPI === "mmx_wallet") {
+    // Official API: sign_transaction() returns signed tx, we broadcast via public RPC
+    const tx = buildTxObject(to, amount, currency);
+    const signedTx = await window.mmx_wallet.sign_transaction(tx);
+    if (!signedTx) return null; // user rejected
+    
+    // Broadcast the signed tx via public RPC
+    const resp = await fetch(`${RPC}/transaction/broadcast`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(signedTx),
+    });
+    if (!resp.ok) throw new Error(`Broadcast failed: ${resp.status}`);
+    
+    // The txid is in signedTx.id (array of bytes → hex)
+    if (signedTx.id) {
+      return signedTx.id.map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+    }
+    return null;
+  }
+  
+  throw new Error("No wallet available");
+}
+
+// === Build a minimal transaction object for sign_transaction() ===
+
+function buildTxObject(to, amount, currency) {
+  const isNative = currency === "MMX";
+  const contract = isNative
+    ? "mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev"
+    : TRAIL_CONTRACT;
+  
+  return {
+    __type: "mmx.Transaction",
+    version: 0,
+    expires: 0,          // wallet will fill with current height + 100
+    fee_ratio: 1024,
+    max_fee_amount: 5040000,
+    note: "TRANSFER",
+    nonce: "0",          // wallet will generate if 0
+    network: "mainnet",
+    sender: null,         // wallet will fill with user's address
+    inputs: [{
+      __type: "mmx.txin_t",
+      address: null,      // wallet fills sender
+      contract: null,     // wallet fills
+      amount: [amount, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], // uint128 LE
+      memo: null,
+      solution: 0,
+      flags: 0,
+    }],
+    outputs: [{
+      __type: "mmx.txout_t",
+      address: null,      // will be set from 'to' by wallet
+      contract: null,
+      amount: [amount, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+      memo: null,
+    }],
+    execute: [],
+    deploy: null,
+    static_cost: 50000,
+  };
+}
+
+// === Init ===
+
 async function init() {
-  // Wait briefly for window.mmx to be injected
   await new Promise(r => setTimeout(r, 500));
   
-  if (typeof window.mmx === "undefined" || !window.mmx.isMMX) {
+  walletAPI = detectWallet();
+  
+  if (!walletAPI) {
     document.getElementById("noWallet").classList.add("show");
     document.getElementById("statusBadge").textContent = "no wallet";
     document.getElementById("statusBadge").style.color = "var(--danger)";
@@ -375,31 +483,33 @@ async function init() {
   document.getElementById("statusBadge").textContent = "wallet found";
   document.getElementById("statusBadge").classList.add("connected");
   
-  // Get user's wallet address
+  // Show network
+  const network = await getNetwork();
+  document.getElementById("statusBadge").textContent = network || "connected";
+  
   try {
-    userAddress = await window.mmx.getAddress();
+    userAddress = await getAddress();
     if (!userAddress) {
       document.getElementById("statusBadge").textContent = "wallet locked";
       document.getElementById("statusBadge").style.color = "var(--warning)";
-      document.getElementById("userAddr").textContent = "Wallet is locked. Unlock your MMX wallet extension.";
+      document.getElementById("userAddr").textContent = "Wallet is locked. Unlock your MMX wallet.";
       document.getElementById("payBtn").disabled = true;
-      // Retry every 3s until wallet is unlocked
       setTimeout(init, 3000);
       return;
     }
     document.getElementById("userAddr").textContent = userAddress;
-    document.getElementById("statusBadge").textContent = "connected";
+    document.getElementById("statusBadge").textContent = network || "connected";
     document.getElementById("payBtn").disabled = false;
   } catch (e) {
-    document.getElementById("userAddr").textContent = "Permission needed. Approve in MMX wallet extension.";
+    document.getElementById("userAddr").textContent = "Permission needed. Approve in MMX wallet.";
     document.getElementById("payBtn").disabled = true;
-    // Retry every 5s
     setTimeout(init, 5000);
     return;
   }
 }
 
 // === Payment flow ===
+
 async function startPayment() {
   if (!userAddress || unlocked) return;
   
@@ -408,31 +518,21 @@ async function startPayment() {
   
   btn.disabled = true;
   status.className = "status pending";
-  status.textContent = "Sending 1 TRAIL to Morpheus...";
+  status.textContent = `Sending 1 TRAIL to Morpheus...`;
   
   try {
-    // Send TRAIL via wallet extension (user confirms in popup)
-    const result = await window.mmx.send({
-      to: MORPHEUS,
-      amount: String(PRICE_TRAIL),
-      currency: "TRAIL"
-    });
+    const txid = await sendPayment(MORPHEUS, PRICE_TRAIL, "TRAIL");
     
-    if (result && result.error) throw new Error(result.error);
+    if (!txid) throw new Error("Payment was rejected or failed");
     
-    const txid = result?.txid;
     status.className = "status success";
     status.textContent = "Payment sent! Unlocking...";
     
-    // Show tx link
     document.getElementById("txSection").style.display = "block";
     const txLink = document.getElementById("txLink");
-    if (txid) {
-      txLink.href = `https://explore.mmx.network/#/explore/transaction/${txid}`;
-      txLink.textContent = txid;
-    }
+    txLink.href = `https://explore.mmx.network/#/explore/transaction/${txid}`;
+    txLink.textContent = txid;
     
-    // Unlock content
     setTimeout(() => {
       document.getElementById("lockOverlay").classList.add("hidden");
       document.getElementById("svgContainer").classList.add("unlocked");
@@ -450,6 +550,7 @@ async function startPayment() {
 }
 
 // === Helpers ===
+
 function copyAddr(el) {
   navigator.clipboard.writeText(el.textContent).then(() => {
     const orig = el.style.borderColor;
@@ -460,6 +561,7 @@ function copyAddr(el) {
 
 // Listen for wallet extension injection
 window.addEventListener("mmx#initialized", init);
+window.addEventListener("mmx#extension-ready", init);
 
 // Also try init on load (in case event already fired)
 init();

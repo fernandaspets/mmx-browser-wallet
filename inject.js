@@ -1,12 +1,16 @@
 /**
- * inject.js — Injects window.mmx into web pages for dApp integration.
+ * inject.js — Injects window.mmx and window.mmx_wallet into web pages for dApp integration.
  * Runs in the page's context (not the extension's isolated world).
  *
+ * Two namespaces:
+ *   - window.mmx        — our extension's send API (send + getAddress)
+ *   - window.mmx_wallet  — official MMX dApp API (get_address, get_public_key,
+ *                          get_network, sign_message, sign_transaction)
+ *
  * Note: The MMX node web-gui checks `typeof window.mmx !== 'undefined'` to
- * detect if it's running inside the native desktop wallet. If we blindly
- * set window.mmx, the GUI thinks it's in the desktop app and hides its
- * theme selector. We avoid this by only injecting if window.mmx doesn't
- * already exist (i.e. we're not in the native desktop wallet).
+ * detect if it's running inside the native desktop wallet. We only inject
+ * if window.mmx doesn't already exist (don't clobber the native app).
+ * window.mmx_wallet is never used by the node GUI, so it's always safe.
  */
 
 if (typeof window.mmx === 'undefined') {
@@ -50,6 +54,47 @@ if (typeof window.mmx === 'undefined') {
           reject(new Error('Request timeout'));
         }, timeoutMs);
       });
+    },
+  };
+
+  // --- Official MMX dApp API (window.mmx_wallet) ---
+  // Mirrors the native desktop wallet's window.mmx_wallet interface.
+
+  window.mmx_wallet = {
+    isMMX: true,
+
+    // Returns the active wallet address in bech32 format.
+    // Note: can be spoofed. Use sign_message() to prove ownership.
+    get_address: async function() {
+      return window.mmx._request({ type: 'MMX_GET_ADDRESS' })
+        .then(r => r?.address || null);
+    },
+
+    // Returns the active wallet public key in hex string format (upper case).
+    get_public_key: async function() {
+      return window.mmx._request({ type: 'MMX_GET_PUBLIC_KEY' })
+        .then(r => r?.public_key || null);
+    },
+
+    // Returns the network name, e.g. "MMX/mainnet".
+    get_network: async function() {
+      return window.mmx._request({ type: 'MMX_GET_NETWORK' })
+        .then(r => r?.network || null);
+    },
+
+    // Signs a string message with prefix "MMX/sign_message/" using SHA-256.
+    // Used to prove ownership of the wallet address.
+    // Returns: { signature: "hex", public_key: "hex" } or null if not approved.
+    sign_message: async function(msg) {
+      return window.mmx._request({ type: 'MMX_SIGN_MESSAGE', params: { msg } }, 30000);
+    },
+
+    // Signs a given transaction if the user approves.
+    // tx format matches interface/Transaction.vni.
+    // If tx.id is not specified, the user may modify expiration/fee.
+    // Returns the signed transaction, or null if not approved.
+    sign_transaction: async function(tx) {
+      return window.mmx._request({ type: 'MMX_SIGN_TRANSACTION', params: { tx } }, 300000);
     },
   };
 

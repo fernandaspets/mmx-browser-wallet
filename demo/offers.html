@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMX Offers</title>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+  :root {
+    --bg: #0d0f1a; --bg-card: rgba(255,255,255,0.03); --bg-input: rgba(0,0,0,0.3);
+    --border: rgba(255,255,255,0.08); --text: #e4e6ef; --text-muted: #8b8fa3;
+    --accent: #6c8aff; --accent-bg: rgba(108,138,255,0.1);
+    --success: #4caf50; --warning: #ffa726; --danger: #ef5350;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; min-height: 100vh; padding: 24px; }
+  .app { width: 100%; max-width: 600px; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .header h1 { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .badge { font-size: 11px; padding: 4px 10px; background: var(--accent-bg); border: 1px solid rgba(108,138,255,0.2); border-radius: 20px; color: var(--accent); }
+  .badge.connected { color: var(--success); border-color: rgba(76,175,80,0.2); background: rgba(76,175,80,0.08); }
+
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filter-select { padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 12px; }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; }
+  .offer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .offer-pair { font-size: 15px; font-weight: 700; }
+  .offer-pair .arrow { color: var(--text-muted); }
+  .offer-price { font-size: 18px; font-weight: 700; color: var(--accent); }
+  .offer-price small { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+  .offer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .offer-stat { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
+  .offer-stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px; }
+  .offer-stat-value { font-size: 13px; font-weight: 600; }
+  .offer-stat-value small { font-size: 11px; color: var(--text-muted); }
+  .offer-owner { font-family: monospace; font-size: 10px; color: var(--text-muted); margin-top: 6px; cursor: pointer; }
+  .offer-link { font-size: 10px; color: var(--accent); text-decoration: none; }
+  .offer-link:hover { text-decoration: underline; }
+  .status { font-size: 13px; color: var(--text-muted); min-height: 20px; text-align: center; }
+  .refresh-btn { width: 100%; padding: 10px; border: none; border-radius: var(--radius); background: var(--accent); color: white; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+  .refresh-btn:hover { opacity: 0.9; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .empty { text-align: center; color: var(--text-muted); padding: 40px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>MMX Offers</h1>
+    <div class="badge" id="statusBadge">loading...</div>
+  </div>
+
+  <div class="filter-bar">
+    <select class="filter-select" id="filterPair" onchange="loadOffers()">
+      <option value="">All pairs</option>
+      <option value="TRAIL-MMX">TRAIL → MMX</option>
+      <option value="MMX-TRAIL">MMX → TRAIL</option>
+    </select>
+    <select class="filter-select" id="filterOwner" onchange="loadOffers()">
+      <option value="">All owners</option>
+    </select>
+  </div>
+
+  <div class="status" id="statusMsg">Fetching offers...</div>
+  <div id="offersList"></div>
+  <button class="refresh-btn" onclick="loadOffers()">🔄 Refresh</button>
+  <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:16px;">
+    Powered by MMX public RPC · No server required ·
+    <a href="https://github.com/fernandaspets/mmx-browser-wallet" target="_blank">MMX Wallet</a>
+  </div>
+</div>
+
+<script>
+const RPC = "https://rpc.mmx.network";
+const TRAIL = "mmx1q8cdxjwutex5t3s69d4nc0kdsvtcn2h207vcgvced78nzlvyh8mskhhgq7";
+const MMX_NATIVE = "mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev";
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+let allOffers = [];
+
+async function loadOffers() {
+  const status = document.getElementById("statusMsg");
+  const badge = document.getElementById("statusBadge");
+  const list = document.getElementById("offersList");
+  status.textContent = "Fetching offers...";
+  badge.textContent = "loading";
+  badge.className = "badge";
+
+  try {
+    const resp = await fetch(`${RPC}/offers?limit=100&state=true`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    allOffers = await resp.json();
+
+    // Populate owner filter
+    const ownerSelect = document.getElementById("filterOwner");
+    const owners = [...new Set(allOffers.map(o => o.owner))].sort();
+    const currentOwner = ownerSelect.value;
+    ownerSelect.innerHTML = '<option value="">All owners</option>' +
+      owners.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o.substring(0,16))}...</option>`).join("");
+    ownerSelect.value = currentOwner;
+
+    // Apply filters
+    const pairFilter = document.getElementById("filterPair").value;
+    const ownerFilter = ownerSelect.value;
+
+    let filtered = allOffers;
+    if (pairFilter === "TRAIL-MMX") {
+      filtered = filtered.filter(o => o.bid_currency === TRAIL && o.ask_currency === MMX_NATIVE);
+    } else if (pairFilter === "MMX-TRAIL") {
+      filtered = filtered.filter(o => o.bid_currency === MMX_NATIVE && o.ask_currency === TRAIL);
+    }
+    if (ownerFilter) {
+      filtered = filtered.filter(o => o.owner === ownerFilter);
+    }
+
+    badge.textContent = `${filtered.length} offers`;
+    badge.className = "badge connected";
+    status.textContent = "";
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="empty">No offers found.</div>';
+      return;
+    }
+
+    let html = "";
+    for (const o of filtered) {
+      const bidSym = o.bid_symbol || "?";
+      const askSym = o.ask_symbol || "?";
+      const bidBal = o.bid_balance_value || 0;
+      const askAmt = o.ask_value || 0;
+      const price = o.display_price || 0;
+      const height = o.height || 0;
+      const owner = o.owner || "?";
+      const partner = o.partner;
+
+      html += `<div class="card">
+        <div class="offer-header">
+          <div class="offer-pair">${escapeHtml(bidSym)} <span class="arrow">→</span> ${escapeHtml(askSym)}</div>
+          <div class="offer-price">${escapeHtml(price.toFixed(6))} <small>${askSym}/${bidSym}</small></div>
+        </div>
+        <div class="offer-grid">
+          <div class="offer-stat">
+            <div class="offer-stat-label">Selling (${bidSym})</div>
+            <div class="offer-stat-value">${escapeHtml(bidBal.toString())} <small>${escapeHtml(bidSym)}</small></div>
+          </div>
+          <div class="offer-stat">
+            <div class="offer-stat-label">Asking (${askSym})</div>
+            <div class="offer-stat-value">${escapeHtml(askAmt.toString())} <small>${escapeHtml(askSym)}</small></div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+          <div class="offer-owner" onclick="navigator.clipboard.writeText('${escapeHtml(owner)}')">
+            Owner: ${escapeHtml(owner.substring(0,20))}...
+          </div>
+          ${partner ? `<div style="font-size:10px;color:var(--success);">Accepted by ${escapeHtml(partner.substring(0,16))}...</div>` : ""}
+          <a class="offer-link" href="https://explore.mmx.network/#/explore/address/${escapeHtml(o.address)}" target="_blank">View ↗</a>
+        </div>
+      </div>`;
+    }
+    list.innerHTML = html;
+  } catch (e) {
+    status.textContent = "Error: " + e.message;
+    badge.textContent = "error";
+    badge.style.color = "var(--danger)";
+  }
+}
+
+loadOffers();
+</script>
+</body>
+</html>

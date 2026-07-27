@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMX Wallet Demos</title>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+  :root {
+    --bg: #0d0f1a; --bg-card: rgba(255,255,255,0.03); --border: rgba(255,255,255,0.08);
+    --text: #e4e6ef; --text-muted: #8b8fa3; --accent: #6c8aff; --accent-bg: rgba(108,138,255,0.1);
+    --success: #4caf50; --warning: #ffa726; --danger: #ef5350; --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; min-height: 100vh; padding: 24px; }
+  .app { width: 100%; max-width: 520px; }
+  h1 { font-size: 22px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+  .subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; text-decoration: none; display: block; transition: border-color 0.2s, transform 0.1s; }
+  .card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .card-icon { font-size: 32px; margin-bottom: 10px; }
+  .card-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .card-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+  .card-badge { font-size: 10px; padding: 2px 8px; background: var(--accent-bg); border: 1px solid rgba(108,138,255,0.2); border-radius: 12px; color: var(--accent); display: inline-block; margin-top: 8px; }
+  .card-badge.wallet { color: var(--warning); border-color: rgba(255,167,38,0.2); background: rgba(255,167,38,0.08); }
+  footer { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 24px; }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>MMX Wallet Demos</h1>
+  <p class="subtitle">Standalone demos powered by MMX public RPC — no server required.</p>
+
+  <a class="card" href="paywall.html">
+    <div class="card-icon">🔐</div>
+    <div class="card-title">Crypto Paywall</div>
+    <div class="card-desc">Locked content that unlocks when the user pays 1 TRAIL via the MMX wallet extension. Demonstrates dApp integration with window.mmx.send().</div>
+    <div class="card-badge wallet">Requires wallet extension</div>
+  </a>
+
+  <a class="card" href="swap-pools.html">
+    <div class="card-icon">🔄</div>
+    <div class="card-title">Swap Pools</div>
+    <div class="card-desc">Live swap pool explorer — reserves, prices, 7d APY, fees, and a trade estimator. See how much MMX you'd get for your TRAIL.</div>
+    <div class="card-badge">Read-only · No wallet needed</div>
+  </a>
+
+  <a class="card" href="offers.html">
+    <div class="card-icon">📋</div>
+    <div class="card-title">Offer Book</div>
+    <div class="card-desc">Live offer book — open sell/buy offers with prices, owners, and pair filters. See who's offering what.</div>
+    <div class="card-badge">Read-only · No wallet needed</div>
+  </a>
+
+  <footer>
+    <a href="https://github.com/fernandaspets/mmx-browser-wallet" target="_blank">MMX Browser Wallet</a> ·
+    <a href="https://explore.mmx.network" target="_blank">MMX Explorer</a> ·
+    <a href="https://rpc.mmx.network" target="_blank">Public RPC</a>
+  </footer>
+</div>
+</body>
+</html>

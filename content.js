@@ -1,7 +1,7 @@
 /**
  * content.js — Injects window.mmx into web pages for dApp integration.
  * Address requests require per-site user approval (deny by default).
- * Send requests require explicit confirmation each time.
+ * Send and signing requests require explicit confirmation each time.
  */
 
 // Inject the MMX provider script
@@ -35,6 +35,30 @@ function respondToPage(id, response) {
   window.postMessage({ source: 'mmx-content', id, response }, window.location.origin);
 }
 
+// Types that can be answered immediately by the background (no signing needed)
+const IMMEDIATE_TYPES = ['MMX_GET_ADDRESS', 'MMX_REQUEST', 'MMX_GET_NETWORK'];
+
+// Types that require popup confirmation (signing or sending)
+const CONFIRM_TYPES = ['MMX_SEND', 'MMX_GET_PUBLIC_KEY', 'MMX_SIGN_MESSAGE', 'MMX_SIGN_TRANSACTION'];
+
+// Wait for a result from the popup via storage
+function waitForResult(id, storageKey, resultKey, cleanupKeys, badge) {
+  return new Promise(resolve => {
+    const listener = (changes, area) => {
+      if (area !== "local" || !changes[resultKey]) return;
+      const result = changes[resultKey].newValue;
+      if (result && result.id === id) {
+        _browser.storage.onChanged.removeListener(listener);
+        for (const key of cleanupKeys) _browser.storage.local.remove(key);
+        _browser.storage.local.remove(resultKey);
+        if (_browser.action && badge) _browser.action.setBadgeText({ text: '' });
+        resolve(result.response);
+      }
+    };
+    _browser.storage.onChanged.addListener(listener);
+  });
+}
+
 // Listen for messages from the injected script (page context)
 window.addEventListener('message', async (event) => {
   if (event.source !== window) return;
@@ -43,38 +67,33 @@ window.addEventListener('message', async (event) => {
   const { type, id } = event.data;
   const origin = window.location.origin;
   
-  if (type === 'MMX_GET_ADDRESS' || type === 'MMX_REQUEST' || type === 'MMX_SEND') {
+  if (IMMEDIATE_TYPES.includes(type) || CONFIRM_TYPES.includes(type)) {
     const perms = await getPermissions();
     
     if (perms[origin] === true) {
       // Site is approved
-      if (type === 'MMX_SEND') {
-        // Send requires explicit confirmation each time
+      if (IMMEDIATE_TYPES.includes(type)) {
+        // Address/network — respond immediately from background
+        if (type === 'MMX_GET_NETWORK') {
+          respondToPage(id, { network: 'MMX/mainnet' });
+        } else {
+          _browser.runtime.sendMessage({ type: 'GET_ADDRESS' }, (response) => {
+            respondToPage(id, response);
+          });
+        }
+      } else {
+        // Signing/sending — requires popup confirmation
+        const pendingKey = 'mmx_pending_dapp_action';
+        const resultKey = 'mmx_dapp_result';
         _browser.storage.local.set({
-          mmx_pending_send: { origin, id, params: event.data.params, timestamp: Date.now() }
+          [pendingKey]: { origin, id, type, params: event.data.params, timestamp: Date.now() }
         });
         if (_browser.action) {
-          _browser.action.setBadgeText({ text: '$' });
-          _browser.action.setBadgeBackgroundColor({ color: '#4caf50' });
+          _browser.action.setBadgeText({ text: '✎' });
+          _browser.action.setBadgeBackgroundColor({ color: '#ffa726' });
         }
-        // Wait for popup to confirm/reject via storage
-        const sendListener = (changes, area) => {
-          if (area !== "local" || !changes.mmx_send_result) return;
-          const result = changes.mmx_send_result.newValue;
-          if (result && result.id === id) {
-            _browser.storage.onChanged.removeListener(sendListener);
-            respondToPage(id, result.response);
-            _browser.storage.local.remove('mmx_pending_send');
-            _browser.storage.local.remove('mmx_send_result');
-            if (_browser.action) _browser.action.setBadgeText({ text: '' });
-          }
-        };
-        _browser.storage.onChanged.addListener(sendListener);
-      } else {
-        // Address request — respond immediately
-        _browser.runtime.sendMessage({ type: 'GET_ADDRESS' }, (response) => {
-          respondToPage(id, response);
-        });
+        const response = await waitForResult(id, pendingKey, resultKey, [pendingKey], true);
+        respondToPage(id, response);
       }
     } else if (perms[origin] === false) {
       // Already denied
@@ -94,9 +113,28 @@ window.addEventListener('message', async (event) => {
       const approvalListener = (msg) => {
         if (msg && msg.type === 'DAPP_APPROVED' && msg.origin === origin) {
           _browser.runtime.onMessage.removeListener(approvalListener);
-          _browser.runtime.sendMessage({ type: 'GET_ADDRESS' }, (response) => {
-            respondToPage(id, response);
-          });
+          // After approval, re-handle the request (will now go through the approved path)
+          if (type === 'MMX_GET_NETWORK') {
+            respondToPage(id, { network: 'MMX/mainnet' });
+          } else if (IMMEDIATE_TYPES.includes(type)) {
+            _browser.runtime.sendMessage({ type: 'GET_ADDRESS' }, (response) => {
+              respondToPage(id, response);
+            });
+          } else {
+            // Signing request — now that we're approved, route through popup
+            const pendingKey = 'mmx_pending_dapp_action';
+            const resultKey = 'mmx_dapp_result';
+            _browser.storage.local.set({
+              [pendingKey]: { origin, id, type, params: event.data.params, timestamp: Date.now() }
+            });
+            if (_browser.action) {
+              _browser.action.setBadgeText({ text: '✎' });
+              _browser.action.setBadgeBackgroundColor({ color: '#ffa726' });
+            }
+            waitForResult(id, pendingKey, resultKey, [pendingKey], true).then(response => {
+              respondToPage(id, response);
+            });
+          }
           _browser.storage.local.remove('mmx_pending_dapp');
           if (_browser.action) _browser.action.setBadgeText({ text: '' });
         }

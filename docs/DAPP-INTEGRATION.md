@@ -17,7 +17,9 @@ When toggled OFF, the content script is unregistered — zero page access.
 
 ## API
 
-### `window.mmx.getAddress()`
+### `window.mmx` (extension API)
+
+#### `window.mmx.getAddress()`
 
 Requests the user's wallet address. The user sees an Allow/Deny prompt in the extension popup (per-site, deny-by-default).
 
@@ -30,7 +32,7 @@ if (window.mmx) {
 
 Returns: `string` (mmx1...) or `null` if denied/not unlocked.
 
-### `window.mmx.send(params)`
+#### `window.mmx.send(params)`
 
 Requests a transaction. The user sees a confirmation dialog with amount, destination, and fee.
 
@@ -44,6 +46,39 @@ console.log("TXID:", result.txid);
 ```
 
 Returns: `{ txid: "ABCD..." }` or throws on rejection/error.
+
+### `window.mmx_wallet` (official MMX dApp API)
+
+Mirrors the native desktop wallet's `window.mmx_wallet` interface.
+
+#### `window.mmx_wallet.get_address()`
+
+Returns the active wallet address in bech32 format. Can be spoofed — use `sign_message()` to prove ownership.
+
+#### `window.mmx_wallet.get_public_key()`
+
+Returns the active wallet public key in hex string format (upper case).
+
+#### `window.mmx_wallet.get_network()`
+
+Returns `MMX/mainnet` for mainnet.
+
+#### `window.mmx_wallet.sign_message(msg)`
+
+Signs a string message with the prefix `MMX/sign_message/` using SHA-256. Used to prove ownership of the wallet address.
+
+```javascript
+const result = await window.mmx_wallet.sign_message("test123");
+// Signs SHA256("MMX/sign_message/test123")
+// Returns: { signature: "123ABC...", public_key: "345345FDD" }
+// Returns null if user doesn't approve
+```
+
+#### `window.mmx_wallet.sign_transaction(tx)`
+
+Signs a given transaction if the user approves. The tx format matches `interface/Transaction.vni`. If `tx.id` is not specified, the user may modify expiration/fee.
+
+Returns the signed transaction in full. Returns `null` if the user doesn't approve.
 
 ## Permissions
 

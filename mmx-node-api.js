@@ -139,3 +139,29 @@ export async function readContractField(contractAddr, field, args = []) {
   if (!resp.ok) throw new Error(`Contract read error: ${resp.status}`);
   return await resp.json();
 }
+
+// --- Swap pools (public RPC, read-only) ---
+
+export async function getSwapList(limit = 20) {
+  const resp = await fetch(`${_nodeUrl}/swap/list?limit=${limit}`);
+  if (!resp.ok) throw new Error(`Swap list error: ${resp.status}`);
+  return await resp.json();
+}
+
+export async function getSwapInfo(poolAddr) {
+  const resp = await fetch(`${_nodeUrl}/swap/info?id=${poolAddr}`);
+  if (!resp.ok) throw new Error(`Swap info error: ${resp.status}`);
+  return await resp.json();
+}
+
+export async function getSwapUserInfo(poolAddr, userAddr) {
+  const resp = await fetch(`${_nodeUrl}/swap/user_info?id=${poolAddr}&user=${userAddr}`);
+  if (!resp.ok) throw new Error(`Swap user info error: ${resp.status}`);
+  return await resp.json();
+}
+
+export async function getSwapTradeEstimate(poolAddr, index, amount, iters = 200) {
+  const resp = await fetch(`${_nodeUrl}/swap/trade_estimate?id=${poolAddr}&index=${index}&amount=${amount}&iters=${iters}`);
+  if (!resp.ok) throw new Error(`Trade estimate error: ${resp.status}`);
+  return await resp.json();
+}

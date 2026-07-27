@@ -44,12 +44,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Re-check for pending dApp requests when storage changes
-  // (content.js writes mmx_pending_send/mmx_pending_dapp while popup is open)
+  // (content.js writes mmx_pending_send/mmx_pending_dapp/mmx_pending_dapp_action while popup is open)
   try {
     if (_browser.storage && _browser.storage.onChanged) {
       _browser.storage.onChanged.addListener((changes, area) => {
         if (area !== "local") return;
-        if (changes.mmx_pending_send || changes.mmx_pending_dapp) {
+        if (changes.mmx_pending_send || changes.mmx_pending_dapp || changes.mmx_pending_dapp_action) {
           // Re-run the pending request check
           checkPendingDapp();
         }
@@ -170,6 +170,105 @@ async function checkPendingDapp() {
       showView("dappView");
     } else {
       sendNotice.style.display = "none";
+    }
+  });
+  
+  // Check for pending dApp signing actions (get_public_key, sign_message, sign_transaction)
+  _br.storage.local.get("mmx_pending_dapp_action", (result) => {
+    const pending = result.mmx_pending_dapp_action;
+    if (!pending) return;
+    
+    const status = document.getElementById("dappSendStatus");
+    const sendNotice = document.getElementById("dappSendNotice");
+    const sendConfirm = document.getElementById("dappSendConfirm");
+    const sendReject = document.getElementById("dappSendReject");
+    
+    try {
+      let response;
+      if (pending.type === "MMX_GET_PUBLIC_KEY") {
+        const pubKey = app.getPublicKeyHex();
+        response = { public_key: pubKey };
+        _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response } });
+        _br.storage.local.remove("mmx_pending_dapp_action");
+        _br.action.setBadgeText({ text: "" });
+        showView("dashboardView");
+        setStatus("dashStatus", "dApp: public key shared", "success");
+        
+      } else if (pending.type === "MMX_SIGN_MESSAGE") {
+        // Show confirmation for message signing
+        sendNotice.style.display = "block";
+        document.getElementById("dappSendOrigin").textContent = `${pending.origin} wants you to sign a message:`;
+        document.getElementById("dappSendAmount").textContent = `"${pending.params.msg}"`;
+        document.getElementById("dappSendTo").textContent = "Sign with wallet key";
+        status.textContent = "";
+        sendConfirm.disabled = false;
+        sendConfirm.textContent = "Sign";
+        sendConfirm.onclick = async () => {
+          sendConfirm.disabled = true;
+          try {
+            const result = await app.signMessage(pending.params.msg);
+            _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: result } });
+            sendNotice.style.display = "none";
+            _br.storage.local.remove("mmx_pending_dapp_action");
+            _br.action.setBadgeText({ text: "" });
+            showView("dashboardView");
+            setStatus("dashStatus", "dApp: message signed", "success");
+          } catch (e) {
+            status.textContent = "Error: " + e.message;
+            sendConfirm.disabled = false;
+            _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: { error: e.message } } });
+          }
+        };
+        sendReject.onclick = () => {
+          _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: null } });
+          sendNotice.style.display = "none";
+          _br.storage.local.remove("mmx_pending_dapp_action");
+          _br.action.setBadgeText({ text: "" });
+          showView("dashboardView");
+        };
+        showView("dappView");
+        
+      } else if (pending.type === "MMX_SIGN_TRANSACTION") {
+        // Show confirmation for transaction signing
+        sendNotice.style.display = "block";
+        document.getElementById("dappSendOrigin").textContent = `${pending.origin} wants you to sign a transaction`;
+        const inputs = pending.params.tx?.inputs || [];
+        const outputs = pending.params.tx?.outputs || [];
+        document.getElementById("dappSendAmount").textContent = `${inputs.length} in, ${outputs.length} out`;
+        document.getElementById("dappSendTo").textContent = "Review and sign";
+        status.textContent = "";
+        sendConfirm.disabled = false;
+        sendConfirm.textContent = "Sign";
+        sendConfirm.onclick = async () => {
+          sendConfirm.disabled = true;
+          try {
+            const signedTx = await app.signTransactionObject(pending.params.tx);
+            _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: signedTx } });
+            sendNotice.style.display = "none";
+            _br.storage.local.remove("mmx_pending_dapp_action");
+            _br.action.setBadgeText({ text: "" });
+            showView("dashboardView");
+            setStatus("dashStatus", "dApp: transaction signed", "success");
+          } catch (e) {
+            status.textContent = "Error: " + e.message;
+            sendConfirm.disabled = false;
+            _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: { error: e.message } } });
+          }
+        };
+        sendReject.onclick = () => {
+          _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: null } });
+          sendNotice.style.display = "none";
+          _br.storage.local.remove("mmx_pending_dapp_action");
+          _br.action.setBadgeText({ text: "" });
+          showView("dashboardView");
+        };
+        showView("dappView");
+        
+      }
+    } catch (e) {
+      _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: { error: e.message } } });
+      _br.storage.local.remove("mmx_pending_dapp_action");
+      _br.action.setBadgeText({ text: "" });
     }
   });
 }

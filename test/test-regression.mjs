@@ -562,6 +562,139 @@ console.log("\nCSP in manifest");
   assert("CSP restricts object-src to self", manifest.content_security_policy.extension_pages.includes("object-src 'self'"), true);
 }
 
+// === Official MMX dApp API (window.mmx_wallet) ===
+console.log("\nOfficial MMX dApp API");
+{
+  const fs = await import("fs");
+  const injectSrc = fs.readFileSync(import.meta.dirname + "/../inject.js", "utf8");
+  // window.mmx_wallet must be injected
+  assert("inject.js creates window.mmx_wallet", injectSrc.includes("window.mmx_wallet"), true);
+  assert("mmx_wallet has get_address", injectSrc.includes("get_address:"), true);
+  assert("mmx_wallet has get_public_key", injectSrc.includes("get_public_key:"), true);
+  assert("mmx_wallet has get_network", injectSrc.includes("get_network:"), true);
+  assert("mmx_wallet has sign_message", injectSrc.includes("sign_message:"), true);
+  assert("mmx_wallet has sign_transaction", injectSrc.includes("sign_transaction:"), true);
+  // window.mmx_wallet must NOT conflict with node GUI (which only checks window.mmx)
+  assert("inject.js doesn't clobber existing window.mmx", injectSrc.includes("typeof window.mmx === 'undefined'"), true);
+}
+
+// === wallet-app.js dApp API functions ===
+console.log("\nwallet-app.js dApp API functions");
+{
+  const app = await import("../wallet-app.js");
+  assert("getPublicKeyHex is a function", typeof app.getPublicKeyHex, "function");
+  assert("getNetwork is a function", typeof app.getNetwork, "function");
+  assert("signMessage is a function", typeof app.signMessage, "function");
+  assert("signTransactionObject is a function", typeof app.signTransactionObject, "function");
+  assert("getNetwork returns MMX/mainnet", app.getNetwork(), "MMX/mainnet");
+}
+
+// === sign_message produces valid signature ===
+console.log("\nsign_message produces valid signature");
+{
+  const app = await import("../wallet-app.js");
+  // DON'T import buffer-esm.js — breaks Node fetch
+  const secp = await import("../node_modules/@noble/secp256k1/index.js");
+  const { sha256 } = await import("../node_modules/@noble/hashes/sha2.js");
+  secp.hashes.sha256 = (data) => sha256(data);
+  secp.hashes.hmacSha256 = (key, data) => sha256(Buffer.concat([Buffer.from(key), Buffer.from(data)]));
+
+  // Restore a session so we can sign
+  const { Buffer } = await import("buffer");
+  const testSeed = new Uint8Array(32).fill(42);
+  app.restoreSession(testSeed, { id: "t", name: "T", address: "mmx1test" });
+
+  const result = await app.signMessage("test123");
+  assert("signature is hex string", typeof result.signature, "string");
+  assert("public_key is hex string", typeof result.public_key, "string");
+  assert("signature is 128 chars (64 bytes hex)", result.signature.length, 128);
+  assert("public_key is 66 chars (33 bytes hex compressed)", result.public_key.length, 66);
+
+  // Verify: SHA256("MMX/sign_message/test123") signed with prehash:false
+  const msgHash = Buffer.from(sha256(Buffer.from("MMX/sign_message/test123")));
+  const pubkey = Buffer.from(result.public_key, "hex");
+  const sig = Buffer.from(result.signature, "hex");
+  const isValid = secp.verify(sig, msgHash, pubkey, { prehash: false });
+  assert("signature verifies against message hash", isValid, true);
+
+  // Wrong message should NOT verify
+  const wrongHash = Buffer.from(sha256(Buffer.from("MMX/sign_message/wrong")));
+  const invalidSig = secp.verify(sig, wrongHash, pubkey, { prehash: false });
+  assert("signature fails on wrong message", invalidSig, false);
+
+  app.lockWalletPub();
+}
+
+// === content.js handles new request types ===
+console.log("\ncontent.js handles new request types");
+{
+  const fs = await import("fs");
+  const contentSrc = fs.readFileSync(import.meta.dirname + "/../content.js", "utf8");
+  assert("content.js handles MMX_GET_PUBLIC_KEY", contentSrc.includes("MMX_GET_PUBLIC_KEY"), true);
+  assert("content.js handles MMX_GET_NETWORK", contentSrc.includes("MMX_GET_NETWORK"), true);
+  assert("content.js handles MMX_SIGN_MESSAGE", contentSrc.includes("MMX_SIGN_MESSAGE"), true);
+  assert("content.js handles MMX_SIGN_TRANSACTION", contentSrc.includes("MMX_SIGN_TRANSACTION"), true);
+  assert("content.js uses mmx_pending_dapp_action", contentSrc.includes("mmx_pending_dapp_action"), true);
+  assert("content.js uses mmx_dapp_result", contentSrc.includes("mmx_dapp_result"), true);
+}
+
+// === Swap pool demo: human amounts, iters, price display ===
+console.log("\nSwap pool demo");
+{
+  const fs = await import("fs");
+  const swapSrc = fs.readFileSync(import.meta.dirname + "/../demo/swap-pools.html", "utf8");
+  // Must send human amounts directly (not raw satoshis)
+  assert("swap demo sends human amount directly", swapSrc.includes("const rawAmt = amt"), true);
+  // Must use iters=1 (matches official GUI)
+  assert("swap demo uses iters=1", swapSrc.includes("iters=1"), true);
+  // Must not multiply by 10^decimals
+  assert("swap demo does not convert to raw", swapSrc.includes("Math.pow(10, decimals)"), false);
+  // Buy direction shows inverted price (1/avg_price = MMX/TRAIL)
+  assert("swap demo inverts price for buy direction", swapSrc.includes("1 / avgPrice"), true);
+}
+
+// === Demo hub and pages exist ===
+console.log("\nDemo files");
+{
+  const fs = await import("fs");
+  const path = await import("path");
+  const demoDir = path.resolve(import.meta.dirname, "../demo");
+  const files = fs.readdirSync(demoDir).filter(f => f.endsWith(".html"));
+  assert("demo/index.html exists", files.includes("index.html"), true);
+  assert("demo/paywall.html exists", files.includes("paywall.html"), true);
+  assert("demo/swap-pools.html exists", files.includes("swap-pools.html"), true);
+  assert("demo/offers.html exists", files.includes("offers.html"), true);
+  // Index links to all demos
+  const indexSrc = fs.readFileSync(path.join(demoDir, "index.html"), "utf8");
+  assert("index links to paywall", indexSrc.includes("paywall.html"), true);
+  assert("index links to swap-pools", indexSrc.includes("swap-pools.html"), true);
+  assert("index links to offers", indexSrc.includes("offers.html"), true);
+}
+
+// === mmx-node-api.js swap functions ===
+console.log("\nSwap API functions");
+{
+  const fs = await import("fs");
+  const apiSrc = fs.readFileSync(import.meta.dirname + "/../mmx-node-api.js", "utf8");
+  assert("getSwapList exported", apiSrc.includes("export async function getSwapList"), true);
+  assert("getSwapInfo exported", apiSrc.includes("export async function getSwapInfo"), true);
+  assert("getSwapUserInfo exported", apiSrc.includes("export async function getSwapUserInfo"), true);
+  assert("getSwapTradeEstimate exported", apiSrc.includes("export async function getSwapTradeEstimate"), true);
+}
+
+// === signTransactionObject zeros skey ===
+console.log("\nsignTransactionObject security");
+{
+  const fs = await import("fs");
+  const appSrc = fs.readFileSync(import.meta.dirname + "/../wallet-app.js", "utf8");
+  // Find signTransactionObject function and check skey.fill(0) is inside it
+  const funcStart = appSrc.indexOf("export async function signTransactionObject");
+  const funcEnd = appSrc.indexOf("\n}", funcStart);
+  const funcBody = appSrc.substring(funcStart, funcEnd);
+  assert("signTransactionObject zeros skey", funcBody.includes("skey.fill(0)"), true);
+  assert("signTransactionObject uses prehash:false", funcBody.includes("prehash: false"), false); // signTx handles that
+}
+
 // === RESULTS ===
 console.log(`\n${"=".repeat(50)}`);
 console.log(`Regression tests: ${passed} passed, ${failed} failed`);

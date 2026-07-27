@@ -15,7 +15,7 @@ Works as both a **browser extension** (Firefox/Chrome) and a **web page**.
 - **Multi-wallet** — create/import/switch between multiple wallets
 - **Address book** — auto-saves addresses you send to, name them, quick-select when sending
 - **Send confirmation** — review amount, destination, fee, and total before broadcasting
-- **dApp integration (opt-in)** — toggle in dashboard enables `window.mmx` injection for web apps
+- **dApp integration (opt-in)** — toggle in dashboard enables `window.mmx` + `window.mmx_wallet` injection for web apps. Supports the official MMX dApp API: `get_address`, `get_public_key`, `get_network`, `sign_message`, `sign_transaction`.
 - **Dark/light theme** — toggle in header, choice persists across sessions
 - **Session persistence** — stays unlocked across popup close/reopen (extension)
 
@@ -44,7 +44,7 @@ python3 -m http.server 5050
 ### Tests
 
 ```bash
-npm test    # 205 tests across 4 suites
+npm test    # 246 tests across 4 suites
 ```
 
 ## Documentation
@@ -62,7 +62,15 @@ npm test    # 205 tests across 4 suites
 
 ## Demo
 
-A standalone crypto paywall demo is included at `demo/paywall.html` — locked content that unlocks when the user pays 1 TRAIL via the wallet extension. See [docs/PAYWALL-DEMO.md](docs/PAYWALL-DEMO.md).
+Standalone demos are included in `demo/` — all run on public RPC, no server needed:
+
+| Demo | Description |
+|---|---|
+| [`demo/paywall.html`](demo/paywall.html) | Crypto paywall — locked content unlocks on TRAIL payment via wallet extension |
+| [`demo/swap-pools.html`](demo/swap-pools.html) | Live swap pool explorer — reserves, prices, APY, trade estimator |
+| [`demo/offers.html`](demo/offers.html) | Live offer book — open offers, prices, owners, pair filters |
+
+See [docs/PAYWALL-DEMO.md](docs/PAYWALL-DEMO.md) for the paywall guide.
 
 ## License
 

@@ -39,3 +39,10 @@ Edit `demo/paywall.html` to change:
 - **Token** — replace `TRAIL_CONTRACT` and `currency: "TRAIL"` with your token
 - **Price** — change `PRICE_TRAIL`
 - **Locked content** — replace the SVG with your own content (image, video, text, etc.)
+
+## Other Demos
+
+The repo also includes:
+
+- [`demo/swap-pools.html`](../demo/swap-pools.html) — live swap pool explorer (reserves, prices, APY, fees, trade estimator). All from public RPC, no wallet needed.
+- [`demo/offers.html`](../demo/offers.html) — live offer book (open offers, prices, owners, pair filters). All from public RPC, no wallet needed.
