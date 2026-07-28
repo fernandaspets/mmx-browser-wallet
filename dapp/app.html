@@ -200,12 +200,14 @@
         <button class="btn btn-primary" id="makeOfferBtn">📋 Create Offer</button>
       </div>
       <div class="card">
-        <div class="swap-label">Open Offers</div>
+        <div class="swap-label">Order Book — <span id="orderBookPair">MMX / TRAIL</span></div>
         <div class="swap-row" style="margin-bottom:8px">
           <select class="swap-select" id="offerFilterBid" style="flex:1"></select>
+          <span style="color:var(--text-muted);font-size:12px;padding:0 4px">/</span>
           <select class="swap-select" id="offerFilterAsk" style="flex:1"></select>
           <button class="btn" id="offerRefreshBtn" style="padding:4px 8px">🔄</button>
         </div>
+        <div id="orderBookSpread" style="font-size:11px;color:var(--text-muted);margin-bottom:4px"></div>
         <div id="offersList" style="max-height:400px;overflow-y:auto"></div>
         <div class="status" id="acceptStatus"></div>
       </div>
@@ -617,40 +619,75 @@ async function makeOffer() {
 
 async function loadOffers() {
   const list = document.getElementById("offersList");
-  list.innerHTML = "<div style='color:var(--text-muted);padding:8px'>Loading offers...</div>";
+  const spreadEl = document.getElementById("orderBookSpread");
+  list.innerHTML = "<div style='color:var(--text-muted);padding:8px'>Loading order book...</div>";
   try {
-    const bidFilter = document.getElementById("offerFilterBid").value;
-    const askFilter = document.getElementById("offerFilterAsk").value;
-    const offers = await api.getOffers(bidFilter || null, askFilter || null, 50);
-    let html = "";
-    if (!offers || offers.length === 0) {
-      html = "<div style='color:var(--text-muted);padding:8px'>No open offers found.</div>";
+    const bidCur = document.getElementById("offerFilterBid").value;
+    const askCur = document.getElementById("offerFilterAsk").value;
+    const bidSym = document.querySelector('#offerFilterBid option:checked')?.textContent || bidCur?.substring(0,8) || '?';
+    const askSym = document.querySelector('#offerFilterAsk option:checked')?.textContent || askCur?.substring(0,8) || '?';
+    document.getElementById("orderBookPair").textContent = `${bidSym} / ${askSym}`;
+
+    // Two API calls: people selling bidCur for askCur, and people selling askCur for bidCur
+    const [bidsRaw, asksRaw] = await Promise.all([
+      api.getOffers(bidCur, askCur, 100),  // people offering bidCur to buy askCur
+      api.getOffers(askCur, bidCur, 100),  // people offering askCur to buy bidCur
+    ]);
+
+    // Normalize: price = how much askCur per 1 bidCur
+    // For bids (bid=bidCur, ask=askCur): display_price = askCur/bidCur → use directly
+    // For asks (bid=askCur, ask=bidCur): display_price = bidCur/askCur → invert to get askCur/bidCur
+    const bids = (bidsRaw || []).filter(o => (o.bid_balance_value || 0) > 0).map(o => ({
+      addr: o.address, owner: o.owner,
+      price: parseFloat(o.display_price) || 0,  // askCur per bidCur
+      size: o.bid_balance_value || 0,  // how much bidCur available
+      askCurrency: o.ask_currency, askSymbol: o.ask_symbol || '?', askDecimals: o.ask_decimals || 0,
+      invPrice: o.inv_price,
+    })).sort((a, b) => b.price - a.price);  // bids: highest price first
+
+    const asks = (asksRaw || []).filter(o => (o.bid_balance_value || 0) > 0).map(o => ({
+      addr: o.address, owner: o.owner,
+      price: 1 / (parseFloat(o.display_price) || 0),  // invert: askCur per bidCur
+      size: o.bid_balance_value || 0,  // how much askCur available (the bid side of this offer)
+      askCurrency: o.ask_currency, askSymbol: o.ask_symbol || '?', askDecimals: o.ask_decimals || 0,
+      invPrice: o.inv_price,
+    })).filter(o => o.price > 0 && isFinite(o.price)).sort((a, b) => a.price - b.price);  // asks: lowest price first
+
+    // Spread
+    const bestBid = bids.length ? bids[0].price : null;
+    const bestAsk = asks.length ? asks[0].price : null;
+    if (bestBid && bestAsk) {
+      const spread = bestAsk - bestBid;
+      const spreadPct = (spread / bestBid * 100);
+      spreadEl.innerHTML = `Spread: <b style="color:var(--success)">${spread.toFixed(2)} ${askSym}</b> (${spreadPct.toFixed(1)}%) · Best bid: ${bestBid.toFixed(2)} · Best ask: ${bestAsk.toFixed(2)}`;
+    } else if (bestBid) {
+      spreadEl.innerHTML = `Best bid: ${bestBid.toFixed(2)} ${askSym}/${bidSym} · No asks`;
+    } else if (bestAsk) {
+      spreadEl.innerHTML = `Best ask: ${bestAsk.toFixed(2)} ${askSym}/${bidSym} · No bids`;
     } else {
-      for (const o of offers) {
-        const bidSym = escapeHtml(o.bid_symbol || "?");
-        const askSym = escapeHtml(o.ask_symbol || "?");
-        const rawPrice = o.display_price || 0;
-        const bidBal = o.bid_balance_value || 0;
-        const askBal = o.ask_balance_value || 0;
-        const owner = escapeHtml((o.owner || "").substring(0, 16) + "...");
-        const addr = escapeHtml(o.address);
-        const hasBalance = bidBal > 0;
-        // display_price = ask/bid (how much ask you get per 1 bid unit)
-        const priceDisplay = rawPrice > 0 ? String(rawPrice).replace(/\.?0+$/, "") : "?";
-        html += `<div style="padding:8px;border-bottom:1px solid var(--border)">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div><b>Selling ${bidBal} ${bidSym}</b> for <b>${askSym}</b></div>
-            ${hasBalance ? `<button class="btn btn-primary" style="padding:2px 8px;font-size:11px" onclick="acceptOfferUI('${o.address}','${escapeHtml(o.ask_currency)}','${escapeHtml(o.ask_symbol || "?")}',${o.ask_decimals || 0},${parseFloat(o.inv_price || "0")})">✅ Buy</button>` : "<span style='font-size:11px;color:var(--text-muted)'>empty</span>"}
-          </div>
-          <div style="font-size:12px;color:var(--text);margin-top:2px">
-            1 ${bidSym} = ${priceDisplay} ${askSym} · Received: ${askBal} ${askSym}
-          </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:1px">
-            Owner: ${owner}
-            · <a href="https://explore.mmx.network/#/explore/address/${o.address}" target="_blank">explorer ↗</a>
-          </div>
-        </div>`;
-      }
+      spreadEl.innerHTML = "No open offers for this pair";
+    }
+
+    // Render order book: asks on top (reversed so lowest near spread), bids below
+    const renderLevel = (o, cls) => `<div class="row ${cls}" style="display:flex;justify-content:space-between;padding:4px 8px;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="font-weight:600;min-width:60px">${o.price.toFixed(2)}</span>
+      <span style="flex:1;text-align:center">${o.size.toFixed(2)} ${cls === 'sell' ? askSym : bidSym}</span>
+      <button class="btn btn-primary" style="padding:1px 6px;font-size:10px" onclick="acceptOfferUI('${o.addr}','${escapeHtml(o.askCurrency)}','${escapeHtml(o.askSymbol)}',${o.askDecimals},'${o.invPrice}')">Buy</button>
+    </div>`;
+
+    let html = "";
+    if (asks.length) {
+      html += `<div style="font-size:11px;color:var(--text-muted);padding:4px 8px;font-weight:600">ASKS — sell ${askSym} for ${bidSym}</div>`;
+      html += asks.slice().reverse().map(o => renderLevel(o, "sell")).join("");
+    } else {
+      html += `<div style="font-size:11px;color:var(--text-muted);padding:4px 8px">No asks</div>`;
+    }
+    html += `<div style="border-top:2px solid var(--border);margin:2px 0"></div>`;
+    if (bids.length) {
+      html += `<div style="font-size:11px;color:var(--text-muted);padding:4px 8px;font-weight:600">BIDS — buy ${askSym} with ${bidSym}</div>`;
+      html += bids.map(o => renderLevel(o, "buy")).join("");
+    } else {
+      html += `<div style="font-size:11px;color:var(--text-muted);padding:4px 8px">No bids</div>`;
     }
     list.innerHTML = html;
   } catch (e) {
