@@ -358,7 +358,7 @@ export function calcDepositHash(deposit, fullHash = false) {
   if (fullHash) {
     // solution is uint16_t (index into solutions array, -1 = 0xFFFF)
     // write_bytes(uint16_t) -> write_bytes(int64_t) -> 8 bytes LE
-    w.writeField("solution", () => w.writeUint16LE(deposit.solution || 0));
+    w.writeField("solution", () => w.writeUint16LE(deposit.solution ?? 65535));
   }
   return Buffer.from(sha256(new Uint8Array(w.toBuffer())));
 }
@@ -444,7 +444,7 @@ export function calcExecuteHash(execute, fullHash = false) {
     w.writeOptional(execute.user, () => w.writeBytesType(execute.user));
   });
   if (fullHash) {
-    w.writeField("solution", () => w.writeUint16LE(execute.solution || 0));
+    w.writeField("solution", () => w.writeUint16LE(execute.solution ?? 65535));
   }
   return Array.from(Buffer.from(sha256(new Uint8Array(w.toBuffer()))));
 }

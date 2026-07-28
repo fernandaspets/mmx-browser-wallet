@@ -175,10 +175,9 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   const height = await api.getHeight();
   const expires = height + 100;
 
-  // Static cost: min_txfee(20000) + 1 input(10000) + 1 output(10000) + 1 solution(10000) = 50000
-  // This is the base cost. The ACTUAL fee is returned by the node during
-  // validation (dry-run) in exec_result.total_fee, which may differ.
-  const staticCost = 50000;
+  // Compute static_cost correctly (must match Transaction::calc_cost in C++)
+  // For simple transfer: 1 input + 1 output + 0 execute + 1 solution
+  const staticCost = calcStaticCost(1, 1, null, 1);
 
   // 64-bit random nonce (crypto.getRandomValues, not Math.random)
   const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
@@ -247,11 +246,11 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   };
 
   // Dry-run: validate to get actual fee from node (exec_result.total_fee)
-  const result = await api.validateTransaction(txObj);
+  const result = await api.validateTransaction(toVNX(txObj));
   if (result.did_fail) throw new Error("Transaction validation failed: " + (result.error || "unknown"));
 
   // Broadcast to network
-  await api.broadcastTransaction(txObj);
+  await api.broadcastTransaction(toVNX(txObj));
 
   // Auto-track destination address in contacts (if not own and not already saved)
   try { await store.autoTrackAddress(toAddress, "Sent to"); } catch {}
@@ -286,6 +285,7 @@ export async function createWallet(name, password) {
 }
 
 export async function importWallet(name, mnemonicWords, password) {
+  await loadWordlist();
   const seed = wordsToSeed(mnemonicWords);
   const { addrHash } = deriveKeypair(seed, "", 0, 0);
   const address = hashToAddress(addrHash);
@@ -596,6 +596,44 @@ export async function autoTrackAddress(address, defaultName) { return store.auto
 // minTradeSat: minimum output in smallest units (slippage protection, 0 = no min)
 // numIter: iterations (1 = simple, 20 = default in MMX wallet)
 
+// Compute static_cost for a transaction (must match Transaction::calc_cost in C++)
+// ChainParams (mainnet): min_txfee=20000, min_txfee_io=10000, min_txfee_sign=10000,
+//                       min_txfee_exec=10000, min_txfee_byte=100, min_txfee_deploy=200000
+// For Execute/Deposit ops: cost += (method.length + sum(get_num_bytes(arg))) * min_txfee_byte
+function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, hasDeploy = false) {
+  let cost = 20000; // min_txfee (base)
+  cost += numInputs * 10000;  // min_txfee_io per input
+  cost += numOutputs * 10000; // min_txfee_io per output
+  cost += (executeOps?.length || 0) * 10000; // min_txfee_exec per execute
+  cost += numSolutions * 10000; // min_txfee_sign per solution
+  if (hasDeploy) cost += 20000; // min_txfee_deploy
+  // Add execute payload cost
+  for (const op of (executeOps || [])) {
+    if (!op) continue;
+    let payload = (op.method || "").length;
+    for (const arg of (op.args || [])) {
+      payload += getVariantNumBytes(arg);
+    }
+    cost += payload * 100; // min_txfee_byte
+  }
+  return cost;
+}
+
+// Get serialized size of a VNX Variant (matches get_num_bytes in C++)
+function getVariantNumBytes(val) {
+  if (val === null || val === undefined) return 1;      // null or bool = 1 byte
+  if (typeof val === "boolean") return 1;
+  if (typeof val === "number") return 8;                  // uint64/int64 = 8 bytes
+  if (typeof val === "bigint") return 8;
+  if (typeof val === "string") return 4 + val.length;    // string = 4 + length
+  if (Array.isArray(val)) {
+    let total = 4;
+    for (const e of val) total += getVariantNumBytes(e);
+    return total;
+  }
+  return 8; // fallback
+}
+
 export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContract, minTradeSat = 0, numIter = 1) {
   if (!unlockedSeed) throw new Error("Wallet is locked");
 
@@ -610,10 +648,8 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
 
   // Parse currency contract address
   let currencyBytes = new Array(32).fill(0);
-  if (currencyContract && currencyContract !== "mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev") {
-    const { words: cw } = bech32m.decode(currencyContract);
-    const cBytesBE = bech32m.fromWords(cw);
-    currencyBytes = Array.from(Buffer.from(cBytesBE).reverse());
+  if (currencyContract && currencyContract !== MMX_NULL_ADDR) {
+    currencyBytes = addrToBytes32(currencyContract);
   }
 
   // Build the Deposit operation
@@ -626,10 +662,10 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
     args: [
       tokenIndex,                                    // i: which token to sell
       userAddrStr,                                    // address: where to send output
-      minTradeSat > 0 ? Number(minTradeSat) : null, // min_trade (uint64 for small, or hex string for large)
+      minTradeSat > 0 ? Number(minTradeSat) : 1, // min_trade: must be a number (not null) — default 1 smallest unit
       numIter,                                        // num_iter
     ],
-    user: fromAddrBytes,                              // user: caller address
+    user: null,                                      // user: NOT set for swap trades
     currency: currencyBytes,                         // currency being deposited
     amount: uint128LE(amountSat),                    // amount being deposited
   };
@@ -643,14 +679,12 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
   const expires = height + 100;
 
   // Nonce
-  const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
-  let nonce = 0n;
-  for (let i = 0; i < 8; i++) nonce |= BigInt(nonceBytes[i]) << BigInt(i * 8);
-  if (nonce === 0n) nonce = 1n;
+  const nonce = randomNonce();
 
-  // Static cost: base(20000) + 1 input(10000) + 1 output(10000) + 1 execute(10000) + 1 solution(10000)
-  // Contract execution costs more but the node calculates actual cost during validation
-  const staticCost = 60000;
+  // Compute static_cost correctly (must match Transaction::calc_cost in C++)
+  // min_txfee(100) + inputs(100 each) + outputs(100 each) + exec(10000 each) + solutions(1000 each)
+  // + execute payload * min_txfee_byte(10)
+  const staticCost = calcStaticCost(1, 0, [deposit], 1);
 
   const tx = {
     version: 0,
@@ -669,12 +703,8 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
       solution: 0,
       flags: 0,
     }],
-    outputs: [{
-      address: swapAddrBytes,
-      contract: currencyBytes,
-      amount: uint128LE(amountSat),
-      memo: null,
-    }],
+    // outputs: EMPTY — the node auto-creates deposit outputs and trade outputs during validation
+    outputs: [],
     execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
     deploy: null,
     static_cost: staticCost,
@@ -702,8 +732,8 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
     network: tx.network,
     sender: tx.sender,
     inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
-    outputs: tx.outputs.map(o => ({ ...o, __type: "mmx.txout_t" })),
-    execute: [deposit], // Full deposit object for the node to deserialize
+    outputs: [],
+    execute: [deposit],
     deploy: null,
     solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
     static_cost: tx.static_cost,
@@ -712,11 +742,11 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
   };
 
   // Dry-run: validate to get actual fee
-  const result = await api.validateTransaction(txObj);
+  const result = await api.validateTransaction(toVNX(txObj));
   if (result.did_fail) throw new Error("Swap trade validation failed: " + (result.error || "unknown"));
 
   // Broadcast
-  await api.broadcastTransaction(txObj);
+  await api.broadcastTransaction(toVNX(txObj));
 
   skey.fill(0);
 
@@ -740,6 +770,66 @@ function addrToBytes32(addrStr) {
   const { words } = bech32m.decode(addrStr);
   const bytesBE = bech32m.fromWords(words);
   return Array.from(Buffer.from(bytesBE).reverse());
+}
+
+// Convert byte array to hex string (uppercase, no 0x prefix)
+function bytesToHex(arr) {
+  return Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
+// Convert uint128 LE byte array to decimal string
+function uint128LEToDecimal(arr) {
+  let val = 0n;
+  for (let i = 0; i < 16; i++) val |= BigInt(arr[i]) << BigInt(i * 8);
+  return val.toString();
+}
+
+// Convert a tx object's byte-array fields to VNX-native JSON format.
+// VNX JSON API expects: addr_t → bech32 string, uint128 → decimal string,
+// hash_t → hex string, bytes → hex string, tx_note_e → string name.
+// Our hash computation uses byte arrays (correct binary serialization),
+// but the JSON we send to the node must use VNX-native strings so the node
+// deserializes to the same binary representation.
+const TX_NOTE_NAMES = { 858544509: "TRANSFER", 329618288: "TRADE", 1549148948: "OFFER" };
+
+function toVNX(txObj) {
+  const out = JSON.parse(JSON.stringify(txObj)); // deep clone
+  // note: number → string name
+  if (typeof out.note === "number" && TX_NOTE_NAMES[out.note]) out.note = TX_NOTE_NAMES[out.note];
+  // sender: byte array → bech32 string
+  if (Array.isArray(out.sender)) out.sender = hashToAddress(out.sender);
+  // id, content_hash: byte array → hex string
+  if (Array.isArray(out.id)) out.id = bytesToHex(out.id);
+  if (Array.isArray(out.content_hash)) out.content_hash = bytesToHex(out.content_hash);
+  // inputs
+  for (const inp of (out.inputs || [])) {
+    if (Array.isArray(inp.address)) inp.address = hashToAddress(inp.address);
+    if (Array.isArray(inp.contract)) inp.contract = hashToAddress(inp.contract);
+    if (Array.isArray(inp.amount)) inp.amount = uint128LEToDecimal(inp.amount);
+  }
+  // outputs
+  for (const out2 of (out.outputs || [])) {
+    if (Array.isArray(out2.address)) out2.address = hashToAddress(out2.address);
+    if (Array.isArray(out2.contract)) out2.contract = hashToAddress(out2.contract);
+    if (Array.isArray(out2.amount)) out2.amount = uint128LEToDecimal(out2.amount);
+  }
+  // execute (Deposit/Execute operations)
+  for (const op of (out.execute || [])) {
+    if (Array.isArray(op.address)) op.address = hashToAddress(op.address);
+    if (Array.isArray(op.currency)) op.currency = hashToAddress(op.currency);
+    if (Array.isArray(op.amount)) op.amount = uint128LEToDecimal(op.amount);
+    if (Array.isArray(op.user)) op.user = hashToAddress(op.user);
+  }
+  // deploy (Executable)
+  if (out.deploy && Array.isArray(out.deploy.binary)) {
+    out.deploy.binary = hashToAddress(out.deploy.binary);
+  }
+  // solutions: pubkey, signature → hex string
+  for (const sol of (out.solutions || [])) {
+    if (Array.isArray(sol.pubkey)) sol.pubkey = bytesToHex(sol.pubkey);
+    if (Array.isArray(sol.signature)) sol.signature = bytesToHex(sol.signature);
+  }
+  return out;
 }
 
 // Helper: build, sign, validate, broadcast a transaction
@@ -767,7 +857,7 @@ async function buildAndSendTx(tx, skey) {
     id: Array.from(txId),
     content_hash: Array.from(contentHash),
   };
-  const result = await api.validateTransaction(txObj);
+  const result = await api.validateTransaction(toVNX(txObj));
   if (result.did_fail) {
     let msg = "unknown";
     if (result.error) {
@@ -777,7 +867,7 @@ async function buildAndSendTx(tx, skey) {
     }
     throw new Error("Validation failed: " + msg);
   }
-  await api.broadcastTransaction(txObj);
+  await api.broadcastTransaction(toVNX(txObj));
   return {
     txid: Buffer.from(txId).toString("hex").toUpperCase(),
     fee: result.total_fee || tx.static_cost,
@@ -900,7 +990,7 @@ async function buildAndSendTxDeploy(tx, executable, skey) {
     id: Array.from(txId),
     content_hash: Array.from(contentHash),
   };
-  const result = await api.validateTransaction(txObj);
+  const result = await api.validateTransaction(toVNX(txObj));
   if (result.did_fail) {
     let msg = "unknown";
     if (result.error) {
@@ -910,7 +1000,7 @@ async function buildAndSendTxDeploy(tx, executable, skey) {
     }
     throw new Error("Validation failed: " + msg);
   }
-  await api.broadcastTransaction(txObj);
+  await api.broadcastTransaction(toVNX(txObj));
   return {
     txid: Buffer.from(txId).toString("hex").toUpperCase(),
     fee: result.total_fee || tx.static_cost,
@@ -944,7 +1034,7 @@ export async function acceptOffer(offerAddr, askAmountSat) {
       fromAddrStr,      // dst_addr: where to send the bid currency
       offer.inv_price,  // price (hex string)
     ],
-    user: fromAddrBytes,
+    user: addrToBytes32(offer.owner),  // user: offer.owner (C++ sets options_.user = offer.owner)
     currency: askCurrencyBytes,
     amount: uint128LE(askAmountSat),
   };
@@ -1007,7 +1097,7 @@ export async function acceptOffer(offerAddr, askAmountSat) {
     id: Array.from(txId),
     content_hash: Array.from(contentHash),
   };
-  const result = await api.validateTransaction(txObj);
+  const result = await api.validateTransaction(toVNX(txObj));
   if (result.did_fail) {
     let msg = "unknown";
     if (result.error) {
@@ -1017,7 +1107,7 @@ export async function acceptOffer(offerAddr, askAmountSat) {
     }
     throw new Error("Validation failed: " + msg);
   }
-  await api.broadcastTransaction(txObj);
+  await api.broadcastTransaction(toVNX(txObj));
   skey.fill(0);
   return {
     txid: Buffer.from(txId).toString("hex").toUpperCase(),
@@ -1094,7 +1184,7 @@ export async function cancelOffer(offerAddr) {
     id: Array.from(txId),
     content_hash: Array.from(contentHash),
   };
-  const result = await api.validateTransaction(txObj);
+  const result = await api.validateTransaction(toVNX(txObj));
   if (result.did_fail) {
     let msg = "unknown";
     if (result.error) {
@@ -1104,7 +1194,7 @@ export async function cancelOffer(offerAddr) {
     }
     throw new Error("Validation failed: " + msg);
   }
-  await api.broadcastTransaction(txObj);
+  await api.broadcastTransaction(toVNX(txObj));
   skey.fill(0);
   return {
     txid: Buffer.from(txId).toString("hex").toUpperCase(),
