@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrailShare — Wallet, Swap & Content</title>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+  :root {
+    --bg: #0d0f1a; --bg-card: rgba(255,255,255,0.03); --bg-input: rgba(0,0,0,0.3);
+    --border: rgba(255,255,255,0.08); --text: #e4e6ef; --text-muted: #8b8fa3;
+    --accent: #6c8aff; --accent-bg: rgba(108,138,255,0.1);
+    --success: #4caf50; --warning: #ffa726; --danger: #ef5350; --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; min-height: 100vh; padding: 16px; }
+  .app { width: 100%; max-width: 500px; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .header h1 { font-size: 18px; font-weight: 700; color: var(--accent); }
+  .badge { font-size: 11px; padding: 4px 10px; background: var(--accent-bg); border: 1px solid rgba(108,138,255,0.2); border-radius: 20px; color: var(--accent); white-space: nowrap; }
+  .badge.connected { color: var(--success); border-color: rgba(76,175,80,0.2); background: rgba(76,175,80,0.08); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; }
+  .tab { flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 0.2s; color: var(--text-muted); }
+  .tab.active { background: var(--accent); color: white; }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; }
+  .input { width: 100%; padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; margin: 6px 0; }
+  .input:focus { border-color: var(--accent); outline: none; }
+  .input::placeholder { color: var(--text-muted); }
+  .btn { width: 100%; padding: 14px; border: none; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .status { font-size: 13px; min-height: 20px; margin: 8px 0; color: var(--text-muted); }
+  .status.success { color: var(--success); }
+  .status.error { color: var(--danger); }
+  .status.pending { color: var(--warning); }
+  .addr-box { font-family: monospace; font-size: 10px; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; word-break: break-all; margin: 6px 0; cursor: pointer; }
+  .addr-box:hover { border-color: var(--accent); }
+  .info-box { background: var(--accent-bg); border: 1px solid rgba(108,138,255,0.12); border-radius: 8px; padding: 12px; margin: 8px 0; font-size: 12px; line-height: 1.5; text-align: left; }
+  .info-box strong { color: var(--accent); }
+
+  /* Swap */
+  .swap-box { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 8px; }
+  .swap-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .swap-row { display: flex; gap: 8px; align-items: center; }
+  .swap-input { flex: 1; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 15px; font-family: monospace; }
+  .swap-input:focus { border-color: var(--accent); outline: none; }
+  .swap-select { padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer; min-width: 90px; }
+  .swap-arrow { text-align: center; font-size: 18px; color: var(--text-muted); margin: 2px 0; cursor: pointer; }
+  .swap-arrow:hover { color: var(--accent); }
+  .pool-info { font-size: 11px; color: var(--text-muted); padding: 6px 10px; background: var(--accent-bg); border-radius: 6px; margin-bottom: 8px; }
+  .info-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); padding: 2px 0; }
+  .info-row strong { color: var(--text); }
+
+  /* Paywall */
+  .price-tag { font-size: 28px; font-weight: 700; color: var(--accent); margin: 6px 0; }
+  .price-tag small { font-size: 14px; color: var(--text-muted); font-weight: 400; }
+  .locked-svg { filter: blur(12px); transition: filter 1.5s ease; }
+  .locked-svg.unlocked { filter: blur(0px); }
+  .lock-overlay { position: relative; margin: 12px 0; border-radius: var(--radius); overflow: hidden; }
+  .lock-overlay-inner { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; transition: opacity 0.5s; }
+  .lock-overlay-inner.hidden { opacity: 0; pointer-events: none; }
+  .unlocked-banner { display: none; background: rgba(76,175,80,0.08); border: 1px solid rgba(76,175,80,0.2); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; text-align: center; }
+  .unlocked-banner.show { display: block; animation: fadeIn 0.5s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .tx-link { font-family: monospace; font-size: 10px; color: var(--accent); text-decoration: none; word-break: break-all; }
+  .tx-link:hover { text-decoration: underline; }
+
+  .footer { text-align: center; font-size: 10px; color: var(--text-muted); margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>🐕 TrailShare</h1>
+    <div class="badge" id="statusBadge">checking...</div>
+  </div>
+
+  <!-- Unlock (shown before tabs) -->
+  <div class="card" id="unlockCard">
+    <div id="walletSelect" style="display:none;margin-bottom:8px;">
+      <div class="swap-label">Select wallet:</div>
+      <select id="walletSelectBox" class="input" style="cursor:pointer;"></select>
+    </div>
+    <div id="unlockForm" style="display:none;">
+      <input type="password" class="input" id="unlockPass" placeholder="Wallet password" autocomplete="current-password">
+      <button class="btn btn-primary" id="unlockBtn" style="margin-top:8px;">🔓 Unlock Wallet</button>
+    </div>
+    <div id="noWalletMsg" style="display:none;">
+      <p style="color:var(--text-muted);font-size:13px;line-height:1.5;">
+        No wallet found on this device. Create one at
+        <a href="wallet.html" style="color:var(--accent);">wallet.html</a>
+        first, then come back.
+      </p>
+    </div>
+  </div>
+
+  <!-- Main app (shown after unlock) -->
+  <div id="appView" style="display:none;">
+    <div class="addr-box" id="userAddr" onclick="copyAddr(this)">Loading...</div>
+    <div id="balances" style="font-size:11px;color:var(--text-muted);margin:4px 0 12px;"></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" data-tab="wallet">💰 Wallet</div>
+      <div class="tab" data-tab="swap">🔄 Swap</div>
+      <div class="tab" data-tab="paywall">🔓 Content</div>
+    </div>
+
+    <!-- Wallet tab -->
+    <div class="tab-content active" id="tab-wallet">
+      <div class="card">
+        <div class="swap-label">Send to</div>
+        <input type="text" class="input" id="sendTo" placeholder="mmx1... address">
+        <div class="swap-label">Amount</div>
+        <div class="swap-row">
+          <input type="text" class="swap-input" id="sendAmount" placeholder="0.0" inputmode="decimal">
+          <select class="swap-select" id="sendCurrency"></select>
+        </div>
+        <div class="status" id="sendStatus"></div>
+        <button class="btn btn-primary" id="sendBtn">📤 Send</button>
+      </div>
+      <div class="card">
+        <div class="swap-label">Recent transactions</div>
+        <div id="txHistory" style="font-size:11px;color:var(--text-muted);padding:8px;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Swap tab -->
+    <div class="tab-content" id="tab-swap">
+      <div class="card">
+        <div class="swap-box">
+          <div class="swap-label">From</div>
+          <div class="swap-row">
+            <input type="text" class="swap-input" id="swapFromAmount" placeholder="0.0" inputmode="decimal">
+            <select class="swap-select" id="swapFromToken"></select>
+          </div>
+        </div>
+        <div class="swap-arrow" id="swapFlip">⬇️</div>
+        <div class="swap-box">
+          <div class="swap-label">To (estimated)</div>
+          <div class="swap-row">
+            <input type="text" class="swap-input" id="swapToAmount" placeholder="0.0" readonly>
+            <select class="swap-select" id="swapToToken"></select>
+          </div>
+        </div>
+        <div class="pool-info" id="swapPoolInfo">Select tokens...</div>
+        <div style="margin-top:8px;">
+          <div class="info-row"><span>Price</span><strong id="swapPrice">—</strong></div>
+          <div class="info-row"><span>Slippage</span>
+            <select id="swapSlippage" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:10px;padding:2px;">
+              <option value="0">0%</option><option value="1">1%</option><option value="5" selected>5%</option><option value="10">10%</option>
+            </select>
+          </div>
+        </div>
+        <div class="status" id="swapStatus"></div>
+        <button class="btn btn-primary" id="swapBtn" disabled style="margin-top:8px;">🔄 Swap</button>
+        <div id="swapTxSection" style="display:none;margin-top:8px;">
+          <a class="tx-link" id="swapTxLink" target="_blank" href="#"></a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paywall tab -->
+    <div class="tab-content" id="tab-paywall">
+      <div class="unlocked-banner" id="unlockedBanner">
+        <h2 style="color:var(--success);font-size:16px;">Content Unlocked!</h2>
+        <p style="color:var(--text-muted);font-size:12px;margin-top:4px;">Thanks for supporting TrailShare.</p>
+      </div>
+      <div class="card">
+        <div class="price-tag">1 <small>TRAIL</small></div>
+        <div class="info-box">
+          <strong>Pay to (Morpheus):</strong>
+          <div class="addr-box" onclick="copyAddr(this)">mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5</div>
+        </div>
+        <div id="trailBalance" style="font-size:11px;color:var(--text-muted);margin:4px 0;">Checking TRAIL balance...</div>
+        <div class="lock-overlay" style="height:180px;">
+          <div class="locked-svg" id="svgContainer" style="height:100%;">
+            <svg width="100%" height="100%" viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+              <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FF6B6B"/><stop offset="50%" stop-color="#FFE66D"/><stop offset="100%" stop-color="#4ECDC4"/></linearGradient></defs>
+              <rect width="400" height="200" fill="url(#sky)" rx="8"/>
+              <circle cx="320" cy="50" r="22" fill="#FFD93D" opacity="0.9"/>
+              <path d="M0,130 L60,70 L120,110 L180,50 L240,90 L300,60 L360,80 L400,70 L400,130 Z" fill="#2C3E50" opacity="0.3"/>
+              <rect y="130" width="400" height="70" fill="#8B7355" rx="8"/>
+              <g transform="translate(50,100)"><rect x="0" y="8" width="5" height="28" rx="2" fill="#3498DB"/><circle cx="2.5" cy="3" r="6" fill="#F8C8A0"/><line x1="1" y1="36" x2="-1" y2="44" stroke="#2C3E50" stroke-width="2.5" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" values="0 1 36;12 1 36;0 1 36;12 1 36;0 1 36" dur="0.5s" repeatCount="indefinite"/></line><line x1="4" y1="36" x2="6" y2="44" stroke="#2C3E50" stroke-width="2.5" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" values="0 4 36;-12 4 36;0 4 36;-12 4 36;0 4 36" dur="0.5s" repeatCount="indefinite"/></line></g>
+              <g transform="translate(75,110)"><ellipse cx="12" cy="16" rx="14" ry="8" fill="#8B4513"/><circle cx="24" cy="12" r="7" fill="#A0522D"/><circle cx="26" cy="10" r="1.2" fill="#000"/><circle cx="30" cy="12" r="0.8" fill="#000"/><line x1="0" y1="12" x2="-6" y2="6" stroke="#8B4513" stroke-width="3" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" values="0 0 12;18 0 12;-18 0 12;0 0 12" dur="0.3s" repeatCount="indefinite"/></line></g>
+              <g transform="translate(105,114)"><ellipse cx="8" cy="14" rx="9" ry="5" fill="#F4E1C1"/><circle cx="16" cy="11" r="5" fill="#E8D5A8"/><circle cx="18" cy="9" r="0.8" fill="#000"/><line x1="0" y1="11" x2="-4" y2="7" stroke="#F4E1C1" stroke-width="2.5" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" values="0 0 11;20 0 11;-20 0 11;0 0 11" dur="0.25s" repeatCount="indefinite"/></line></g>
+              <g transform="translate(130,116)"><ellipse cx="6" cy="13" rx="7" ry="4" fill="#5C4033"/><circle cx="11" cy="10" r="3.5" fill="#6B4226"/><circle cx="12" cy="9" r="0.6" fill="#000"/><line x1="0" y1="10" x2="-2" y2="7" stroke="#5C4033" stroke-width="2" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" values="0 0 10;25 0 10;-25 0 10;0 0 10" dur="0.2s" repeatCount="indefinite"/></line></g>
+            </svg>
+          </div>
+          <div class="lock-overlay-inner" id="lockOverlay">
+            <div style="font-size:36px;">🔒</div>
+            <div style="color:var(--text-muted);font-size:12px;">Content locked</div>
+          </div>
+        </div>
+        <div class="status" id="paywallStatus"></div>
+        <button class="btn btn-primary" id="paywallBtn" disabled>Unlock for 1 TRAIL</button>
+        <div id="paywallTxSection" style="display:none;margin-top:8px;">
+          <a class="tx-link" id="paywallTxLink" target="_blank" href="#"></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Powered by MMX · No server · Keys never leave your browser</div>
+</div>
+
+<script type="module">
+import * as app from "./wallet-app.js";
+import * as store from "./wallet-store.js";
+import * as api from "./mmx-node-api.js";
+
+const MORPHEUS = "mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5";
+const TRAIL_CONTRACT = "mmx1q8cdxjwutex5t3s69d4nc0kdsvtcn2h207vcgvced78nzlvyh8mskhhgq7";
+let userAddress = null;
+let pools = [];
+let balances = [];
+let currentPool = null;
+let paywallUnlocked = false;
+
+// === Tabs ===
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("tab-" + tab.dataset.tab).classList.add("active");
+  };
+});
+
+// === Init ===
+async function init() {
+  await app.init();
+
+  if (typeof window.mmx !== "undefined" && window.mmx.isMMX && window.mmx.getAddress) {
+    try {
+      userAddress = await window.mmx.getAddress();
+      if (userAddress) { showApp(); return; }
+    } catch {}
+  }
+
+  const wallets = await store.getWallets();
+  if (wallets.length === 0) {
+    document.getElementById("noWalletMsg").style.display = "block";
+    document.getElementById("walletSelect").style.display = "none";
+    document.getElementById("unlockForm").style.display = "none";
+    document.getElementById("statusBadge").textContent = "no wallet";
+    document.getElementById("statusBadge").style.color = "var(--danger)";
+    return;
+  }
+
+  const sel = document.getElementById("walletSelectBox");
+  sel.innerHTML = "";
+  const activeId = await store.getActiveWalletId();
+  for (const w of wallets) {
+    const opt = document.createElement("option");
+    opt.value = w.id; opt.textContent = `${w.name} (${w.address.substring(0,10)}…)`;
+    if (w.id === activeId) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  document.getElementById("walletSelect").style.display = "block";
+  document.getElementById("unlockForm").style.display = "block";
+
+  document.getElementById("unlockBtn").onclick = async () => {
+    const pass = document.getElementById("unlockPass").value;
+    if (!pass) return;
+    document.getElementById("unlockBtn").disabled = true;
+    try {
+      const wallet = await app.unlockWallet(sel.value, pass);
+      userAddress = wallet.address;
+      document.getElementById("unlockPass").value = "";
+      showApp();
+    } catch {
+      const btn = document.getElementById("unlockBtn");
+      btn.disabled = false; btn.textContent = "❌ Wrong password"; btn.style.background = "var(--danger)";
+      setTimeout(() => { btn.textContent = "🔓 Unlock Wallet"; btn.style.background = ""; }, 1500);
+    }
+  };
+}
+
+async function showApp() {
+  document.getElementById("unlockCard").style.display = "none";
+  document.getElementById("appView").style.display = "block";
+  document.getElementById("statusBadge").textContent = "unlocked";
+  document.getElementById("statusBadge").classList.add("connected");
+  document.getElementById("userAddr").textContent = userAddress;
+
+  await loadBalances();
+  await loadPools();
+  await loadTxHistory();
+  initSendUI();
+  initSwapUI();
+  await initPaywallUI();
+}
+
+// === Balances ===
+async function loadBalances() {
+  try {
+    balances = await app.fetchBalance();
+    const html = balances.map(b => `${app.escapeHtml(b.symbol)}: ${app.escapeHtml(String(b.spendable))}`).join(" · ");
+    document.getElementById("balances").textContent = html || "No balances";
+    // Populate send currency selector
+    const sel = document.getElementById("sendCurrency");
+    sel.innerHTML = "";
+    for (const b of balances) {
+      const opt = document.createElement("option");
+      opt.value = b.symbol; opt.textContent = b.symbol;
+      sel.appendChild(opt);
+    }
+  } catch { document.getElementById("balances").textContent = "Could not load balances"; }
+}
+
+// === TX History ===
+async function loadTxHistory() {
+  try {
+    const txs = await app.getTransactionHistory(10);
+    if (!txs || txs.length === 0) { document.getElementById("txHistory").textContent = "No transactions yet"; return; }
+    document.getElementById("txHistory").innerHTML = txs.map(tx =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);">
+        <span>${tx.direction === 'sent' ? '📤' : '📥'} ${app.escapeHtml(tx.amount)} ${app.escapeHtml(tx.symbol)}</span>
+        <a href="https://explore.mmx.network/#/explore/transaction/${app.escapeHtml(tx.id)}" target="_blank" style="color:var(--text-muted);font-size:10px;text-decoration:none;">↗</a>
+      </div>`).join("");
+  } catch { document.getElementById("txHistory").textContent = "Could not load history"; }
+}
+
+// === Send UI ===
+function initSendUI() {
+  document.getElementById("sendBtn").onclick = async () => {
+    const to = document.getElementById("sendTo").value.trim();
+    const amountStr = document.getElementById("sendAmount").value;
+    const currency = document.getElementById("sendCurrency").value;
+    const status = document.getElementById("sendStatus");
+    if (!to || !amountStr) { status.className = "status error"; status.textContent = "Enter address and amount"; return; }
+
+    status.className = "status pending"; status.textContent = "Sending...";
+    try {
+      const token = balances.find(b => b.symbol === currency);
+      const decimals = token?.decimals || 0;
+      const contractAddr = token?.contract || null;
+      const amountSat = app.mmxToSat(amountStr, decimals);
+      const result = await app.sendTransaction(to, amountSat, contractAddr);
+      status.className = "status success"; status.textContent = `✅ Sent! Fee: ${result.fee_value} MMX`;
+      document.getElementById("sendTo").value = ""; document.getElementById("sendAmount").value = "";
+      setTimeout(() => { loadBalances(); loadTxHistory(); }, 3000);
+    } catch (e) { status.className = "status error"; status.textContent = e.message; }
+  };
+}
+
+// === Swap UI ===
+async function loadPools() {
+  try { pools = await api.getSwapList(50); } catch { pools = []; }
+}
+
+function initSwapUI() {
+  const fromSel = document.getElementById("swapFromToken");
+  const toSel = document.getElementById("swapToToken");
+  fromSel.innerHTML = ""; toSel.innerHTML = "";
+
+  const tokenSet = new Map();
+  tokenSet.set("mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev", "MMX");
+  for (const pool of pools) {
+    for (const token of (pool.tokens || [])) {
+      if (token?.address) tokenSet.set(token.address, token.symbol || token.address.substring(0,8));
+    }
+  }
+  for (const [addr, symbol] of tokenSet) {
+    fromSel.appendChild(new Option(symbol, addr));
+    toSel.appendChild(new Option(symbol, addr));
+  }
+  if (tokenSet.size >= 2) {
+    const addrs = [...tokenSet.keys()];
+    fromSel.value = addrs[0]; toSel.value = addrs[1];
+  }
+  fromSel.onchange = () => { findPool(); estimateTrade(); };
+  toSel.onchange = () => { findPool(); estimateTrade(); };
+  document.getElementById("swapFromAmount").oninput = () => estimateTrade();
+  document.getElementById("swapFlip").onclick = () => {
+    [fromSel.value, toSel.value] = [toSel.value, fromSel.value];
+    findPool(); estimateTrade();
+  };
+  document.getElementById("swapBtn").onclick = executeSwap;
+  findPool();
+}
+
+function findPool() {
+  const from = document.getElementById("swapFromToken").value;
+  const to = document.getElementById("swapToToken").value;
+  if (!from || !to || from === to) { currentPool = null; document.getElementById("swapPoolInfo").textContent = "Select two different tokens"; document.getElementById("swapBtn").disabled = true; return; }
+  for (const pool of pools) {
+    const tokens = pool.tokens || [];
+    if (tokens.some(t => t?.address === from) && tokens.some(t => t?.address === to)) {
+      currentPool = pool;
+      const fS = tokens.find(t => t.address === from)?.symbol || "?";
+      const tS = tokens.find(t => t.address === to)?.symbol || "?";
+      document.getElementById("swapPoolInfo").textContent = `Pool: ${app.escapeHtml(fS)}/${app.escapeHtml(tS)} · Reserves: ${app.escapeHtml(String(tokens[0]?.balance||0))} / ${app.escapeHtml(String(tokens[1]?.balance||0))}`;
+      document.getElementById("swapBtn").disabled = false;
+      return;
+    }
+  }
+  currentPool = null; document.getElementById("swapPoolInfo").textContent = "No pool for this pair"; document.getElementById("swapBtn").disabled = true;
+}
+
+async function estimateTrade() {
+  const from = document.getElementById("swapFromToken").value;
+  const amt = document.getElementById("swapFromAmount").value;
+  if (!amt || !currentPool) { document.getElementById("swapToAmount").value = ""; document.getElementById("swapPrice").textContent = "—"; return; }
+  const tokens = currentPool.tokens || [];
+  const fromIndex = tokens.findIndex(t => t?.address === from);
+  if (fromIndex < 0) return;
+  try {
+    const est = await api.getSwapTradeEstimate(currentPool.address, fromIndex, amt, 1);
+    const out = est.output || est.amount || 0;
+    const toDecimals = tokens[fromIndex === 0 ? 1 : 0]?.decimals || 0;
+    document.getElementById("swapToAmount").value = String(out);
+    const fS = tokens[fromIndex]?.symbol || "?";
+    const tS = tokens[fromIndex === 0 ? 1 : 0]?.symbol || "?";
+    document.getElementById("swapPrice").textContent = `1 ${fS} ≈ ${(parseFloat(out)/parseFloat(amt)).toFixed(6)} ${tS}`;
+  } catch { document.getElementById("swapToAmount").value = ""; document.getElementById("swapPrice").textContent = "Estimate failed"; }
+}
+
+async function executeSwap() {
+  const btn = document.getElementById("swapBtn");
+  const status = document.getElementById("swapStatus");
+  const from = document.getElementById("swapFromToken").value;
+  const amt = document.getElementById("swapFromAmount").value;
+  if (!amt || !currentPool) return;
+  const tokens = currentPool.tokens || [];
+  const fromIndex = tokens.findIndex(t => t?.address === from);
+  if (fromIndex < 0) return;
+  const fromDecimals = tokens[fromIndex]?.decimals || 0;
+  const amountSat = app.mmxToSat(amt, fromDecimals);
+  const slippage = parseInt(document.getElementById("swapSlippage").value);
+  let minTradeSat = 0;
+  if (slippage > 0) {
+    try {
+      const est = await api.getSwapTradeEstimate(currentPool.address, fromIndex, amt, 1);
+      const toDecimals = tokens[fromIndex === 0 ? 1 : 0]?.decimals || 0;
+      const estSat = BigInt(Math.floor(parseFloat(est.output || est.amount || 0) * Math.pow(10, toDecimals)));
+      minTradeSat = estSat * BigInt(100 - slippage) / BigInt(100);
+    } catch {}
+  }
+  btn.disabled = true; status.className = "status pending"; status.textContent = "Swapping...";
+  try {
+    const result = await app.swapTrade(currentPool.address, fromIndex, amountSat, from, minTradeSat, 1);
+    status.className = "status success"; status.textContent = `✅ Swap sent! Fee: ${result.fee_value} MMX`;
+    document.getElementById("swapTxSection").style.display = "block";
+    document.getElementById("swapTxLink").href = `https://explore.mmx.network/#/explore/transaction/${result.txid}`;
+    document.getElementById("swapTxLink").textContent = result.txid;
+    setTimeout(() => { loadBalances(); }, 3000);
+  } catch (e) { status.className = "status error"; status.textContent = e.message; }
+  finally { btn.disabled = false; }
+}
+
+// === Paywall UI ===
+async function initPaywallUI() {
+  await checkTrailBalance();
+  document.getElementById("paywallBtn").onclick = startPayment;
+}
+
+async function checkTrailBalance() {
+  try {
+    const trail = balances.find(b => b.symbol === "TRAIL");
+    if (trail) {
+      document.getElementById("trailBalance").textContent = `TRAIL balance: ${trail.spendable} (need 1)`;
+      if (trail.spendable >= 1) {
+        document.getElementById("paywallBtn").disabled = false;
+      } else {
+        document.getElementById("trailBalance").style.color = "var(--danger)";
+        document.getElementById("paywallBtn").textContent = "Not enough TRAIL";
+      }
+    } else {
+      document.getElementById("trailBalance").textContent = "TRAIL balance: 0 (need 1)";
+      document.getElementById("trailBalance").style.color = "var(--danger)";
+      document.getElementById("paywallBtn").textContent = "Not enough TRAIL";
+    }
+  } catch {}
+}
+
+async function startPayment() {
+  if (paywallUnlocked) return;
+  const btn = document.getElementById("paywallBtn");
+  const status = document.getElementById("paywallStatus");
+  btn.disabled = true; status.className = "status pending"; status.textContent = "Sending 1 TRAIL to Morpheus...";
+  try {
+    const amountSat = app.mmxToSat("1", 0); // TRAIL has 0 decimals
+    const result = await app.sendTransaction(MORPHEUS, amountSat, TRAIL_CONTRACT);
+    status.className = "status success"; status.textContent = "Payment sent! Unlocking...";
+    document.getElementById("paywallTxSection").style.display = "block";
+    document.getElementById("paywallTxLink").href = `https://explore.mmx.network/#/explore/transaction/${result.txid}`;
+    document.getElementById("paywallTxLink").textContent = result.txid;
+    setTimeout(() => {
+      document.getElementById("lockOverlay").classList.add("hidden");
+      document.getElementById("svgContainer").classList.add("unlocked");
+      document.getElementById("unlockedBanner").classList.add("show");
+      btn.style.display = "none";
+    }, 500);
+    paywallUnlocked = true;
+  } catch (e) { status.className = "status error"; status.textContent = e.message; btn.disabled = false; }
+}
+
+// === Helpers ===
+window.copyAddr = function(el) {
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const o = el.style.borderColor; el.style.borderColor = "var(--success)";
+    setTimeout(() => { el.style.borderColor = o; }, 1000);
+  });
+};
+
+window.addEventListener("mmx#initialized", init);
+window.addEventListener("mmx#extension-ready", init);
+init();
+</script>
+</body>
+</html>
