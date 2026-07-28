@@ -234,7 +234,16 @@ async function showSwapUI() {
 // === Load swap pools ===
 async function loadPools() {
   try {
-    pools = await api.getSwapList(50);
+    const raw = await api.getSwapList(50);
+    pools = raw.map(p => ({
+      address: p.address,
+      tokens: (p.tokens || []).map((addr, i) => ({
+        address: addr,
+        symbol: (p.symbols || [])[i] || addr.substring(0, 8),
+        decimals: (p.decimals || [])[i] || 0,
+        balance: (p.balance || [])[i]?.value || 0,
+      })),
+    }));
   } catch {
     pools = [];
   }

@@ -355,7 +355,20 @@ function initSendUI() {
 
 // === Swap UI ===
 async function loadPools() {
-  try { pools = await api.getSwapList(50); } catch { pools = []; }
+  try {
+    const raw = await api.getSwapList(50);
+    // Transform API response: symbols/tokens/decimals/balance are parallel arrays
+    // into array of token objects for easier access
+    pools = raw.map(p => ({
+      address: p.address,
+      tokens: (p.tokens || []).map((addr, i) => ({
+        address: addr,
+        symbol: (p.symbols || [])[i] || addr.substring(0, 8),
+        decimals: (p.decimals || [])[i] || 0,
+        balance: (p.balance || [])[i]?.value || 0,
+      })),
+    }));
+  } catch { pools = []; }
 }
 
 function initSwapUI() {
