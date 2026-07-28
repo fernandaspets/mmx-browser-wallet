@@ -177,7 +177,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
 
   // Compute static_cost correctly (must match Transaction::calc_cost in C++)
   // For simple transfer: 1 input + 1 output + 0 execute + 1 solution
-  const staticCost = calcStaticCost(1, 1, null, 1);
+  const params = await getChainParamsLocal(); const staticCost = calcStaticCost(1, 1, null, 1, null, params);
 
   // 64-bit random nonce (crypto.getRandomValues, not Math.random)
   const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
@@ -600,12 +600,32 @@ export async function autoTrackAddress(address, defaultName) { return store.auto
 // ChainParams (mainnet): min_txfee=20000, min_txfee_io=10000, min_txfee_sign=10000,
 //                       min_txfee_exec=10000, min_txfee_byte=100, min_txfee_deploy=200000
 // For Execute/Deposit ops: cost += (method.length + sum(get_num_bytes(arg))) * min_txfee_byte
-function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, deployExec = null) {
-  let cost = 20000; // min_txfee (base)
-  cost += numInputs * 10000;  // min_txfee_io per input
-  cost += numOutputs * 10000; // min_txfee_io per output
-  cost += (executeOps?.length || 0) * 10000; // min_txfee_exec per execute
-  cost += numSolutions * 10000; // min_txfee_sign per solution
+// Mainnet chain params (fallback if API unavailable)
+// Source: https://rpc.mmx.network/chain/info
+const CHAIN_PARAMS = {
+  min_txfee: 20000,
+  min_txfee_io: 10000,
+  min_txfee_sign: 10000,
+  min_txfee_exec: 10000,
+  min_txfee_byte: 100,
+  min_txfee_deploy: 20000,
+  min_txfee_depend: 10000,
+  min_txfee_memo: 5000,
+};
+
+let _chainParams = null;
+async function getChainParamsLocal() {
+  if (_chainParams) return _chainParams;
+  try { _chainParams = await api.getChainParams(); } catch {}
+  return _chainParams || CHAIN_PARAMS;
+}
+
+function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, deployExec = null, params = CHAIN_PARAMS) {
+  let cost = params.min_txfee;
+  cost += numInputs * params.min_txfee_io;
+  cost += numOutputs * params.min_txfee_io;
+  cost += (executeOps?.length || 0) * params.min_txfee_exec;
+  cost += numSolutions * params.min_txfee_sign;
   // Add execute payload cost
   for (const op of (executeOps || [])) {
     if (!op) continue;
@@ -613,12 +633,11 @@ function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, deployE
     for (const arg of (op.args || [])) {
       payload += getVariantNumBytes(arg);
     }
-    cost += payload * 100; // min_txfee_byte
+    cost += payload * params.min_txfee_byte;
   }
   // Deploy cost (Executable contract)
   if (deployExec) {
-    cost += 20000; // min_txfee_deploy
-    // Executable::calc_cost = num_bytes * min_txfee_byte + depends.size * min_txfee_depend
+    cost += params.min_txfee_deploy;
     let numBytes = 16; // Contract::num_bytes (base)
     numBytes += (deployExec.name || "").length;
     numBytes += (deployExec.symbol || "").length;
@@ -628,12 +647,12 @@ function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, deployE
     for (const arg of (deployExec.init_args || [])) {
       numBytes += getVariantNumBytes(arg);
     }
-    numBytes += (deployExec.depends || []).length * 32; // each depend value (addr_t)
+    numBytes += (deployExec.depends || []).length * 32;
     for (const [key] of (deployExec.depends || [])) {
-      numBytes += key.length; // each depend key (string)
+      numBytes += key.length;
     }
-    cost += numBytes * 100; // num_bytes * min_txfee_byte
-    cost += (deployExec.depends || []).length * 10000; // depends * min_txfee_depend
+    cost += numBytes * params.min_txfee_byte;
+    cost += (deployExec.depends || []).length * params.min_txfee_depend;
   }
   return cost;
 }
@@ -703,7 +722,7 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
   // Compute static_cost correctly (must match Transaction::calc_cost in C++)
   // min_txfee(100) + inputs(100 each) + outputs(100 each) + exec(10000 each) + solutions(1000 each)
   // + execute payload * min_txfee_byte(10)
-  const staticCost = calcStaticCost(1, 0, [deposit], 1);
+  const params = await getChainParamsLocal(); const staticCost = calcStaticCost(1, 0, [deposit], 1, null, params);
 
   const tx = {
     version: 0,
@@ -975,7 +994,7 @@ export async function makeOffer(bidCurrency, askCurrency, bidAmountSat, askAmoun
     outputs: [],
     execute: [],
     deploy: { hash: deployHash, fullHash: deployFullHash },
-    static_cost: calcStaticCost(1, 0, null, 1, executable),
+    static_cost: calcStaticCost(1, 0, null, 1, executable, await getChainParamsLocal()),
   };
 
   // For broadcast, deploy needs the full Executable object
@@ -1089,7 +1108,7 @@ export async function acceptOffer(offerAddr, askAmountSat) {
     }],
     execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
     deploy: null,
-    static_cost: calcStaticCost(1, 0, [deposit], 1),
+    static_cost: calcStaticCost(1, 0, [deposit], 1, null, await getChainParamsLocal()),
   };
 
   // For broadcast, include the full deposit object
@@ -1177,7 +1196,7 @@ export async function cancelOffer(offerAddr) {
     outputs: [],
     execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
     deploy: null,
-    static_cost: calcStaticCost(0, 0, [executeOp], 1),
+    static_cost: calcStaticCost(0, 0, [executeOp], 1, null, await getChainParamsLocal()),
   };
 
   const txId = calcTxId(tx);

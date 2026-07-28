@@ -8,6 +8,8 @@ Works as both a **browser extension** (Firefox/Chrome) and a **web page**.
 
 Key security hardening contributions by [ARTTOO](https://github.com/ARTTOO) — prototype pollution fix (IIFE closure), MV3 service worker persistence (`storage.session` + `alarms`), instant dApp toggle, listener leak fix, and concurrent request isolation.
 
+Golden test vectors and architectural inspiration from [Stotiks](https://github.com/stotiks) — his [mmx-node wallet implementation](https://github.com/stotiks/mmx-node/tree/wxt/ui/src/mmx/wallet) provided byte-for-byte hash verification test cases for TRANSFER, SWAP TRADE, OFFER DEPLOY, OFFER ACCEPT, and OFFER CANCEL, plus the pattern of fetching ChainParams from the node API instead of hardcoding fee values.
+
 ## Features
 
 - **Create wallet** — generates keys locally, encrypts with password (AES-GCM + PBKDF2)

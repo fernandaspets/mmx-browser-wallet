@@ -190,3 +190,14 @@ export async function getOffers(bidCurrency, askCurrency, limit = 50) {
   if (!resp.ok) throw new Error(`Offers error: ${resp.status}`);
   return await resp.json();
 }
+
+// --- Chain params (public RPC, cached) ---
+let _chainParams = null;
+
+export async function getChainParams() {
+  if (_chainParams) return _chainParams;
+  const resp = await fetch(`${_nodeUrl}/chain/info`);
+  if (!resp.ok) throw new Error(`Chain info error: ${resp.status}`);
+  _chainParams = await resp.json();
+  return _chainParams;
+}
