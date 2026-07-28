@@ -387,7 +387,7 @@ function initSendUI() {
       const contractAddr = token?.contract || null;
       const amountSat = app.mmxToSat(amountStr, decimals);
       const result = await app.sendTransaction(to, amountSat, contractAddr);
-      status.className = "status success"; status.textContent = `✅ Sent! Fee: ${result.fee_value} MMX`;
+      status.className = "status success"; status.innerHTML = `✅ Sent! Fee: ${result.fee_value} MMX · <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
       document.getElementById("sendTo").value = ""; document.getElementById("sendAmount").value = "";
       setTimeout(() => { loadBalances(); loadTxHistory(); }, 3000);
     } catch (e) { status.className = "status error"; status.textContent = e.message; }
@@ -533,7 +533,7 @@ async function executeSwap() {
   btn.disabled = true; status.className = "status pending"; status.textContent = "Swapping...";
   try {
     const result = await app.swapTrade(currentPool.address, fromIndex, amountSat, from, minTradeSat, 1);
-    status.className = "status success"; status.textContent = `✅ Swap sent! Fee: ${result.fee_value} MMX`;
+    status.className = "status success"; status.innerHTML = `✅ Swap sent! Fee: ${result.fee_value} MMX · <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
     document.getElementById("swapTxSection").style.display = "block";
     document.getElementById("swapTxLink").href = `https://explore.mmx.network/#/explore/transaction/${result.txid}`;
     document.getElementById("swapTxLink").textContent = result.txid;
@@ -606,7 +606,7 @@ async function makeOffer() {
     if (bidSat <= 0n || askSat <= 0n) throw new Error("Amounts must be positive");
 
     const result = await app.makeOffer(bidCurrency, askCurrency, bidSat, askSat);
-    status.className = "status success"; status.textContent = "Offer created! TX: " + result.txid;
+    status.className = "status success"; status.innerHTML = `Offer created! <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
     loadOffers(); // Refresh list
   } catch (e) { status.className = "status error"; status.textContent = e.message; }
   finally { btn.disabled = false; }
@@ -632,13 +632,18 @@ async function loadOffers() {
         const owner = escapeHtml((o.owner || "").substring(0, 16) + "...");
         const addr = escapeHtml(o.address);
         const hasBalance = bidBal > 0;
+        // Show price as: "1 TRAIL = 115 MMX" (what you pay to get 1 bid unit)
+        const askPerBid = price > 0 ? (1 / price).toFixed(2) : "?";
         html += `<div style="padding:8px;border-bottom:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <div><b>${bidSym}</b> → <b>${askSym}</b> @ ${price}</div>
-            ${hasBalance ? `<button class="btn btn-primary" style="padding:2px 8px;font-size:11px" onclick="acceptOfferUI('${o.address}','${escapeHtml(o.ask_currency)}','${escapeHtml(o.ask_symbol || "?")}',${o.ask_decimals || 0},${parseFloat(o.inv_price || "0")})">✅ Accept</button>` : "<span style='font-size:11px;color:var(--text-muted)'>empty</span>"}
+            <div><b>Selling ${bidBal} ${bidSym}</b> for <b>${askSym}</b></div>
+            ${hasBalance ? `<button class="btn btn-primary" style="padding:2px 8px;font-size:11px" onclick="acceptOfferUI('${o.address}','${escapeHtml(o.ask_currency)}','${escapeHtml(o.ask_symbol || "?")}',${o.ask_decimals || 0},${parseFloat(o.inv_price || "0")})">✅ Buy</button>` : "<span style='font-size:11px;color:var(--text-muted)'>empty</span>"}
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
-            Selling: ${bidBal} ${bidSym} · Received: ${askBal} ${askSym} · Owner: ${owner}
+          <div style="font-size:12px;color:var(--text);margin-top:2px">
+            1 ${bidSym} = ${askPerBid} ${askSym} · Received: ${askBal} ${askSym}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:1px">
+            Owner: ${owner}
             · <a href="https://explore.mmx.network/#/explore/address/${o.address}" target="_blank">explorer ↗</a>
           </div>
         </div>`;
@@ -665,8 +670,7 @@ window.acceptOfferUI = async function(offerAddr, askCurrency, askSymbol, askDeci
 
     const result = await app.acceptOffer(offerAddr, askSat);
     status.className = "status success";
-    status.textContent = `Offer accepted! TX: ${result.txid}`;
-    status.innerHTML += ` · <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">explorer ↗</a>`;
+    status.innerHTML = `Offer accepted! <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
     loadOffers(); // Refresh
   } catch (e) {
     status.className = "status error";
