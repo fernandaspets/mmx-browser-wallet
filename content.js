@@ -83,11 +83,15 @@ window.addEventListener('message', async (event) => {
         }
       } else {
         // Signing/sending — requires popup confirmation
-        const pendingKey = 'mmx_pending_dapp_action';
-        const resultKey = 'mmx_dapp_result';
-        _browser.storage.local.set({
-          [pendingKey]: { origin, id, type, params: event.data.params, timestamp: Date.now() }
-        });
+        // MMX_SEND uses mmx_pending_send/mmx_send_result (popup has dedicated UI)
+        // Other confirm types use mmx_pending_dapp_action/mmx_dapp_result
+        const isSend = (type === 'MMX_SEND');
+        const pendingKey = isSend ? 'mmx_pending_send' : 'mmx_pending_dapp_action';
+        const resultKey = isSend ? 'mmx_send_result' : 'mmx_dapp_result';
+        const pendingData = isSend
+          ? { origin, id, params: event.data.params, timestamp: Date.now() }
+          : { origin, id, type, params: event.data.params, timestamp: Date.now() };
+        _browser.storage.local.set({ [pendingKey]: pendingData });
         if (_browser.action) {
           _browser.action.setBadgeText({ text: '✎' });
           _browser.action.setBadgeBackgroundColor({ color: '#ffa726' });
@@ -121,12 +125,14 @@ window.addEventListener('message', async (event) => {
               respondToPage(id, response);
             });
           } else {
-            // Signing request — now that we're approved, route through popup
-            const pendingKey = 'mmx_pending_dapp_action';
-            const resultKey = 'mmx_dapp_result';
-            _browser.storage.local.set({
-              [pendingKey]: { origin, id, type, params: event.data.params, timestamp: Date.now() }
-            });
+            // Signing/sending — now that we're approved, route through popup
+            const isSend = (type === 'MMX_SEND');
+            const pendingKey = isSend ? 'mmx_pending_send' : 'mmx_pending_dapp_action';
+            const resultKey = isSend ? 'mmx_send_result' : 'mmx_dapp_result';
+            const pendingData = isSend
+              ? { origin, id, params: event.data.params, timestamp: Date.now() }
+              : { origin, id, type, params: event.data.params, timestamp: Date.now() };
+            _browser.storage.local.set({ [pendingKey]: pendingData });
             if (_browser.action) {
               _browser.action.setBadgeText({ text: '✎' });
               _browser.action.setBadgeBackgroundColor({ color: '#ffa726' });

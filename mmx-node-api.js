@@ -63,33 +63,26 @@ export async function getHeight() {
   return header?.height ?? 0;
 }
 
-// Estimate fee for a standard transfer (1 in, 1 out, 1 solution)
-// Fee = static_cost in satoshis (node charges this directly)
-// static_cost = min_txfee(20000) + 1in(10000) + 1out(10000) + 1sol(10000) = 50000
+// --- Fee estimation ---
+// static_cost = min_txfee(20000) + 1in(10000) + 1out(10000) + 1sol(10000) = 50000 sat
+// This is the BASE cost. The ACTUAL fee is returned by the node during
+// validation (dry-run via /transaction/validate) in exec_result.total_fee.
+// The wallet always dry-runs before broadcasting to get the real fee.
 /**
  * Fee estimate for UI display before sending.
  *
- * The ACTUAL fee is determined by the node during validation and returned
- * in exec_result.total_fee. For the local node wallet API, you can get it
- * by calling send() with auto_send:false (dry-run) — the response includes
- * exec_result.total_fee (satoshis) and total_fee_value (MMX units, /wapi only).
- *
- * For the public RPC, /transaction/validate returns exec_result with total_fee.
- *
- * For a standard transfer (1 input, 1 output, 1 PubKey solution):
- *   static_cost = min_txfee(20000) + input(10000) + output(10000) + solution(10000) = 50000 sat
- * This is what the node charges when max_fee_amount >= 50000.
- *
- * This function returns the static estimate for UI preview. The real fee
- * is confirmed after validation in sendTransaction().
+ * The wallet calls /transaction/validate (dry-run) before broadcasting.
+ * The node returns exec_result.total_fee which is the actual fee charged.
+ * This function returns the static estimate (50000 sat) for UI preview.
+ * The real fee is confirmed in sendTransaction() after validation.
  */
 export async function getFeeEstimate() {
   try {
     const header = await getHeader();
-    // If average_txfee is 0, no transactions in recent blocks (not "free mode")
-    // The fee is still 50000 sat — average_txfee just reflects block content
+    // average_txfee reflects recent block content, not the minimum fee.
+    // The fee is always 50000 sat for a standard transfer regardless.
     if (header?.average_txfee?.amount && BigInt(header.average_txfee.amount) === 0n) {
-      return 50000n; // still 50000, average_txfee=0 just means empty blocks
+      return 50000n; // empty blocks don't mean free transactions
     }
   } catch {}
   return 50000n; // standard transfer: 20000 + 10000 + 10000 + 10000

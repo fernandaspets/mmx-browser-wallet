@@ -175,7 +175,9 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   const height = await api.getHeight();
   const expires = height + 100;
 
-  // Cost: min_txfee(20000) + 1 input(10000) + 1 output(10000) + 1 solution(10000) = 50000
+  // Static cost: min_txfee(20000) + 1 input(10000) + 1 output(10000) + 1 solution(10000) = 50000
+  // This is the base cost. The ACTUAL fee is returned by the node during
+  // validation (dry-run) in exec_result.total_fee, which may differ.
   const staticCost = 50000;
 
   // 64-bit random nonce (crypto.getRandomValues, not Math.random)
@@ -244,11 +246,11 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
     content_hash: Array.from(contentHash),
   };
 
-  // Validate — the node returns the actual fee in exec_result.total_fee
+  // Dry-run: validate to get actual fee from node (exec_result.total_fee)
   const result = await api.validateTransaction(txObj);
   if (result.did_fail) throw new Error("Transaction validation failed: " + (result.error || "unknown"));
 
-  // Broadcast
+  // Broadcast to network
   await api.broadcastTransaction(txObj);
 
   // Auto-track destination address in contacts (if not own and not already saved)
@@ -260,7 +262,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
   
   return {
     txid: Buffer.from(txId).toString("hex").toUpperCase(),
-    fee: result.total_fee || 50000,        // actual fee in satoshis
+    fee: result.total_fee || 50000,        // actual fee from node dry-run (satoshis)
     fee_value: (result.total_fee || 50000) / 1e6,  // human-readable MMX
   };
 }

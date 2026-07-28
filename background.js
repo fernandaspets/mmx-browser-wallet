@@ -105,6 +105,9 @@ _browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // --- dApp content script registration (opt-in) ---
+  // NOTE: registerContentScripts/unregisterContentScripts only affect FUTURE page loads.
+  // Already-open tabs keep their current state until reloaded. The UI notifies
+  // the user to reload tabs after toggling.
 
   if (message.type === "DAPP_ENABLE") {
     const _chrome = _browser.scripting ? _browser : (typeof chrome !== "undefined" ? chrome : null);

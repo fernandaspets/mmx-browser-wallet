@@ -1121,7 +1121,7 @@ async function initDappToggle() {
       try {
         const resp = await bgSend({ type: "DAPP_ENABLE" });
         if (resp?.ok) {
-          status.textContent = "dApp integration enabled";
+          status.textContent = "✅ dApp enabled. Reload open tabs to activate.";
           status.className = "status success";
           updateUI(true);
         } else {
@@ -1139,7 +1139,7 @@ async function initDappToggle() {
       status.className = "status";
       try {
         await bgSend({ type: "DAPP_DISABLE" });
-        status.textContent = "dApp integration disabled";
+        status.textContent = "✅ dApp disabled. Reload open tabs to remove.";
         status.className = "status success";
         updateUI(false);
       } catch (e) {
