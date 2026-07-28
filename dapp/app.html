@@ -115,6 +115,7 @@
     <div class="tabs">
       <div class="tab active" data-tab="wallet">💰 Wallet</div>
       <div class="tab" data-tab="swap">🔄 Swap</div>
+      <div class="tab" data-tab="offers">📋 Offers</div>
       <div class="tab" data-tab="paywall">🔓 Content</div>
     </div>
 
@@ -176,6 +177,32 @@
         <div id="swapTxSection" style="display:none;margin-top:8px;">
           <a class="tx-link" id="swapTxLink" target="_blank" href="#"></a>
         </div>
+      </div>
+    </div>
+
+    <!-- Offers tab -->
+    <div class="tab-content" id="tab-offers">
+      <div class="card">
+        <div class="swap-label">Create Offer — Sell</div>
+        <div class="swap-row">
+          <input type="text" class="swap-input" id="offerBidAmount" placeholder="0.0" inputmode="decimal">
+          <select class="swap-select" id="offerBidCurrency"></select>
+        </div>
+        <div class="swap-label">For</div>
+        <div class="swap-row">
+          <input type="text" class="swap-input" id="offerAskAmount" placeholder="0.0" inputmode="decimal">
+          <select class="swap-select" id="offerAskCurrency"></select>
+        </div>
+        <div class="status" id="offerStatus"></div>
+        <button class="btn btn-primary" id="makeOfferBtn">📋 Create Offer</button>
+      </div>
+      <div class="card">
+        <div class="swap-label">Open Offers</div>
+        <select class="swap-select" id="offerPairFilter" style="width:100%;margin-bottom:8px">
+          <option value="">All pairs</option>
+        </select>
+        <div id="offersList" style="max-height:300px;overflow-y:auto"></div>
+        <div class="status" id="acceptStatus"></div>
       </div>
     </div>
 
@@ -308,6 +335,7 @@ async function showApp() {
   await loadTxHistory();
   initSendUI();
   initSwapUI();
+  initOffersUI();
   await initPaywallUI();
 }
 
@@ -510,6 +538,119 @@ async function executeSwap() {
     setTimeout(() => { loadBalances(); }, 3000);
   } catch (e) { status.className = "status error"; status.textContent = e.message; }
   finally { btn.disabled = false; }
+}
+
+// === Offers UI ===
+const MMX_NULL = "mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev";
+
+function initOffersUI() {
+  // Build flat token list from pools
+  const poolTokens = [];
+  const seen = new Set();
+  pools.forEach(p => (p.tokens || []).forEach(t => {
+    if (t.address && !seen.has(t.address)) { seen.add(t.address); poolTokens.push(t); }
+  }));
+
+  // Populate currency dropdowns
+  const bidSel = document.getElementById("offerBidCurrency");
+  const askSel = document.getElementById("offerAskCurrency");
+  const pairFilter = document.getElementById("offerPairFilter");
+  [bidSel, askSel, pairFilter].forEach(s => s.innerHTML = "");
+  // Add MMX + TRAIL options
+  const opts = [
+    { sym: "MMX", addr: MMX_NULL, dec: 6 },
+    { sym: "TRAIL", addr: TRAIL_CONTRACT, dec: 0 },
+  ];
+  // Add swap pool tokens
+  poolTokens.forEach(t => {
+    if (!opts.find(o => o.addr === t.address)) opts.push({ sym: t.symbol, addr: t.address, dec: t.decimals });
+  });
+  opts.forEach(o => {
+    bidSel.add(new Option(`${o.sym}`, o.addr));
+    askSel.add(new Option(`${o.sym}`, o.addr));
+  });
+  // Default: sell MMX for TRAIL
+  bidSel.value = MMX_NULL;
+  askSel.value = TRAIL_CONTRACT;
+  // Pair filter
+  pairFilter.add(new Option("All pairs", ""));
+  opts.forEach(o => pairFilter.add(new Option(o.sym + "/TRAIL", o.addr + "," + TRAIL_CONTRACT)));
+
+  document.getElementById("makeOfferBtn").onclick = makeOffer;
+  loadOffers();
+}
+
+async function makeOffer() {
+  const btn = document.getElementById("makeOfferBtn");
+  const status = document.getElementById("offerStatus");
+  btn.disabled = true; status.className = "status pending"; status.textContent = "Creating offer...";
+  try {
+    const bidCurrency = document.getElementById("offerBidCurrency").value;
+    const askCurrency = document.getElementById("offerAskCurrency").value;
+    const bidAmount = parseFloat(document.getElementById("offerBidAmount").value);
+    const askAmount = parseFloat(document.getElementById("offerAskAmount").value);
+    if (!bidAmount || !askAmount) throw new Error("Enter both amounts");
+    if (bidCurrency === askCurrency) throw new Error("Can't offer same currency for itself");
+
+    const bidDec = getDecimals(bidCurrency);
+    const askDec = getDecimals(askCurrency);
+    const bidSat = app.mmxToSat(String(bidAmount), bidDec);
+    const askSat = app.mmxToSat(String(askAmount), askDec);
+    if (bidSat <= 0n || askSat <= 0n) throw new Error("Amounts must be positive");
+
+    const result = await app.makeOffer(bidCurrency, askCurrency, bidSat, askSat);
+    status.className = "status success"; status.textContent = "Offer created! TX: " + result.txid;
+    loadOffers(); // Refresh list
+  } catch (e) { status.className = "status error"; status.textContent = e.message; }
+  finally { btn.disabled = false; }
+}
+
+async function loadOffers() {
+  const list = document.getElementById("offersList");
+  list.innerHTML = "<div style='color:var(--text-muted);padding:8px'>Loading offers...</div>";
+  try {
+    const trades = await api.getTradeHistory(null, null, 20);
+    // Fetch recent offers from trade history — we also need open offers
+    // Use the offers list from existing offer contracts we know about
+    // Actually, there's no public "list all offers" endpoint, so use trade_history
+    let html = "";
+    if (!trades || trades.length === 0) {
+      html = "<div style='color:var(--text-muted);padding:8px'>No recent trades found.</div>";
+    } else {
+      for (const t of trades.slice(0, 15)) {
+        const bidSym = t.bid_symbol || "?";
+        const askSym = t.ask_symbol || "?";
+        const price = t.display_price ? t.display_price.toFixed(6) : "?";
+        const height = t.height || "?";
+        html += `<div style="padding:6px;border-bottom:1px solid var(--border)">
+          <div><b>${escapeHtml(bidSym)}</b> / <b>${escapeHtml(askSym)}</b> @ ${price}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Block ${height}
+            ${t.txid ? ` · <a href="https://explore.mmx.network/#/explore/transaction/${t.txid}" target="_blank">tx ↗</a>` : ""}</div>
+        </div>`;
+      }
+    }
+    list.innerHTML = html;
+  } catch (e) {
+    list.innerHTML = `<div style='color:var(--danger);padding:8px'>${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function getDecimals(addr) {
+  if (addr === MMX_NULL) return 6;
+  // Search all pools for this token
+  for (const p of pools) {
+    const t = (p.tokens || []).find(t => t.address === addr);
+    if (t) return t.decimals;
+  }
+  const b = balances.find(b => b.contract === addr);
+  if (b) return b.decimals;
+  return 0; // Default for unknown tokens
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str ?? "");
+  return div.innerHTML;
 }
 
 // === Paywall UI ===

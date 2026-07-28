@@ -19,7 +19,7 @@ import { bech32m } from "./lib/bech32-esm.js";
 import "./lib/buffer-esm.js";
 import * as store from "./wallet-store.js";
 import * as api from "./mmx-node-api.js";
-import { calcTxId, calcContentHash, signTx, TX_NOTE, calcDepositHash, TX_NOTE_TRADE } from "./mmx-tx.js";
+import { calcTxId, calcContentHash, signTx, TX_NOTE, calcDepositHash, calcExecuteHash, calcExecutableHash, TX_NOTE_TRADE, TX_NOTE_OFFER } from "./mmx-tx.js";
 // Configure secp256k1
 secp.hashes.sha256 = (data) => sha256(data);
 secp.hashes.hmacSha256 = (key, data) => sha256(Buffer.concat([Buffer.from(key), Buffer.from(data)]));
@@ -724,5 +724,391 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
     txid: Buffer.from(txId).toString("hex").toUpperCase(),
     fee: result.total_fee || staticCost,
     fee_value: (result.total_fee || staticCost) / 1e6,
+  };
+}
+
+// ====================================================================
+// OFFERS
+// ====================================================================
+// Offer binary is a chain parameter (same for all offers on the network)
+const OFFER_BINARY_ADDR = "mmx18rcdx8nhh56twmr2gq3h22kwj00slsn23ejan8qp00rqqw8yl4jq6ccysq";
+const MMX_NULL_ADDR = "mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev";
+
+// Helper: parse bech32m address to 32-byte LE array
+function addrToBytes32(addrStr) {
+  if (!addrStr || addrStr === MMX_NULL_ADDR) return new Array(32).fill(0);
+  const { words } = bech32m.decode(addrStr);
+  const bytesBE = bech32m.fromWords(words);
+  return Array.from(Buffer.from(bytesBE).reverse());
+}
+
+// Helper: build, sign, validate, broadcast a transaction
+async function buildAndSendTx(tx, skey) {
+  const txId = calcTxId(tx);
+  const solution = await signTx(txId, skey);
+  tx.solutions = [solution];
+  const contentHash = calcContentHash(tx);
+  const txObj = {
+    __type: "mmx.Transaction",
+    version: tx.version,
+    expires: tx.expires,
+    fee_ratio: tx.fee_ratio,
+    max_fee_amount: tx.max_fee_amount,
+    note: tx.note,
+    nonce: tx.nonce.toString(),
+    network: tx.network,
+    sender: tx.sender,
+    inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
+    outputs: tx.outputs.map(o => ({ ...o, __type: "mmx.txout_t" })),
+    execute: tx.execute || [],
+    deploy: tx.deploy || null,
+    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
+    static_cost: tx.static_cost,
+    id: Array.from(txId),
+    content_hash: Array.from(contentHash),
+  };
+  const result = await api.validateTransaction(txObj);
+  if (result.did_fail) {
+    let msg = "unknown";
+    if (result.error) {
+      if (typeof result.error === "string") msg = result.error;
+      else if (result.error.message) msg = result.error.message;
+      else msg = JSON.stringify(result.error);
+    }
+    throw new Error("Validation failed: " + msg);
+  }
+  await api.broadcastTransaction(txObj);
+  return {
+    txid: Buffer.from(txId).toString("hex").toUpperCase(),
+    fee: result.total_fee || tx.static_cost,
+    fee_value: (result.total_fee || tx.static_cost) / 1e6,
+  };
+}
+
+// Helper: generate random nonce
+function randomNonce() {
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
+  let nonce = 0n;
+  for (let i = 0; i < 8; i++) nonce |= BigInt(nonceBytes[i]) << BigInt(i * 8);
+  if (nonce === 0n) nonce = 1n;
+  return nonce;
+}
+
+// makeOffer: create a new offer (deploy offer contract + deposit bid currency)
+// bidCurrency: contract address of what you're offering (MMX = null addr)
+// askCurrency: contract address of what you want
+// bidAmountSat: amount in smallest units (MMX = *1e6, TRAIL = *1)
+// askAmountSat: amount in smallest units
+export async function makeOffer(bidCurrency, askCurrency, bidAmountSat, askAmountSat) {
+  if (!unlockedSeed) throw new Error("Wallet is locked");
+  if (bidAmountSat <= 0n || askAmountSat <= 0n) throw new Error("Amounts must be positive");
+
+  const { skey, addrHash } = deriveKeypair(unlockedSeed, "", 0, 0);
+  const fromAddrBytes = Array.from(addrHash);
+  const fromAddrStr = hashToAddress(addrHash);
+
+  const bidCurrencyBytes = addrToBytes32(bidCurrency);
+  const askCurrencyBytes = addrToBytes32(askCurrency);
+  const offerBinaryBytes = addrToBytes32(OFFER_BINARY_ADDR);
+
+  // Compute inverse price: (bid_amount << 64) / ask_amount  (uint256 division)
+  const bid256 = BigInt(bidAmountSat) << 64n;
+  const invPrice = bid256 / BigInt(askAmountSat);
+  if (invPrice >> 128n) throw new Error("Price out of range");
+  // Format as hex string "0x..." (uint128 hex, 32 chars)
+  const invPriceHex = "0x" + invPrice.toString(16).padStart(32, "0");
+
+  // Build the Executable contract (offer template)
+  const executable = {
+    __type: "mmx.contract.Executable",
+    version: 0,
+    name: "",
+    symbol: "",
+    decimals: 0,
+    meta_data: null,
+    binary: offerBinaryBytes,
+    init_method: "init",
+    init_args: [
+      fromAddrStr,       // owner address
+      bidCurrency,        // bid currency (bech32 string)
+      askCurrency,        // ask currency (bech32 string)
+      invPriceHex,        // inverse price (hex string)
+      null,               // empty 5th arg
+    ],
+    depends: [],
+  };
+
+  // Compute deploy hash (for tx hash serialization)
+  const deployHash = calcExecutableHash(executable, false);
+  const deployFullHash = calcExecutableHash(executable, true);
+
+  const height = await api.getHeight();
+  const expires = height + 100;
+
+  const tx = {
+    version: 0,
+    expires,
+    fee_ratio: 1024,
+    max_fee_amount: 5040000,
+    note: TX_NOTE_OFFER,
+    nonce: randomNonce(),
+    network: "mainnet",
+    sender: fromAddrBytes,
+    inputs: [{
+      address: fromAddrBytes,
+      contract: bidCurrencyBytes,
+      amount: uint128LE(bidAmountSat),
+      memo: null,
+      solution: 0,
+      flags: 0,
+    }],
+    // outputs: EMPTY — the node auto-creates deposit output to tx.id (new contract addr) during execution
+    outputs: [],
+    execute: [],
+    deploy: { hash: deployHash, fullHash: deployFullHash },
+    static_cost: 60000,
+  };
+
+  // For broadcast, deploy needs the full Executable object
+  const result = await buildAndSendTxDeploy(tx, executable, skey);
+  skey.fill(0);
+  return result;
+}
+
+// Helper: build and send tx with a deploy (Executable) instead of execute ops
+async function buildAndSendTxDeploy(tx, executable, skey) {
+  const txId = calcTxId(tx);
+  const solution = await signTx(txId, skey);
+  tx.solutions = [solution];
+  const contentHash = calcContentHash(tx);
+  const txObj = {
+    __type: "mmx.Transaction",
+    version: tx.version,
+    expires: tx.expires,
+    fee_ratio: tx.fee_ratio,
+    max_fee_amount: tx.max_fee_amount,
+    note: tx.note,
+    nonce: tx.nonce.toString(),
+    network: tx.network,
+    sender: tx.sender,
+    inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
+    outputs: tx.outputs.map(o => ({ ...o, __type: "mmx.txout_t" })),
+    execute: [],
+    deploy: executable,  // Full Executable object for node to deserialize
+    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
+    static_cost: tx.static_cost,
+    id: Array.from(txId),
+    content_hash: Array.from(contentHash),
+  };
+  const result = await api.validateTransaction(txObj);
+  if (result.did_fail) {
+    let msg = "unknown";
+    if (result.error) {
+      if (typeof result.error === "string") msg = result.error;
+      else if (result.error.message) msg = result.error.message;
+      else msg = JSON.stringify(result.error);
+    }
+    throw new Error("Validation failed: " + msg);
+  }
+  await api.broadcastTransaction(txObj);
+  return {
+    txid: Buffer.from(txId).toString("hex").toUpperCase(),
+    fee: result.total_fee || tx.static_cost,
+    fee_value: (result.total_fee || tx.static_cost) / 1e6,
+  };
+}
+
+// acceptOffer: accept an existing offer (Deposit to offer contract with method "accept")
+// offerAddr: the offer contract address
+// askAmountSat: amount of ask currency to send (what the offer asks for)
+export async function acceptOffer(offerAddr, askAmountSat) {
+  if (!unlockedSeed) throw new Error("Wallet is locked");
+  if (askAmountSat <= 0n) throw new Error("Amount must be positive");
+
+  const { skey, addrHash } = deriveKeypair(unlockedSeed, "", 0, 0);
+  const fromAddrBytes = Array.from(addrHash);
+  const fromAddrStr = hashToAddress(addrHash);
+
+  // Fetch offer to get ask_currency and price
+  const offer = await api.getOffer(offerAddr);
+  const askCurrencyBytes = addrToBytes32(offer.ask_currency);
+  const offerAddrBytes = addrToBytes32(offerAddr);
+
+  // price = offer.inv_price (hex string)
+  const deposit = {
+    __type: "mmx.operation.Deposit",
+    version: 0,
+    address: offerAddrBytes,
+    method: "accept",
+    args: [
+      fromAddrStr,      // dst_addr: where to send the bid currency
+      offer.inv_price,  // price (hex string)
+    ],
+    user: fromAddrBytes,
+    currency: askCurrencyBytes,
+    amount: uint128LE(askAmountSat),
+  };
+
+  const opHash = calcDepositHash(deposit, false);
+  const opFullHash = calcDepositHash(deposit, true);
+
+  const height = await api.getHeight();
+  const expires = height + 100;
+
+  const tx = {
+    version: 0,
+    expires,
+    fee_ratio: 1024,
+    max_fee_amount: 5040000,
+    note: TX_NOTE_TRADE,
+    nonce: randomNonce(),
+    network: "mainnet",
+    sender: fromAddrBytes,
+    inputs: [{
+      address: fromAddrBytes,
+      contract: askCurrencyBytes,
+      amount: uint128LE(askAmountSat),
+      memo: null,
+      solution: 0,
+      flags: 0,
+    }],
+    outputs: [{
+      address: offerAddrBytes,
+      contract: askCurrencyBytes,
+      amount: uint128LE(askAmountSat),
+      memo: null,
+    }],
+    execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
+    deploy: null,
+    static_cost: 60000,
+  };
+
+  // For broadcast, include the full deposit object
+  const txId = calcTxId(tx);
+  const solution = await signTx(txId, skey);
+  tx.solutions = [solution];
+  const contentHash = calcContentHash(tx);
+  const txObj = {
+    __type: "mmx.Transaction",
+    version: tx.version,
+    expires: tx.expires,
+    fee_ratio: tx.fee_ratio,
+    max_fee_amount: tx.max_fee_amount,
+    note: tx.note,
+    nonce: tx.nonce.toString(),
+    network: tx.network,
+    sender: tx.sender,
+    inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
+    outputs: tx.outputs.map(o => ({ ...o, __type: "mmx.txout_t" })),
+    execute: [deposit],
+    deploy: null,
+    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
+    static_cost: tx.static_cost,
+    id: Array.from(txId),
+    content_hash: Array.from(contentHash),
+  };
+  const result = await api.validateTransaction(txObj);
+  if (result.did_fail) {
+    let msg = "unknown";
+    if (result.error) {
+      if (typeof result.error === "string") msg = result.error;
+      else if (result.error.message) msg = result.error.message;
+      else msg = JSON.stringify(result.error);
+    }
+    throw new Error("Validation failed: " + msg);
+  }
+  await api.broadcastTransaction(txObj);
+  skey.fill(0);
+  return {
+    txid: Buffer.from(txId).toString("hex").toUpperCase(),
+    fee: result.total_fee || tx.static_cost,
+    fee_value: (result.total_fee || tx.static_cost) / 1e6,
+  };
+}
+
+// cancelOffer: cancel an offer (Execute on offer contract with method "cancel")
+// Only the offer owner can cancel
+export async function cancelOffer(offerAddr) {
+  if (!unlockedSeed) throw new Error("Wallet is locked");
+
+  const { skey, addrHash } = deriveKeypair(unlockedSeed, "", 0, 0);
+  const fromAddrBytes = Array.from(addrHash);
+
+  // Fetch offer to get owner (for user field)
+  const offer = await api.getOffer(offerAddr);
+  const offerAddrBytes = addrToBytes32(offerAddr);
+  const ownerBytes = addrToBytes32(offer.owner);
+
+  // cancel() takes no args, user = offer.owner
+  const executeOp = {
+    __type: "mmx.operation.Execute",
+    version: 0,
+    address: offerAddrBytes,
+    method: "cancel",
+    args: [],
+    user: ownerBytes,  // must be offer owner
+  };
+
+  const opHash = calcExecuteHash(executeOp, false);
+  const opFullHash = calcExecuteHash(executeOp, true);
+
+  const height = await api.getHeight();
+  const expires = height + 100;
+
+  const tx = {
+    version: 0,
+    expires,
+    fee_ratio: 1024,
+    max_fee_amount: 5040000,
+    note: TX_NOTE.TRANSFER,  // TRANSFER
+    nonce: randomNonce(),
+    network: "mainnet",
+    sender: fromAddrBytes,
+    inputs: [],
+    outputs: [],
+    execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
+    deploy: null,
+    static_cost: 40000,  // base + 1 execute + 1 solution
+  };
+
+  const txId = calcTxId(tx);
+  const solution = await signTx(txId, skey);
+  tx.solutions = [solution];
+  const contentHash = calcContentHash(tx);
+  const txObj = {
+    __type: "mmx.Transaction",
+    version: tx.version,
+    expires: tx.expires,
+    fee_ratio: tx.fee_ratio,
+    max_fee_amount: tx.max_fee_amount,
+    note: TX_NOTE.TRANSFER,
+    nonce: tx.nonce.toString(),
+    network: tx.network,
+    sender: tx.sender,
+    inputs: [],
+    outputs: [],
+    execute: [executeOp],
+    deploy: null,
+    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
+    static_cost: tx.static_cost,
+    id: Array.from(txId),
+    content_hash: Array.from(contentHash),
+  };
+  const result = await api.validateTransaction(txObj);
+  if (result.did_fail) {
+    let msg = "unknown";
+    if (result.error) {
+      if (typeof result.error === "string") msg = result.error;
+      else if (result.error.message) msg = result.error.message;
+      else msg = JSON.stringify(result.error);
+    }
+    throw new Error("Validation failed: " + msg);
+  }
+  await api.broadcastTransaction(txObj);
+  skey.fill(0);
+  return {
+    txid: Buffer.from(txId).toString("hex").toUpperCase(),
+    fee: result.total_fee || tx.static_cost,
+    fee_value: (result.total_fee || tx.static_cost) / 1e6,
   };
 }

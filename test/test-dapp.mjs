@@ -59,14 +59,16 @@ console.log("1. app.html structure");
   const src = read(join(dappDir, 'app.html'));
   assert("app.html exists", src.length > 0, true);
 
-  // Three tabs
+  // Four tabs
   assertIncludes("app.html has wallet tab", src, 'data-tab="wallet"');
   assertIncludes("app.html has swap tab", src, 'data-tab="swap"');
+  assertIncludes("app.html has offers tab", src, 'data-tab="offers"');
   assertIncludes("app.html has paywall tab", src, 'data-tab="paywall"');
 
   // Tab content divs
   assertIncludes("app.html has tab-wallet content", src, 'id="tab-wallet"');
   assertIncludes("app.html has tab-swap content", src, 'id="tab-swap"');
+  assertIncludes("app.html has tab-offers content", src, 'id="tab-offers"');
   assertIncludes("app.html has tab-paywall content", src, 'id="tab-paywall"');
 
   // Imports from ../ (not ./)
@@ -228,9 +230,58 @@ console.log("\n12. dapp directory contents");
   assert("dapp/index.html exists", files.includes("index.html"), true);
 }
 
+// === 13. Offer functions exist in wallet-app.js ===
+console.log("\n13. Offer functions");
+{
+  const src = read(join(dir, "../wallet-app.js"));
+  assertIncludes("wallet-app.js has makeOffer", src, 'export async function makeOffer');
+  assertIncludes("wallet-app.js has acceptOffer", src, 'export async function acceptOffer');
+  assertIncludes("wallet-app.js has cancelOffer", src, 'export async function cancelOffer');
+  assertIncludes("wallet-app.js has OFFER_BINARY_ADDR", src, 'OFFER_BINARY_ADDR');
+  assertIncludes("wallet-app.js imports calcExecutableHash", src, 'calcExecutableHash');
+  assertIncludes("wallet-app.js imports calcExecuteHash", src, 'calcExecuteHash');
+  assertIncludes("wallet-app.js imports TX_NOTE_OFFER", src, 'TX_NOTE_OFFER');
+}
+
+// === 14. Offer hash functions in mmx-tx.js ===
+console.log("\n14. Offer hash functions");
+{
+  const src = read(join(dir, "../mmx-tx.js"));
+  assertIncludes("mmx-tx.js has calcExecutableHash", src, 'export function calcExecutableHash');
+  assertIncludes("mmx-tx.js has calcExecuteHash", src, 'export function calcExecuteHash');
+  assertIncludes("mmx-tx.js has EXECUTABLE_TYPE_HASH", src, 'EXECUTABLE_TYPE_HASH');
+  assertIncludes("mmx-tx.js has TX_NOTE_OFFER", src, 'TX_NOTE_OFFER');
+  // TX_NOTE_OFFER must be 1549148948 (tx_note_e::OFFER)
+  assertIncludes("mmx-tx.js has correct TX_NOTE_OFFER value", src, '1549148948');
+  // TX_NOTE_TRADE must be 329618288 (tx_note_e::TRADE)
+  assertIncludes("mmx-tx.js has correct TX_NOTE_TRADE value", src, '329618288');
+}
+
+// === 15. Offer API functions in mmx-node-api.js ===
+console.log("\n15. Offer API functions");
+{
+  const src = read(join(dir, "../mmx-node-api.js"));
+  assertIncludes("mmx-node-api.js has getOffer", src, 'export async function getOffer');
+  assertIncludes("mmx-node-api.js has getTradeHistory", src, 'export async function getTradeHistory');
+  assertIncludes("mmx-node-api.js has getOfferTradeEstimate", src, 'export async function getOfferTradeEstimate');
+}
+
+// === 16. app.html has offer UI elements ===
+console.log("\n16. app.html offer UI");
+{
+  const src = read(join(dappDir, 'app.html'));
+  assertIncludes("app.html has offerBidAmount input", src, 'id="offerBidAmount"');
+  assertIncludes("app.html has offerAskAmount input", src, 'id="offerAskAmount"');
+  assertIncludes("app.html has makeOfferBtn", src, 'id="makeOfferBtn"');
+  assertIncludes("app.html has offersList", src, 'id="offersList"');
+  assertIncludes("app.html has initOffersUI", src, 'initOffersUI');
+  assertIncludes("app.html has makeOffer function", src, 'async function makeOffer');
+  assertIncludes("app.html has loadOffers function", src, 'async function loadOffers');
+}
+
 // === RESULTS ===
 console.log("\n==================================================");
-const passed = (process.exitCode ? 0 : 12);
+const passed = (process.exitCode ? 0 : 15);
 console.log(`dApp tests: ${passed} passed, ${process.exitCode ? 1 : 0} failed`);
 if (process.exitCode) {
   console.log("❌ SOME TESTS FAILED");

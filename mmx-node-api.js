@@ -158,3 +158,26 @@ export async function getSwapTradeEstimate(poolAddr, index, amount, iters = 200)
   if (!resp.ok) throw new Error(`Trade estimate error: ${resp.status}`);
   return await resp.json();
 }
+
+// --- Offers (public RPC, read-only) ---
+
+export async function getOffer(offerAddr) {
+  const resp = await fetch(`${_nodeUrl}/offer?id=${offerAddr}`);
+  if (!resp.ok) throw new Error(`Offer error: ${resp.status}`);
+  return await resp.json();
+}
+
+export async function getTradeHistory(bidCurrency, askCurrency, limit = 50) {
+  let qs = `limit=${limit}`;
+  if (bidCurrency) qs += `&bid=${bidCurrency}`;
+  if (askCurrency) qs += `&ask=${askCurrency}`;
+  const resp = await fetch(`${_nodeUrl}/trade_history?${qs}`);
+  if (!resp.ok) throw new Error(`Trade history error: ${resp.status}`);
+  return await resp.json();
+}
+
+export async function getOfferTradeEstimate(offerAddr, amount) {
+  const resp = await fetch(`${_nodeUrl}/offer/trade_estimate?id=${offerAddr}&amount=${amount}`);
+  if (!resp.ok) throw new Error(`Offer trade estimate error: ${resp.status}`);
+  return await resp.json();
+}

@@ -236,8 +236,17 @@ export function hashSerialize(tx, fullHash = false) {
   }
 
   // deploy: write_field(out, "deploy", hash_t)
+  // deploy can be: null (no deploy), 32-byte array (simple), or {hash, fullHash} (Executable)
   w.writeField("deploy", () => {
-    w.writeBytesType(tx.deploy || new Array(32).fill(0));
+    if (!tx.deploy) {
+      w.writeBytesType(new Array(32).fill(0));
+    } else if (Array.isArray(tx.deploy)) {
+      w.writeBytesType(tx.deploy);
+    } else if (tx.deploy && tx.deploy.hash) {
+      w.writeBytesType(fullHash ? (tx.deploy.fullHash || tx.deploy.hash) : tx.deploy.hash);
+    } else {
+      w.writeBytesType(new Array(32).fill(0));
+    }
   });
 
   if (fullHash) {
@@ -310,7 +319,7 @@ export async function signTx(txHash, skey) {
   };
 }
 
-export { TX_NOTE, TX_NOTE_TRADE, BinaryWriter };
+export { TX_NOTE, TX_NOTE_TRADE, TX_NOTE_OFFER, BinaryWriter };
 
 // --- Operation hashes (for execute field) ---
 // Execute::calc_hash() = type_hash + version + address + method + args + user [+ solution if full_hash]
@@ -382,4 +391,60 @@ function writeVariant(w, val) {
 }
 
 // --- Trade tx note ---
-const TX_NOTE_TRADE = 858544510; // tx_note_e::TRADE
+const TX_NOTE_TRADE = 329618288; // tx_note_e::TRADE
+// --- Offer tx note ---
+const TX_NOTE_OFFER = 1549148948; // tx_note_e::OFFER
+
+// Executable::calc_hash() (for deploy field)
+// Executable extends TokenBase, so includes TokenBase fields + Executable-specific fields
+const EXECUTABLE_TYPE_HASH = 0xfa6a3ac9103ebb12n; // Hash64, 8 bytes LE
+// executable = { binary: [32], init_method: string, init_args: [Variant], depends: [[string,[32]]],
+//               name: string, symbol: string, decimals: int32, meta_data: Variant, version: uint32 }
+export function calcExecutableHash(executable, fullHash = false) {
+  const w = new BinaryWriter();
+  w.writeUint64LE(EXECUTABLE_TYPE_HASH);
+  // TokenBase fields (parent class)
+  w.writeField("version", () => w.writeUint32LE(executable.version || 0));
+  w.writeField("name", () => w.writeString(executable.name || ""));
+  w.writeField("symbol", () => w.writeString(executable.symbol || ""));
+  w.writeField("decimals", () => w.writeUint32LE(executable.decimals || 0));
+  w.writeField("meta_data", () => writeVariant(w, executable.meta_data ?? null));
+  // Executable-specific fields
+  w.writeField("binary", () => w.writeBytesType(executable.binary || new Array(32).fill(0)));
+  w.writeField("init_method", () => w.writeString(executable.init_method || ""));
+  w.writeField("init_args", () => {
+    w.writeVector(executable.init_args || [], (arg) => writeVariant(w, arg));
+  });
+  // depends: map<string, addr_t> serializes as vector<pair<string, addr_t>>
+  // = "vector<>" + count + ("pair<>" + string + bytes<32>) for each entry
+  w.writeField("depends", () => {
+    const entries = executable.depends || [];
+    w.writeVector(entries, (entry) => {
+      // each entry is [key_string, addr_32bytes]
+      w.writeCStr("pair<>");
+      w.writeString(entry[0]);
+      w.writeBytesType(entry[1]);
+    });
+  });
+  return Array.from(Buffer.from(sha256(new Uint8Array(w.toBuffer()))));
+}
+
+// Execute::calc_hash() (for cancel/withdraw operations)
+// execute = { address: [32], method: string, args: [Variant], user: [32]|null, version: uint32 }
+export function calcExecuteHash(execute, fullHash = false) {
+  const w = new BinaryWriter();
+  w.writeUint64LE(EXECUTE_TYPE_HASH);
+  w.writeField("version", () => w.writeUint32LE(execute.version || 0));
+  w.writeField("address", () => w.writeBytesType(execute.address || new Array(32).fill(0)));
+  w.writeField("method", () => w.writeString(execute.method || ""));
+  w.writeField("args", () => {
+    w.writeVector(execute.args || [], (arg) => writeVariant(w, arg));
+  });
+  w.writeField("user", () => {
+    w.writeOptional(execute.user, () => w.writeBytesType(execute.user));
+  });
+  if (fullHash) {
+    w.writeField("solution", () => w.writeUint16LE(execute.solution || 0));
+  }
+  return Array.from(Buffer.from(sha256(new Uint8Array(w.toBuffer()))));
+}
