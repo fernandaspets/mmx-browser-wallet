@@ -635,15 +635,17 @@ async function loadOffers() {
         const owner = escapeHtml((o.owner || "").substring(0, 16) + "...");
         const addr = escapeHtml(o.address);
         const hasBalance = bidBal > 0;
-        // Show price as: "1 TRAIL = 109 MMX" (how much bid you pay per 1 ask unit)
-        const bidPerAsk = price > 0 ? (1 / price).toFixed(2) : "?";
+        // display_price = ask/bid (how much ask you get per 1 bid unit)
+        // e.g. MMX→TRAIL: display_price=0.01 → "1 MMX = 0.01 TRAIL"
+        // e.g. TRAIL→MMX: display_price=110 → "1 TRAIL = 110 MMX"
+        const priceDisplay = price > 0 ? price.toFixed(6).replace(/\.?0+$/, "") : "?";
         html += `<div style="padding:8px;border-bottom:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div><b>Selling ${bidBal} ${bidSym}</b> for <b>${askSym}</b></div>
             ${hasBalance ? `<button class="btn btn-primary" style="padding:2px 8px;font-size:11px" onclick="acceptOfferUI('${o.address}','${escapeHtml(o.ask_currency)}','${escapeHtml(o.ask_symbol || "?")}',${o.ask_decimals || 0},${parseFloat(o.inv_price || "0")})">✅ Buy</button>` : "<span style='font-size:11px;color:var(--text-muted)'>empty</span>"}
           </div>
           <div style="font-size:12px;color:var(--text);margin-top:2px">
-            1 ${askSym} = ${bidPerAsk} ${bidSym} · Received: ${askBal} ${askSym}
+            1 ${bidSym} = ${priceDisplay} ${askSym} · Received: ${askBal} ${askSym}
           </div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:1px">
             Owner: ${owner}
