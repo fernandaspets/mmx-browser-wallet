@@ -56,6 +56,10 @@
   .swap-arrow { text-align: center; font-size: 18px; color: var(--text-muted); margin: 2px 0; cursor: pointer; }
   .swap-arrow:hover { color: var(--accent); }
   .pool-info { font-size: 11px; color: var(--text-muted); padding: 6px 10px; background: var(--accent-bg); border-radius: 6px; margin-bottom: 8px; }
+  .swap-helper-row { display: flex; gap: 4px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+  .swap-pct-btn { padding: 3px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--accent); font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .swap-pct-btn:hover { background: var(--accent); color: white; }
+  .swap-balance-hint { font-size: 10px; color: var(--text-muted); margin-left: auto; }
   .info-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); padding: 2px 0; }
   .info-row strong { color: var(--text); }
 
@@ -141,6 +145,13 @@
           <div class="swap-row">
             <input type="text" class="swap-input" id="swapFromAmount" placeholder="0.0" inputmode="decimal">
             <select class="swap-select" id="swapFromToken"></select>
+          </div>
+          <div class="swap-helper-row" id="swapHelperRow" style="display:none;">
+            <button class="swap-pct-btn" data-pct="25">25%</button>
+            <button class="swap-pct-btn" data-pct="50">50%</button>
+            <button class="swap-pct-btn" data-pct="75">75%</button>
+            <button class="swap-pct-btn" data-pct="100">Max</button>
+            <span class="swap-balance-hint" id="swapBalanceHint"></span>
           </div>
         </div>
         <div class="swap-arrow" id="swapFlip">⬇️</div>
@@ -391,15 +402,45 @@ function initSwapUI() {
     const addrs = [...tokenSet.keys()];
     fromSel.value = addrs[0]; toSel.value = addrs[1];
   }
-  fromSel.onchange = () => { findPool(); estimateTrade(); };
-  toSel.onchange = () => { findPool(); estimateTrade(); };
+  fromSel.onchange = () => { findPool(); estimateTrade(); updateHelperButtons(); };
+  toSel.onchange = () => { findPool(); estimateTrade(); updateHelperButtons(); };
   document.getElementById("swapFromAmount").oninput = () => estimateTrade();
   document.getElementById("swapFlip").onclick = () => {
     [fromSel.value, toSel.value] = [toSel.value, fromSel.value];
-    findPool(); estimateTrade();
+    findPool(); estimateTrade(); updateHelperButtons();
   };
   document.getElementById("swapBtn").onclick = executeSwap;
+
+  // Percentage helper buttons
+  document.querySelectorAll(".swap-pct-btn").forEach(btn => {
+    btn.onclick = () => {
+      const pct = parseInt(btn.dataset.pct);
+      const fromSymbol = fromSel.options[fromSel.selectedIndex]?.text;
+      const token = balances.find(b => b.symbol === fromSymbol);
+      if (!token || !token.spendable) return;
+      const decimals = token.decimals || 0;
+      const spendable = parseFloat(token.spendable);
+      const amount = (spendable * pct / 100).toFixed(decimals > 0 ? Math.min(decimals, 6) : 0);
+      document.getElementById("swapFromAmount").value = amount;
+      estimateTrade();
+    };
+  });
+
   findPool();
+  updateHelperButtons();
+}
+
+function updateHelperButtons() {
+  const fromSymbol = document.getElementById("swapFromToken").options[document.getElementById("swapFromToken").selectedIndex]?.text;
+  const token = balances.find(b => b.symbol === fromSymbol);
+  const helperRow = document.getElementById("swapHelperRow");
+  const hint = document.getElementById("swapBalanceHint");
+  if (token && token.spendable > 0) {
+    helperRow.style.display = "flex";
+    hint.textContent = `Balance: ${token.spendable} ${fromSymbol}`;
+  } else {
+    helperRow.style.display = "none";
+  }
 }
 
 function findPool() {
