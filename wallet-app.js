@@ -626,7 +626,7 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
     args: [
       tokenIndex,                                    // i: which token to sell
       userAddrStr,                                    // address: where to send output
-      minTradeSat > 0 ? BigInt(minTradeSat).toString() : null, // min_trade (optional)
+      minTradeSat > 0 ? Number(minTradeSat) : null, // min_trade (uint64 for small, or hex string for large)
       numIter,                                        // num_iter
     ],
     user: fromAddrBytes,                              // user: caller address
@@ -636,6 +636,7 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
 
   // Compute the operation hash for the tx hash
   const opHash = calcDepositHash(deposit, false);
+  const opFullHash = calcDepositHash(deposit, true);
 
   // Get height for expires
   const height = await api.getHeight();
@@ -674,7 +675,7 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
       amount: uint128LE(amountSat),
       memo: null,
     }],
-    execute: [Array.from(opHash)],
+    execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
     deploy: null,
     static_cost: staticCost,
   };

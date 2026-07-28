@@ -225,7 +225,14 @@ export function hashSerialize(tx, fullHash = false) {
   w.writeString("execute");
   w.writeUint32LE((tx.execute || []).length);
   for (const op of (tx.execute || [])) {
-    w.writeBytesType(op || new Array(32).fill(0));
+    // op can be: 32-byte hash (simple transfer) or {hash, fullHash} (contract execution)
+    if (Array.isArray(op)) {
+      w.writeBytesType(op);
+    } else if (op && op.hash) {
+      w.writeBytesType(fullHash ? (op.fullHash || op.hash) : op.hash);
+    } else {
+      w.writeBytesType(new Array(32).fill(0));
+    }
   }
 
   // deploy: write_field(out, "deploy", hash_t)
@@ -340,30 +347,36 @@ export function calcDepositHash(deposit, fullHash = false) {
     else { const n = BigInt(v); for (let i = 0; i < 16; i++) w.writeByte(Number((n >> BigInt(i * 8)) & 0xFFn)); }
   });
   if (fullHash) {
-    w.writeField("solution", () => w.writeBytesType(new Array(32).fill(0)));
+    // solution is uint16_t (index into solutions array, -1 = 0xFFFF)
+    // write_bytes(uint16_t) -> write_bytes(int64_t) -> 8 bytes LE
+    w.writeField("solution", () => w.writeUint16LE(deposit.solution || 0));
   }
   return Buffer.from(sha256(new Uint8Array(w.toBuffer())));
 }
 
 // Write a VNX Variant value for binary serialization
-// Variants can be: null, uint64, string, addr_t (32 bytes), etc.
+// Must match C++ write_bytes(out, vnx::Variant&) exactly:
+//   null -> "NULL" (cstr)
+//   bool -> 1 byte
+//   uint64/int64 -> 8 bytes LE (no type tag)
+//   string -> "string<>" + uint64 length + data
+//   bytes_t<N> -> "bytes<>" + uint64 length + data
 function writeVariant(w, val) {
   if (val === null || val === undefined) {
-    w.writeCStr("null<>");
-  } else if (typeof val === "string") {
-    // Could be a bech32 address or a plain string
-    w.writeString(val);
+    w.writeCStr("NULL");
+  } else if (typeof val === "boolean") {
+    w.writeByte(val ? 1 : 0);
   } else if (typeof val === "number" || typeof val === "bigint") {
-    // uint64
     w.writeUint64LE(val);
+  } else if (typeof val === "string") {
+    w.writeString(val);
   } else if (Array.isArray(val) && val.length === 32) {
-    // addr_t (bytes_t<32>)
     w.writeBytesType(val);
   } else if (Array.isArray(val) && val.length === 16) {
-    // uint128 (16 bytes LE)
-    w.writeBytes(val);
+    w.writeBytesType(val);
+  } else if (Array.isArray(val)) {
+    w.writeVector(val, (elem) => writeVariant(w, elem));
   } else {
-    // Fallback: treat as string
     w.writeString(String(val));
   }
 }
