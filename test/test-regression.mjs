@@ -642,15 +642,15 @@ console.log("\ncontent.js handles new request types");
 console.log("\nSwap pool demo");
 {
   const fs = await import("fs");
-  const swapSrc = fs.readFileSync(import.meta.dirname + "/../demo/swap-pools.html", "utf8");
+  const swapSrc = fs.readFileSync(import.meta.dirname + "/../dapp/swap-pools.html", "utf8");
   // Must send human amounts directly (not raw satoshis)
-  assert("swap demo sends human amount directly", swapSrc.includes("const rawAmt = amt"), true);
+  assert("swap dapp sends human amount directly", swapSrc.includes("const rawAmt = amt"), true);
   // Must use iters=1 (matches official GUI)
-  assert("swap demo uses iters=1", swapSrc.includes("iters=1"), true);
+  assert("swap dapp uses iters=1", swapSrc.includes("iters=1"), true);
   // Must not multiply by 10^decimals
-  assert("swap demo does not convert to raw", swapSrc.includes("Math.pow(10, decimals)"), false);
+  assert("swap dapp does not convert to raw", swapSrc.includes("Math.pow(10, decimals)"), false);
   // Buy direction shows inverted price (1/avg_price = MMX/TRAIL)
-  assert("swap demo inverts price for buy direction", swapSrc.includes("1 / avgPrice"), true);
+  assert("swap dapp inverts price for buy direction", swapSrc.includes("1 / avgPrice"), true);
 }
 
 // === Demo hub and pages exist ===
@@ -658,17 +658,15 @@ console.log("\nDemo files");
 {
   const fs = await import("fs");
   const path = await import("path");
-  const demoDir = path.resolve(import.meta.dirname, "../demo");
+  const demoDir = path.resolve(import.meta.dirname, "../dapp");
   const files = fs.readdirSync(demoDir).filter(f => f.endsWith(".html"));
-  assert("demo/index.html exists", files.includes("index.html"), true);
-  assert("demo/paywall.html exists", files.includes("paywall.html"), true);
-  assert("demo/swap-pools.html exists", files.includes("swap-pools.html"), true);
-  assert("demo/offers.html exists", files.includes("offers.html"), true);
+  assert("dapp/index.html exists", files.includes("index.html"), true);
+  assert("dapp/paywall.html exists", files.includes("paywall.html"), true);
+  assert("dapp/swap-pools.html exists", files.includes("swap-pools.html"), true);
+  assert("dapp/offers.html exists", files.includes("offers.html"), true);
   // Index links to all demos
   const indexSrc = fs.readFileSync(path.join(demoDir, "index.html"), "utf8");
-  assert("index links to paywall", indexSrc.includes("paywall.html"), true);
-  assert("index links to swap-pools", indexSrc.includes("swap-pools.html"), true);
-  assert("index links to offers", indexSrc.includes("offers.html"), true);
+  assert("dapp/index redirects to app.html", indexSrc.includes("app.html"), true);
 }
 
 // === mmx-node-api.js swap functions ===

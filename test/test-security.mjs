@@ -227,7 +227,7 @@ console.log("\n9. popup.js sends DAPP_DENIED");
 // === 10. Error propagation in paywall ===
 console.log("\n10. Error propagation in paywall demo");
 {
-  const src = read('demo/paywall.html');
+  const src = read('dapp/paywall.html');
 
   // Must have try/catch in startPayment
   assertIncludes("paywall has try/catch in payment", src, "catch (e)");
