@@ -83,11 +83,10 @@ window.addEventListener('message', async (event) => {
         }
       } else {
         // Signing/sending — requires popup confirmation
-        // MMX_SEND uses mmx_pending_send/mmx_send_result (popup has dedicated UI)
-        // Other confirm types use mmx_pending_dapp_action/mmx_dapp_result
+        // Use request-ID-prefixed keys so concurrent tabs don't collide
         const isSend = (type === 'MMX_SEND');
-        const pendingKey = isSend ? 'mmx_pending_send' : 'mmx_pending_dapp_action';
-        const resultKey = isSend ? 'mmx_send_result' : 'mmx_dapp_result';
+        const pendingKey = isSend ? `mmx_psend_${id}` : `mmx_pdapp_${id}`;
+        const resultKey = isSend ? `mmx_sresult_${id}` : `mmx_dresult_${id}`;
         const pendingData = isSend
           ? { origin, id, params: event.data.params, timestamp: Date.now() }
           : { origin, id, type, params: event.data.params, timestamp: Date.now() };
@@ -128,9 +127,10 @@ window.addEventListener('message', async (event) => {
             });
           } else {
             // Signing/sending — now that we're approved, route through popup
+            // Use request-ID-prefixed keys so concurrent tabs don't collide
             const isSend = (type === 'MMX_SEND');
-            const pendingKey = isSend ? 'mmx_pending_send' : 'mmx_pending_dapp_action';
-            const resultKey = isSend ? 'mmx_send_result' : 'mmx_dapp_result';
+            const pendingKey = isSend ? `mmx_psend_${id}` : `mmx_pdapp_${id}`;
+            const resultKey = isSend ? `mmx_sresult_${id}` : `mmx_dresult_${id}`;
             const pendingData = isSend
               ? { origin, id, params: event.data.params, timestamp: Date.now() }
               : { origin, id, type, params: event.data.params, timestamp: Date.now() };

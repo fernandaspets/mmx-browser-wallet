@@ -634,8 +634,8 @@ console.log("\ncontent.js handles new request types");
   assert("content.js handles MMX_GET_NETWORK", contentSrc.includes("MMX_GET_NETWORK"), true);
   assert("content.js handles MMX_SIGN_MESSAGE", contentSrc.includes("MMX_SIGN_MESSAGE"), true);
   assert("content.js handles MMX_SIGN_TRANSACTION", contentSrc.includes("MMX_SIGN_TRANSACTION"), true);
-  assert("content.js uses mmx_pending_dapp_action", contentSrc.includes("mmx_pending_dapp_action"), true);
-  assert("content.js uses mmx_dapp_result", contentSrc.includes("mmx_dapp_result"), true);
+  assert("content.js uses ID-prefixed dapp action keys", contentSrc.includes("mmx_pdapp_") || contentSrc.includes("mmx_pending_dapp_action"), true);
+  assert("content.js uses ID-prefixed dapp result keys", contentSrc.includes("mmx_dresult_") || contentSrc.includes("mmx_dapp_result"), true);
 }
 
 // === Swap pool demo: human amounts, iters, price display ===

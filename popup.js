@@ -44,12 +44,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Re-check for pending dApp requests when storage changes
-  // (content.js writes mmx_pending_send/mmx_pending_dapp/mmx_pending_dapp_action while popup is open)
+  // (content.js writes ID-prefixed keys: mmx_psend_*, mmx_pdapp_*, mmx_pending_dapp)
   try {
     if (_browser.storage && _browser.storage.onChanged) {
       _browser.storage.onChanged.addListener((changes, area) => {
         if (area !== "local") return;
-        if (changes.mmx_pending_send || changes.mmx_pending_dapp || changes.mmx_pending_dapp_action) {
+        const hasPending = Object.keys(changes).some(k =>
+          k.startsWith('mmx_psend_') || k.startsWith('mmx_pdapp_') || k === 'mmx_pending_dapp');
+        if (hasPending) {
           // Re-run the pending request check
           checkPendingDapp();
         }
@@ -79,8 +81,10 @@ async function checkPendingDapp() {
   if (!app.isUnlocked()) {
     document.getElementById("dappNotice").style.display = "none";
     document.getElementById("dappSendNotice").style.display = "none";
-    _br.storage.local.get(["mmx_pending_dapp", "mmx_pending_send"], (result) => {
-      if (result.mmx_pending_dapp || result.mmx_pending_send) {
+    _br.storage.local.get(null, (result) => {
+      const hasPending = Object.keys(result).some(k =>
+        k.startsWith('mmx_psend_') || k.startsWith('mmx_pdapp_') || k === 'mmx_pending_dapp');
+      if (hasPending) {
         // Keep badge so user knows there's a pending request
         _br.action.setBadgeText({ text: "!" });
         _br.action.setBadgeBackgroundColor({ color: "#ffa726" });
@@ -124,9 +128,11 @@ async function checkPendingDapp() {
     }
   });
   
-  // Check for pending send request
-  _br.storage.local.get("mmx_pending_send", (result) => {
-    const pending = result.mmx_pending_send;
+  // Check for pending send request (scan for ID-prefixed keys)
+  _br.storage.local.get(null, (result) => {
+    // Find first pending send request
+    const sendKey = Object.keys(result).find(k => k.startsWith('mmx_psend_'));
+    const pending = sendKey ? result[sendKey] : null;
     const sendNotice = document.getElementById("dappSendNotice");
     if (pending && sendNotice) {
       sendNotice.style.display = "block";
@@ -148,9 +154,9 @@ async function checkPendingDapp() {
           }
           const amountSat = app.mmxToSat(pending.params.amount, decimals);
           const sendResult = await app.sendTransaction(pending.params.to, amountSat, contractAddr);
-          _br.storage.local.set({ mmx_send_result: { id: pending.id, response: { txid: sendResult.txid } } });
+          _br.storage.local.set({ [`mmx_sresult_${pending.id}`]: { id: pending.id, response: { txid: sendResult.txid } } });
           sendNotice.style.display = "none";
-          _br.storage.local.remove("mmx_pending_send");
+          _br.storage.local.remove(sendKey);
           _br.action.setBadgeText({ text: "" });
           showView("dashboardView");
           setStatus("dashStatus", `dApp payment sent! TXID: ${sendResult.txid.substring(0, 20)}... Fee: ${sendResult.fee_value} MMX`, "success");
@@ -158,13 +164,13 @@ async function checkPendingDapp() {
         } catch (e) {
           document.getElementById("dappSendStatus").textContent = "Error: " + e.message;
           document.getElementById("dappSendConfirm").disabled = false;
-          _br.storage.local.set({ mmx_send_result: { id: pending.id, response: { error: e.message } } });
+          _br.storage.local.set({ [`mmx_sresult_${pending.id}`]: { id: pending.id, response: { error: e.message } } });
         }
       };
       document.getElementById("dappSendReject").onclick = () => {
-        _br.storage.local.set({ mmx_send_result: { id: pending.id, response: { error: "User rejected" } } });
+        _br.storage.local.set({ [`mmx_sresult_${pending.id}`]: { id: pending.id, response: { error: "User rejected" } } });
         sendNotice.style.display = "none";
-        _br.storage.local.remove("mmx_pending_send");
+        _br.storage.local.remove(sendKey);
         _br.action.setBadgeText({ text: "" });
         showView("dashboardView");
       };
@@ -176,8 +182,10 @@ async function checkPendingDapp() {
   });
   
   // Check for pending dApp signing actions (get_public_key, sign_message, sign_transaction)
-  _br.storage.local.get("mmx_pending_dapp_action", (result) => {
-    const pending = result.mmx_pending_dapp_action;
+  // Scan for ID-prefixed keys to handle concurrent requests from multiple tabs
+  _br.storage.local.get(null, (result) => {
+    const actionKey = Object.keys(result).find(k => k.startsWith('mmx_pdapp_'));
+    const pending = actionKey ? result[actionKey] : null;
     if (!pending) return;
     
     const status = document.getElementById("dappSendStatus");
@@ -190,8 +198,8 @@ async function checkPendingDapp() {
       if (pending.type === "MMX_GET_PUBLIC_KEY") {
         const pubKey = app.getPublicKeyHex();
         response = { public_key: pubKey };
-        _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response } });
-        _br.storage.local.remove("mmx_pending_dapp_action");
+        _br.storage.local.set({ [`mmx_dresult_${pending.id}`]: { id: pending.id, response } });
+        _br.storage.local.remove(actionKey);
         _br.action.setBadgeText({ text: "" });
         showView("dashboardView");
         setStatus("dashStatus", "dApp: public key shared", "success");
@@ -209,22 +217,22 @@ async function checkPendingDapp() {
           sendConfirm.disabled = true;
           try {
             const result = await app.signMessage(pending.params.msg);
-            _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: result } });
+            _br.storage.local.set({ [`mmx_dresult_${pending.id}`]: { id: pending.id, response: result } });
             sendNotice.style.display = "none";
-            _br.storage.local.remove("mmx_pending_dapp_action");
+            _br.storage.local.remove(actionKey);
             _br.action.setBadgeText({ text: "" });
             showView("dashboardView");
             setStatus("dashStatus", "dApp: message signed", "success");
           } catch (e) {
             status.textContent = "Error: " + e.message;
             sendConfirm.disabled = false;
-            _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: { error: e.message } } });
+            _br.storage.local.set({ [`mmx_dresult_${pending.id}`]: { id: pending.id, response: { error: e.message } } });
           }
         };
         sendReject.onclick = () => {
-          _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: null } });
+          _br.storage.local.set({ [`mmx_dresult_${pending.id}`]: { id: pending.id, response: null } });
           sendNotice.style.display = "none";
-          _br.storage.local.remove("mmx_pending_dapp_action");
+          _br.storage.local.remove(actionKey);
           _br.action.setBadgeText({ text: "" });
           showView("dashboardView");
         };
@@ -245,22 +253,22 @@ async function checkPendingDapp() {
           sendConfirm.disabled = true;
           try {
             const signedTx = await app.signTransactionObject(pending.params.tx);
-            _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: signedTx } });
+            _br.storage.local.set({ [`mmx_dresult_${pending.id}`]: { id: pending.id, response: signedTx } });
             sendNotice.style.display = "none";
-            _br.storage.local.remove("mmx_pending_dapp_action");
+            _br.storage.local.remove(actionKey);
             _br.action.setBadgeText({ text: "" });
             showView("dashboardView");
             setStatus("dashStatus", "dApp: transaction signed", "success");
           } catch (e) {
             status.textContent = "Error: " + e.message;
             sendConfirm.disabled = false;
-            _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: { error: e.message } } });
+            _br.storage.local.set({ [`mmx_dresult_${pending.id}`]: { id: pending.id, response: { error: e.message } } });
           }
         };
         sendReject.onclick = () => {
-          _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: null } });
+          _br.storage.local.set({ [`mmx_dresult_${pending.id}`]: { id: pending.id, response: null } });
           sendNotice.style.display = "none";
-          _br.storage.local.remove("mmx_pending_dapp_action");
+          _br.storage.local.remove(actionKey);
           _br.action.setBadgeText({ text: "" });
           showView("dashboardView");
         };
@@ -268,8 +276,8 @@ async function checkPendingDapp() {
         
       }
     } catch (e) {
-      _br.storage.local.set({ mmx_dapp_result: { id: pending.id, response: { error: e.message } } });
-      _br.storage.local.remove("mmx_pending_dapp_action");
+      _br.storage.local.set({ [`mmx_dresult_${pending.id}`]: { id: pending.id, response: { error: e.message } } });
+      _br.storage.local.remove(actionKey);
       _br.action.setBadgeText({ text: "" });
     }
   });
