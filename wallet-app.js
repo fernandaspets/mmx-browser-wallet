@@ -600,13 +600,12 @@ export async function autoTrackAddress(address, defaultName) { return store.auto
 // ChainParams (mainnet): min_txfee=20000, min_txfee_io=10000, min_txfee_sign=10000,
 //                       min_txfee_exec=10000, min_txfee_byte=100, min_txfee_deploy=200000
 // For Execute/Deposit ops: cost += (method.length + sum(get_num_bytes(arg))) * min_txfee_byte
-function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, hasDeploy = false) {
+function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, deployExec = null) {
   let cost = 20000; // min_txfee (base)
   cost += numInputs * 10000;  // min_txfee_io per input
   cost += numOutputs * 10000; // min_txfee_io per output
   cost += (executeOps?.length || 0) * 10000; // min_txfee_exec per execute
   cost += numSolutions * 10000; // min_txfee_sign per solution
-  if (hasDeploy) cost += 20000; // min_txfee_deploy
   // Add execute payload cost
   for (const op of (executeOps || [])) {
     if (!op) continue;
@@ -615,6 +614,26 @@ function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, hasDepl
       payload += getVariantNumBytes(arg);
     }
     cost += payload * 100; // min_txfee_byte
+  }
+  // Deploy cost (Executable contract)
+  if (deployExec) {
+    cost += 20000; // min_txfee_deploy
+    // Executable::calc_cost = num_bytes * min_txfee_byte + depends.size * min_txfee_depend
+    let numBytes = 16; // Contract::num_bytes (base)
+    numBytes += (deployExec.name || "").length;
+    numBytes += (deployExec.symbol || "").length;
+    numBytes += getVariantNumBytes(deployExec.meta_data ?? null);
+    numBytes += 32; // binary (addr_t)
+    numBytes += (deployExec.init_method || "").length;
+    for (const arg of (deployExec.init_args || [])) {
+      numBytes += getVariantNumBytes(arg);
+    }
+    numBytes += (deployExec.depends || []).length * 32; // each depend value (addr_t)
+    for (const [key] of (deployExec.depends || [])) {
+      numBytes += key.length; // each depend key (string)
+    }
+    cost += numBytes * 100; // num_bytes * min_txfee_byte
+    cost += (deployExec.depends || []).length * 10000; // depends * min_txfee_depend
   }
   return cost;
 }
@@ -906,7 +925,7 @@ export async function makeOffer(bidCurrency, askCurrency, bidAmountSat, askAmoun
   const invPrice = bid256 / BigInt(askAmountSat);
   if (invPrice >> 128n) throw new Error("Price out of range");
   // Format as hex string "0x..." (uint128 hex, 32 chars)
-  const invPriceHex = "0x" + invPrice.toString(16).padStart(32, "0");
+  const invPriceHex = "0x" + invPrice.toString(16);
 
   // Build the Executable contract (offer template)
   const executable = {
@@ -956,7 +975,7 @@ export async function makeOffer(bidCurrency, askCurrency, bidAmountSat, askAmoun
     outputs: [],
     execute: [],
     deploy: { hash: deployHash, fullHash: deployFullHash },
-    static_cost: 60000,
+    static_cost: calcStaticCost(1, 0, null, 1, executable),
   };
 
   // For broadcast, deploy needs the full Executable object
@@ -1070,7 +1089,7 @@ export async function acceptOffer(offerAddr, askAmountSat) {
     }],
     execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
     deploy: null,
-    static_cost: 60000,
+    static_cost: calcStaticCost(1, 0, [deposit], 1),
   };
 
   // For broadcast, include the full deposit object
@@ -1158,7 +1177,7 @@ export async function cancelOffer(offerAddr) {
     outputs: [],
     execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
     deploy: null,
-    static_cost: 40000,  // base + 1 execute + 1 solution
+    static_cost: calcStaticCost(0, 0, [executeOp], 1),
   };
 
   const txId = calcTxId(tx);
