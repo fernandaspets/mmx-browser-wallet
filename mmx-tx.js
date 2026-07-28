@@ -303,4 +303,70 @@ export async function signTx(txHash, skey) {
   };
 }
 
-export { TX_NOTE, BinaryWriter };
+export { TX_NOTE, TX_NOTE_TRADE, BinaryWriter };
+
+// --- Operation hashes (for execute field) ---
+// Execute::calc_hash() = type_hash + version + address + method + args + user [+ solution if full_hash]
+const EXECUTE_TYPE_HASH = 0x8cd9012d9098c1d1n; // Hash64, 8 bytes LE
+// Deposit::calc_hash() = Execute fields + currency + amount [+ solution if full_hash]
+const DEPOSIT_TYPE_HASH = 0xc23408cb7b04b0ecn; // Hash64, 8 bytes LE
+
+// Compute hash of a Deposit operation (used in execute field of transactions)
+// deposit = { address: [32 bytes], method: string, args: [Variant], user: [32 bytes]|null, currency: [32 bytes], amount: uint128(16 bytes) }
+export function calcDepositHash(deposit, fullHash = false) {
+  const w = new BinaryWriter();
+  // type hash (Hash64, 8 bytes LE, no type tag)
+  w.writeUint64LE(DEPOSIT_TYPE_HASH);
+  // version (uint32, promoted to uint64)
+  w.writeField("version", () => w.writeUint32LE(deposit.version || 0));
+  // address (addr_t = bytes_t<32>)
+  w.writeField("address", () => w.writeBytesType(deposit.address || new Array(32).fill(0)));
+  // method (string)
+  w.writeField("method", () => w.writeString(deposit.method || ""));
+  // args (vector<Variant>)
+  w.writeField("args", () => {
+    w.writeVector(deposit.args || [], (arg) => writeVariant(w, arg));
+  });
+  // user (optional<addr_t>)
+  w.writeField("user", () => {
+    w.writeOptional(deposit.user, () => w.writeBytesType(deposit.user));
+  });
+  // currency (addr_t)
+  w.writeField("currency", () => w.writeBytesType(deposit.currency || new Array(32).fill(0)));
+  // amount (uint128 = 16 bytes LE)
+  w.writeField("amount", () => {
+    const v = deposit.amount;
+    if (Array.isArray(v) && v.length === 16) w.writeBytes(v);
+    else { const n = BigInt(v); for (let i = 0; i < 16; i++) w.writeByte(Number((n >> BigInt(i * 8)) & 0xFFn)); }
+  });
+  if (fullHash) {
+    w.writeField("solution", () => w.writeBytesType(new Array(32).fill(0)));
+  }
+  return Buffer.from(sha256(new Uint8Array(w.toBuffer())));
+}
+
+// Write a VNX Variant value for binary serialization
+// Variants can be: null, uint64, string, addr_t (32 bytes), etc.
+function writeVariant(w, val) {
+  if (val === null || val === undefined) {
+    w.writeCStr("null<>");
+  } else if (typeof val === "string") {
+    // Could be a bech32 address or a plain string
+    w.writeString(val);
+  } else if (typeof val === "number" || typeof val === "bigint") {
+    // uint64
+    w.writeUint64LE(val);
+  } else if (Array.isArray(val) && val.length === 32) {
+    // addr_t (bytes_t<32>)
+    w.writeBytesType(val);
+  } else if (Array.isArray(val) && val.length === 16) {
+    // uint128 (16 bytes LE)
+    w.writeBytes(val);
+  } else {
+    // Fallback: treat as string
+    w.writeString(String(val));
+  }
+}
+
+// --- Trade tx note ---
+const TX_NOTE_TRADE = 858544510; // tx_note_e::TRADE

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMX Swap</title>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+  :root {
+    --bg: #0d0f1a; --bg-card: rgba(255,255,255,0.03); --bg-input: rgba(0,0,0,0.3);
+    --border: rgba(255,255,255,0.08); --text: #e4e6ef; --text-muted: #8b8fa3;
+    --accent: #6c8aff; --accent-bg: rgba(108,138,255,0.1);
+    --success: #4caf50; --warning: #ffa726; --danger: #ef5350;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; min-height: 100vh; padding: 24px; }
+  .app { width: 100%; max-width: 480px; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .header h1 { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .badge { font-size: 11px; padding: 4px 10px; background: var(--accent-bg); border: 1px solid rgba(108,138,255,0.2); border-radius: 20px; color: var(--accent); }
+  .badge.connected { color: var(--success); border-color: rgba(76,175,80,0.2); background: rgba(76,175,80,0.08); }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; }
+
+  .swap-box { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .swap-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .swap-row { display: flex; gap: 8px; align-items: center; }
+  .swap-input { flex: 1; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 16px; font-family: monospace; }
+  .swap-input:focus { border-color: var(--accent); outline: none; }
+  .swap-select { padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; cursor: pointer; min-width: 100px; }
+
+  .swap-arrow { text-align: center; font-size: 20px; color: var(--text-muted); margin: 4px 0; cursor: pointer; }
+  .swap-arrow:hover { color: var(--accent); }
+
+  .info-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); padding: 4px 0; }
+  .info-row strong { color: var(--text); }
+
+  .btn { width: 100%; padding: 14px; border: none; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+
+  .status { font-size: 13px; min-height: 20px; margin: 8px 0; }
+  .status.success { color: var(--success); }
+  .status.error { color: var(--danger); }
+  .status.pending { color: var(--warning); }
+
+  .input { width: 100%; padding: 12px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; margin: 6px 0; }
+  .input:focus { border-color: var(--accent); outline: none; }
+
+  .pool-info { font-size: 12px; color: var(--text-muted); padding: 8px 12px; background: var(--accent-bg); border-radius: 8px; margin-bottom: 12px; }
+  .addr-box { font-family: monospace; font-size: 10px; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; word-break: break-all; margin: 6px 0; cursor: pointer; }
+  .addr-box:hover { border-color: var(--accent); }
+
+  .tx-link { font-family: monospace; font-size: 11px; color: var(--accent); text-decoration: none; word-break: break-all; }
+  .tx-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>🔄 MMX Swap</h1>
+    <div class="badge" id="statusBadge">checking...</div>
+  </div>
+
+  <!-- Unlock wallet -->
+  <div class="card" id="unlockCard">
+    <div id="walletSelect" style="display:none;margin-bottom:12px;">
+      <div class="swap-label">Select wallet:</div>
+      <select id="walletSelectBox" class="input" style="cursor:pointer;"></select>
+    </div>
+    <div id="unlockForm" style="display:none;">
+      <input type="password" class="input" id="unlockPass" placeholder="Wallet password" autocomplete="current-password">
+      <button class="btn btn-primary" id="unlockBtn" style="margin-top:8px;">🔓 Unlock Wallet</button>
+    </div>
+    <div id="noWalletMsg" style="display:none;">
+      <p style="color:var(--text-muted);font-size:13px;line-height:1.5;">
+        No wallet found. Create one at
+        <a href="../wallet.html" style="color:var(--accent);">wallet.html</a> first.
+      </p>
+    </div>
+  </div>
+
+  <!-- Swap UI -->
+  <div id="swapView" style="display:none;">
+    <div class="card">
+      <div class="addr-box" id="userAddr" onclick="copyAddr(this)">Loading...</div>
+      <div id="balances" style="margin:8px 0;font-size:12px;color:var(--text-muted);">Loading balances...</div>
+    </div>
+
+    <div class="card">
+      <!-- From -->
+      <div class="swap-box">
+        <div class="swap-label">From</div>
+        <div class="swap-row">
+          <input type="text" class="swap-input" id="fromAmount" placeholder="0.0" inputmode="decimal">
+          <select class="swap-select" id="fromToken"></select>
+        </div>
+      </div>
+
+      <!-- Flip -->
+      <div class="swap-arrow" id="flipBtn">⬇️</div>
+
+      <!-- To -->
+      <div class="swap-box">
+        <div class="swap-label">To (estimated)</div>
+        <div class="swap-row">
+          <input type="text" class="swap-input" id="toAmount" placeholder="0.0" readonly>
+          <select class="swap-select" id="toToken"></select>
+        </div>
+      </div>
+
+      <!-- Pool info -->
+      <div class="pool-info" id="poolInfo">Select tokens to find a pool...</div>
+
+      <!-- Price + slippage -->
+      <div style="margin-top:12px;">
+        <div class="info-row">
+          <span>Price</span>
+          <strong id="priceInfo">—</strong>
+        </div>
+        <div class="info-row">
+          <span>Slippage tolerance</span>
+          <strong>
+            <select id="slippageSelect" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:2px;">
+              <option value="0">0% (exact)</option>
+              <option value="1">1%</option>
+              <option value="5" selected>5%</option>
+              <option value="10">10%</option>
+            </select>
+          </strong>
+        </div>
+      </div>
+
+      <div class="status" id="swapStatus"></div>
+
+      <button class="btn btn-primary" id="swapBtn" disabled style="margin-top:12px;">🔄 Swap</button>
+
+      <div id="txSection" style="display:none;margin-top:12px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Transaction:</div>
+        <a class="tx-link" id="txLink" target="_blank" href="#"></a>
+      </div>
+    </div>
+
+    <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:16px;">
+      Powered by MMX public RPC · No server required · Keys never leave your browser
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as app from "../wallet-app.js";
+import * as store from "../wallet-store.js";
+import * as api from "../mmx-node-api.js";
+
+const RPC = "https://rpc.mmx.network";
+let userAddress = null;
+let pools = [];
+let balances = [];
+let currentPool = null;
+
+// === Init ===
+async function init() {
+  await app.init();
+
+  // Check for extension
+  if (typeof window.mmx !== "undefined" && window.mmx.isMMX) {
+    userAddress = await window.mmx.getAddress();
+    if (userAddress) {
+      document.getElementById("unlockCard").style.display = "none";
+      showSwapUI();
+      return;
+    }
+  }
+
+  // Standalone mode
+  const wallets = await store.getWallets();
+  if (wallets.length === 0) {
+    document.getElementById("noWalletMsg").style.display = "block";
+    document.getElementById("walletSelect").style.display = "none";
+    document.getElementById("unlockForm").style.display = "none";
+    document.getElementById("statusBadge").textContent = "no wallet";
+    document.getElementById("statusBadge").style.color = "var(--danger)";
+    return;
+  }
+
+  const select = document.getElementById("walletSelectBox");
+  select.innerHTML = "";
+  const activeId = await store.getActiveWalletId();
+  for (const w of wallets) {
+    const opt = document.createElement("option");
+    opt.value = w.id;
+    opt.textContent = `${w.name} (${w.address.substring(0,12)}...)`;
+    if (w.id === activeId) opt.selected = true;
+    select.appendChild(opt);
+  }
+  document.getElementById("walletSelect").style.display = "block";
+  document.getElementById("unlockForm").style.display = "block";
+
+  document.getElementById("unlockBtn").onclick = async () => {
+    const pass = document.getElementById("unlockPass").value;
+    if (!pass) return;
+    document.getElementById("unlockBtn").disabled = true;
+    try {
+      const wallet = await app.unlockWallet(select.value, pass);
+      userAddress = wallet.address;
+      document.getElementById("unlockPass").value = "";
+      showSwapUI();
+    } catch {
+      document.getElementById("unlockBtn").disabled = false;
+      const btn = document.getElementById("unlockBtn");
+      btn.textContent = "❌ Wrong password";
+      btn.style.background = "var(--danger)";
+      setTimeout(() => { btn.textContent = "🔓 Unlock Wallet"; btn.style.background = ""; }, 1500);
+    }
+  };
+}
+
+async function showSwapUI() {
+  document.getElementById("unlockCard").style.display = "none";
+  document.getElementById("swapView").style.display = "block";
+  document.getElementById("statusBadge").textContent = "unlocked";
+  document.getElementById("statusBadge").classList.add("connected");
+  document.getElementById("userAddr").textContent = userAddress;
+
+  // Load pools and balances
+  await loadPools();
+  await loadBalances();
+  updateTokenSelectors();
+}
+
+// === Load swap pools ===
+async function loadPools() {
+  try {
+    pools = await api.getSwapList(50);
+  } catch {
+    pools = [];
+  }
+}
+
+// === Load user balances ===
+async function loadBalances() {
+  try {
+    balances = await app.fetchBalance();
+    const balHtml = balances.map(b => `${app.escapeHtml(b.symbol)}: ${app.escapeHtml(b.spendable)}`).join(" · ");
+    document.getElementById("balances").textContent = balHtml || "No balances";
+  } catch {
+    document.getElementById("balances").textContent = "Could not load balances";
+  }
+}
+
+// === Token selectors ===
+function updateTokenSelectors() {
+  const fromSel = document.getElementById("fromToken");
+  const toSel = document.getElementById("toToken");
+  fromSel.innerHTML = "";
+  toSel.innerHTML = "";
+
+  // Collect all unique tokens from pools
+  const tokenSet = new Map(); // addr -> symbol
+  for (const pool of pools) {
+    try {
+      const info = pool; // pool from swap/list already has token info
+      if (info.tokens) {
+        for (const token of info.tokens) {
+          if (token && token.address) {
+            tokenSet.set(token.address, token.symbol || token.address.substring(0,10));
+          }
+        }
+      }
+    } catch {}
+  }
+  // Also add MMX (native)
+  tokenSet.set("mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev", "MMX");
+
+  for (const [addr, symbol] of tokenSet) {
+    const opt1 = document.createElement("option");
+    opt1.value = addr;
+    opt1.textContent = symbol;
+    fromSel.appendChild(opt1);
+
+    const opt2 = document.createElement("option");
+    opt2.value = addr;
+    opt2.textContent = symbol;
+    toSel.appendChild(opt2);
+  }
+
+  // Default: first two tokens
+  if (tokenSet.size >= 2) {
+    const addrs = Array.from(tokenSet.keys());
+    fromSel.value = addrs[0];
+    toSel.value = addrs[1];
+  }
+
+  fromSel.onchange = () => { findPool(); estimateTrade(); };
+  toSel.onchange = () => { findPool(); estimateTrade(); };
+  document.getElementById("fromAmount").oninput = () => estimateTrade();
+  document.getElementById("flipBtn").onclick = () => {
+    const f = fromSel.value;
+    fromSel.value = toSel.value;
+    toSel.value = f;
+    findPool();
+    estimateTrade();
+  };
+
+  findPool();
+}
+
+// === Find the pool for selected token pair ===
+function findPool() {
+  const fromAddr = document.getElementById("fromToken").value;
+  const toAddr = document.getElementById("toToken").value;
+  if (!fromAddr || !toAddr || fromAddr === toAddr) {
+    currentPool = null;
+    document.getElementById("poolInfo").textContent = "Select two different tokens";
+    document.getElementById("swapBtn").disabled = true;
+    return;
+  }
+
+  // Find pool that contains both tokens
+  for (const pool of pools) {
+    const tokens = pool.tokens || [];
+    const hasFrom = tokens.some(t => t && t.address === fromAddr);
+    const hasTo = tokens.some(t => t && t.address === toAddr);
+    if (hasFrom && hasTo) {
+      currentPool = pool;
+      const fromSymbol = tokens.find(t => t.address === fromAddr)?.symbol || "?";
+      const toSymbol = tokens.find(t => t.address === toAddr)?.symbol || "?";
+      const bal0 = tokens[0]?.balance || 0;
+      const bal1 = tokens[1]?.balance || 0;
+      document.getElementById("poolInfo").textContent =
+        `Pool: ${app.escapeHtml(fromSymbol)}/${app.escapeHtml(toSymbol)} · Reserves: ${app.escapeHtml(String(bal0))} / ${app.escapeHtml(String(bal1))}`;
+      document.getElementById("swapBtn").disabled = false;
+      return;
+    }
+  }
+
+  currentPool = null;
+  document.getElementById("poolInfo").textContent = "No pool found for this pair";
+  document.getElementById("swapBtn").disabled = true;
+}
+
+// === Estimate trade output ===
+async function estimateTrade() {
+  const fromAddr = document.getElementById("fromToken").value;
+  const toAddr = document.getElementById("toToken").value;
+  const amountStr = document.getElementById("fromAmount").value;
+  if (!amountStr || !currentPool) {
+    document.getElementById("toAmount").value = "";
+    document.getElementById("priceInfo").textContent = "—";
+    return;
+  }
+
+  // Determine token index (0 or 1)
+  const tokens = currentPool.tokens || [];
+  const fromIndex = tokens.findIndex(t => t && t.address === fromAddr);
+  if (fromIndex < 0) return;
+
+  // Get decimals for the from token
+  const fromDecimals = tokens[fromIndex]?.decimals || 0;
+  const amountSat = app.mmxToSat(amountStr, fromDecimals);
+
+  try {
+    const estimate = await api.getSwapTradeEstimate(currentPool.address, fromIndex, amountStr, 1);
+    const outAmount = estimate.output || estimate.amount || 0;
+    const toIndex = fromIndex === 0 ? 1 : 0;
+    const toDecimals = tokens[toIndex]?.decimals || 0;
+
+    // Format output
+    const outSat = BigInt(Math.floor(parseFloat(outAmount) * Math.pow(10, toDecimals)));
+    document.getElementById("toAmount").value = app.formatAmount(outSat, toDecimals);
+
+    // Price
+    const price = parseFloat(outAmount) / parseFloat(amountStr);
+    const fromSymbol = tokens[fromIndex]?.symbol || "?";
+    const toSymbol = tokens[toIndex]?.symbol || "?";
+    document.getElementById("priceInfo").textContent =
+      `1 ${fromSymbol} = ${price.toFixed(6)} ${toSymbol}`;
+  } catch (e) {
+    document.getElementById("toAmount").value = "";
+    document.getElementById("priceInfo").textContent = "Estimate failed";
+  }
+}
+
+// === Execute swap ===
+async function executeSwap() {
+  const btn = document.getElementById("swapBtn");
+  const status = document.getElementById("swapStatus");
+  const fromAddr = document.getElementById("fromToken").value;
+  const amountStr = document.getElementById("fromAmount").value;
+
+  if (!amountStr || !currentPool) return;
+
+  const tokens = currentPool.tokens || [];
+  const fromIndex = tokens.findIndex(t => t && t.address === fromAddr);
+  if (fromIndex < 0) return;
+
+  const fromDecimals = tokens[fromIndex]?.decimals || 0;
+  const amountSat = app.mmxToSat(amountStr, fromDecimals);
+
+  // Calculate min trade (slippage protection)
+  const slippage = parseInt(document.getElementById("slippageSelect").value);
+  let minTradeSat = 0;
+  if (slippage > 0) {
+    try {
+      const estimate = await api.getSwapTradeEstimate(currentPool.address, fromIndex, amountStr, 1);
+      const estAmount = BigInt(Math.floor(parseFloat(estimate.output || estimate.amount || 0) * Math.pow(10, tokens[fromIndex === 0 ? 1 : 0]?.decimals || 0)));
+      minTradeSat = estAmount * BigInt(100 - slippage) / BigInt(100);
+    } catch {}
+  }
+
+  btn.disabled = true;
+  status.className = "status pending";
+  status.textContent = "Building swap transaction...";
+
+  try {
+    // Use extension if available, otherwise wallet-app.js directly
+    let result;
+    if (typeof window.mmx !== "undefined" && window.mmx.isMMX && window.mmx.send) {
+      // Extension mode — need to build deposit tx via sign_transaction
+      // For now, standalone mode is the primary path
+      throw new Error("Extension swap not yet supported, use standalone mode");
+    }
+
+    // Standalone: call swapTrade directly
+    result = await app.swapTrade(
+      currentPool.address,
+      fromIndex,
+      amountSat,
+      fromAddr,
+      minTradeSat,
+      1 // num_iter = 1
+    );
+
+    status.className = "status success";
+    status.textContent = `✅ Swap sent! Fee: ${result.fee_value} MMX`;
+
+    document.getElementById("txSection").style.display = "block";
+    const txLink = document.getElementById("txLink");
+    txLink.href = `https://explore.mmx.network/#/explore/transaction/${result.txid}`;
+    txLink.textContent = result.txid;
+
+    // Refresh balances
+    setTimeout(() => loadBalances(), 3000);
+  } catch (e) {
+    status.className = "status error";
+    status.textContent = e.message || "Swap failed";
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("swapBtn").onclick = executeSwap;
+
+// === Helpers ===
+window.copyAddr = function(el) {
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const orig = el.style.borderColor;
+    el.style.borderColor = "var(--success)";
+    setTimeout(() => { el.style.borderColor = orig; }, 1000);
+  });
+};
+
+// Listen for extension
+window.addEventListener("mmx#initialized", init);
+window.addEventListener("mmx#extension-ready", init);
+
+init();
+</script>
+</body>
+</html>

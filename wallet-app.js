@@ -19,7 +19,7 @@ import { bech32m } from "./lib/bech32-esm.js";
 import "./lib/buffer-esm.js";
 import * as store from "./wallet-store.js";
 import * as api from "./mmx-node-api.js";
-import { calcTxId, calcContentHash, signTx, TX_NOTE } from "./mmx-tx.js";
+import { calcTxId, calcContentHash, signTx, TX_NOTE, calcDepositHash, TX_NOTE_TRADE } from "./mmx-tx.js";
 // Configure secp256k1
 secp.hashes.sha256 = (data) => sha256(data);
 secp.hashes.hmacSha256 = (key, data) => sha256(Buffer.concat([Buffer.from(key), Buffer.from(data)]));
@@ -586,3 +586,142 @@ export async function addContact(name, address) { return store.addContact(name, 
 export async function deleteContact(id) { return store.deleteContact(id); }
 export async function findContactByAddress(address) { return store.findContactByAddress(address); }
 export async function autoTrackAddress(address, defaultName) { return store.autoTrackAddress(address, defaultName); }
+
+// --- Swap trade ---
+// Builds a Deposit operation transaction to trade on a swap pool.
+// swapAddr: the swap pool contract address
+// tokenIndex: 0 or 1 (which token to sell)
+// amountSat: amount in smallest units (satoshis)
+// currencyContract: the token contract address being sold
+// minTradeSat: minimum output in smallest units (slippage protection, 0 = no min)
+// numIter: iterations (1 = simple, 20 = default in MMX wallet)
+
+export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContract, minTradeSat = 0, numIter = 1) {
+  if (!unlockedSeed) throw new Error("Wallet is locked");
+
+  const { skey, addrHash } = deriveKeypair(unlockedSeed, "", 0, 0);
+  const fromAddrBytes = Array.from(addrHash);
+  const userAddrStr = hashToAddress(addrHash);
+
+  // Parse swap contract address
+  const { words: swWords } = bech32m.decode(swapAddr);
+  const swBytesBE = bech32m.fromWords(swWords);
+  const swapAddrBytes = Array.from(Buffer.from(swBytesBE).reverse());
+
+  // Parse currency contract address
+  let currencyBytes = new Array(32).fill(0);
+  if (currencyContract && currencyContract !== "mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev") {
+    const { words: cw } = bech32m.decode(currencyContract);
+    const cBytesBE = bech32m.fromWords(cw);
+    currencyBytes = Array.from(Buffer.from(cBytesBE).reverse());
+  }
+
+  // Build the Deposit operation
+  // trade(i, address, min_trade, num_iter) — address is user's address (bech32 string)
+  const deposit = {
+    __type: "mmx.operation.Deposit",
+    version: 0,
+    address: swapAddrBytes,
+    method: "trade",
+    args: [
+      tokenIndex,                                    // i: which token to sell
+      userAddrStr,                                    // address: where to send output
+      minTradeSat > 0 ? BigInt(minTradeSat).toString() : null, // min_trade (optional)
+      numIter,                                        // num_iter
+    ],
+    user: fromAddrBytes,                              // user: caller address
+    currency: currencyBytes,                         // currency being deposited
+    amount: uint128LE(amountSat),                    // amount being deposited
+  };
+
+  // Compute the operation hash for the tx hash
+  const opHash = calcDepositHash(deposit, false);
+
+  // Get height for expires
+  const height = await api.getHeight();
+  const expires = height + 100;
+
+  // Nonce
+  const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
+  let nonce = 0n;
+  for (let i = 0; i < 8; i++) nonce |= BigInt(nonceBytes[i]) << BigInt(i * 8);
+  if (nonce === 0n) nonce = 1n;
+
+  // Static cost: base(20000) + 1 input(10000) + 1 output(10000) + 1 execute(10000) + 1 solution(10000)
+  // Contract execution costs more but the node calculates actual cost during validation
+  const staticCost = 60000;
+
+  const tx = {
+    version: 0,
+    expires,
+    fee_ratio: 1024,
+    max_fee_amount: 5040000,
+    note: TX_NOTE_TRADE,
+    nonce,
+    network: "mainnet",
+    sender: fromAddrBytes,
+    inputs: [{
+      address: fromAddrBytes,
+      contract: currencyBytes,
+      amount: uint128LE(amountSat),
+      memo: null,
+      solution: 0,
+      flags: 0,
+    }],
+    outputs: [{
+      address: swapAddrBytes,
+      contract: currencyBytes,
+      amount: uint128LE(amountSat),
+      memo: null,
+    }],
+    execute: [Array.from(opHash)],
+    deploy: null,
+    static_cost: staticCost,
+  };
+
+  // Compute tx id
+  const txId = calcTxId(tx);
+
+  // Sign
+  const solution = await signTx(txId, skey);
+  tx.solutions = [solution];
+
+  // Compute content hash
+  const contentHash = calcContentHash(tx);
+
+  // Build VNX object for broadcast
+  const txObj = {
+    __type: "mmx.Transaction",
+    version: tx.version,
+    expires: tx.expires,
+    fee_ratio: tx.fee_ratio,
+    max_fee_amount: tx.max_fee_amount,
+    note: tx.note,
+    nonce: tx.nonce.toString(),
+    network: tx.network,
+    sender: tx.sender,
+    inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
+    outputs: tx.outputs.map(o => ({ ...o, __type: "mmx.txout_t" })),
+    execute: [deposit], // Full deposit object for the node to deserialize
+    deploy: null,
+    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
+    static_cost: tx.static_cost,
+    id: Array.from(txId),
+    content_hash: Array.from(contentHash),
+  };
+
+  // Dry-run: validate to get actual fee
+  const result = await api.validateTransaction(txObj);
+  if (result.did_fail) throw new Error("Swap trade validation failed: " + (result.error || "unknown"));
+
+  // Broadcast
+  await api.broadcastTransaction(txObj);
+
+  skey.fill(0);
+
+  return {
+    txid: Buffer.from(txId).toString("hex").toUpperCase(),
+    fee: result.total_fee || staticCost,
+    fee_value: (result.total_fee || staticCost) / 1e6,
+  };
+}
