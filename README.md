@@ -4,6 +4,10 @@ A lightweight, fully browser-based wallet for the [MMX](https://github.com/madMA
 
 Works as both a **browser extension** (Firefox/Chrome) and a **web page**.
 
+## Security
+
+Key security hardening contributions by [ARTTOO](https://github.com/ARTTOO) — prototype pollution fix (IIFE closure), MV3 service worker persistence (`storage.session` + `alarms`), instant dApp toggle, listener leak fix, and concurrent request isolation.
+
 ## Features
 
 - **Create wallet** — generates keys locally, encrypts with password (AES-GCM + PBKDF2)
