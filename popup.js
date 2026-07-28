@@ -112,6 +112,8 @@ async function checkPendingDapp() {
         _br.storage.local.set({ mmx_dapp_permissions: perms });
         _br.storage.local.remove("mmx_pending_dapp");
         _br.action.setBadgeText({ text: "" });
+        // Notify content.js that user denied — clean up listener
+        _br.runtime.sendMessage({ type: "DAPP_DENIED", origin: pending.origin });
         notice.style.display = "none";
         showView("dashboardView");
       };
@@ -1121,7 +1123,7 @@ async function initDappToggle() {
       try {
         const resp = await bgSend({ type: "DAPP_ENABLE" });
         if (resp?.ok) {
-          status.textContent = "✅ dApp enabled. Reload open tabs to activate.";
+          status.textContent = "✅ dApp enabled. window.mmx injected into open tabs.";
           status.className = "status success";
           updateUI(true);
         } else {
@@ -1139,7 +1141,7 @@ async function initDappToggle() {
       status.className = "status";
       try {
         await bgSend({ type: "DAPP_DISABLE" });
-        status.textContent = "✅ dApp disabled. Reload open tabs to remove.";
+        status.textContent = "✅ dApp disabled. window.mmx removed from open tabs.";
         status.className = "status success";
         updateUI(false);
       } catch (e) {

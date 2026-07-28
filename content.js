@@ -113,10 +113,12 @@ window.addEventListener('message', async (event) => {
       }
       respondToPage(id, { address: null, error: 'Approval required. Open the MMX wallet extension popup to approve.' });
       
-      // Listen for approval
+      // Listen for approval or denial
       const approvalListener = (msg) => {
-        if (msg && msg.type === 'DAPP_APPROVED' && msg.origin === origin) {
+        if (!msg || msg.origin !== origin) return;
+        if (msg.type === 'DAPP_APPROVED') {
           _browser.runtime.onMessage.removeListener(approvalListener);
+          clearTimeout(approvalTimeout);
           // After approval, re-handle the request (will now go through the approved path)
           if (type === 'MMX_GET_NETWORK') {
             respondToPage(id, { network: 'MMX/mainnet' });
@@ -143,9 +145,45 @@ window.addEventListener('message', async (event) => {
           }
           _browser.storage.local.remove('mmx_pending_dapp');
           if (_browser.action) _browser.action.setBadgeText({ text: '' });
+        } else if (msg.type === 'DAPP_DENIED') {
+          // User clicked Deny — clean up listener
+          _browser.runtime.onMessage.removeListener(approvalListener);
+          clearTimeout(approvalTimeout);
+          _browser.storage.local.remove('mmx_pending_dapp');
+          if (_browser.action) _browser.action.setBadgeText({ text: '' });
         }
       };
+      // Auto-cleanup after 5 minutes (user dismissed popup without choosing)
+      const approvalTimeout = setTimeout(() => {
+        _browser.runtime.onMessage.removeListener(approvalListener);
+      }, 300000);
       _browser.runtime.onMessage.addListener(approvalListener);
+    }
+  }
+});
+
+// --- Instant deactivation (Toggle OFF) ---
+// When user toggles off, background sets mmx_dapp_enabled=false in storage.
+// We detect this via storage.onChanged and dispatch MMX_DEACTIVATE into the page
+// so inject.js can nullify window.mmx. No "tabs" permission needed.
+_browser.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+  if (changes.mmx_dapp_enabled && changes.mmx_dapp_enabled.newValue === false) {
+    window.dispatchEvent(new CustomEvent('MMX_DEACTIVATE'));
+  }
+});
+
+// --- Instant activation (Toggle ON) ---
+// Background sends DAPP_ACTIVATE to all open tabs. We inject inject.js
+// into this tab if it hasn't been injected yet.
+_browser.runtime.onMessage.addListener((message) => {
+  if (message && message.type === 'DAPP_ACTIVATE') {
+    // Only inject if window.mmx doesn't exist yet (don't double-inject)
+    if (typeof window.mmx === 'undefined') {
+      const script = document.createElement('script');
+      script.src = (typeof browser !== 'undefined' ? browser.runtime : chrome.runtime).getURL('inject.js');
+      script.onload = function() { script.remove(); };
+      (document.head || document.documentElement).appendChild(script);
     }
   }
 });

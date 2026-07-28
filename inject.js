@@ -117,4 +117,13 @@
   };
 
   window.dispatchEvent(new CustomEvent('mmx#initialized'));
+
+  // --- Instant deactivation (Toggle OFF) ---
+  // When user toggles off, content.js dispatches MMX_DEACTIVATE.
+  // We nullify the APIs so dApps immediately see the wallet is gone.
+  window.addEventListener('MMX_DEACTIVATE', () => {
+    try { delete window.mmx; } catch { window.mmx = undefined; }
+    try { delete window.mmx_wallet; } catch { window.mmx_wallet = undefined; }
+    window.dispatchEvent(new CustomEvent('mmx#deactivated'));
+  });
 })();

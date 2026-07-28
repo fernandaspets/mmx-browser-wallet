@@ -185,6 +185,14 @@ _browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       runAt: "document_start"
     }]).then(() => {
       _browser.storage.local.set({ mmx_dapp_enabled: true });
+      // Instant activation: inject content.js into all open tabs
+      _browser.tabs.query({}).then(tabs => {
+        for (const tab of tabs) {
+          if (tab.id) {
+            _browser.tabs.sendMessage(tab.id, { type: "DAPP_ACTIVATE" }).catch(() => {});
+          }
+        }
+      }).catch(() => {});
       sendResponse({ ok: true });
     }).catch(e => {
       sendResponse({ ok: false, error: e.message });
