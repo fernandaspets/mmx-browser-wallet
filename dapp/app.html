@@ -634,24 +634,38 @@ async function loadOffers() {
       api.getOffers(askCur, bidCur, 100),  // people offering askCur to buy bidCur
     ]);
 
-    // Normalize: price = how much askCur per 1 bidCur
-    // For bids (bid=bidCur, ask=askCur): display_price = askCur/bidCur → use directly
-    // For asks (bid=askCur, ask=bidCur): display_price = bidCur/askCur → invert to get askCur/bidCur
-    const bids = (bidsRaw || []).filter(o => (o.bid_balance_value || 0) > 0).map(o => ({
-      addr: o.address, owner: o.owner,
-      price: parseFloat(o.display_price) || 0,  // askCur per bidCur
-      size: o.bid_balance_value || 0,  // how much bidCur available
-      askCurrency: o.ask_currency, askSymbol: o.ask_symbol || '?', askDecimals: o.ask_decimals || 0,
-      invPrice: o.inv_price,
-    })).sort((a, b) => b.price - a.price);  // bids: highest price first
+    // Normalize: price = bidCur per askCur (e.g. MMX per TRAIL)
+    // BIDS (bid=bidCur, ask=askCur): people offering bidCur to buy askCur
+    //   display_price = askCur/bidCur → price = 1/display_price = bidCur/askCur
+    //   size = bid_balance (in bidCur), convert to askCur available = bid_balance * display_price
+    const bids = (bidsRaw || []).filter(o => (o.bid_balance_value || 0) > 0).map(o => {
+      const dp = parseFloat(o.display_price) || 0;
+      const price = dp > 0 ? 1 / dp : 0;  // bidCur per askCur
+      const sizeAsk = (o.bid_balance_value || 0) * dp;  // askCur available to buy
+      return {
+        addr: o.address, owner: o.owner,
+        price: price,
+        sizeAsk: sizeAsk,  // how much askCur you can get
+        sizeBid: o.bid_balance_value || 0,  // how much bidCur is funded
+        askCurrency: o.ask_currency, askSymbol: o.ask_symbol || '?', askDecimals: o.ask_decimals || 0,
+        invPrice: o.inv_price,
+      };
+    }).filter(o => o.price > 0 && isFinite(o.price)).sort((a, b) => b.price - a.price);  // bids: highest price first
 
-    const asks = (asksRaw || []).filter(o => (o.bid_balance_value || 0) > 0).map(o => ({
-      addr: o.address, owner: o.owner,
-      price: 1 / (parseFloat(o.display_price) || 0),  // invert: askCur per bidCur
-      size: o.bid_balance_value || 0,  // how much askCur available (the bid side of this offer)
-      askCurrency: o.ask_currency, askSymbol: o.ask_symbol || '?', askDecimals: o.ask_decimals || 0,
-      invPrice: o.inv_price,
-    })).filter(o => o.price > 0 && isFinite(o.price)).sort((a, b) => a.price - b.price);  // asks: lowest price first
+    // ASKS (bid=askCur, ask=bidCur): people offering askCur to sell for bidCur
+    //   display_price = bidCur/askCur → price = display_price (already bidCur/askCur)
+    //   size = bid_balance (in askCur) = how much askCur is for sale
+    const asks = (asksRaw || []).filter(o => (o.bid_balance_value || 0) > 0).map(o => {
+      const dp = parseFloat(o.display_price) || 0;
+      return {
+        addr: o.address, owner: o.owner,
+        price: dp,  // bidCur per askCur
+        sizeAsk: o.bid_balance_value || 0,  // how much askCur is for sale
+        sizeBid: (o.bid_balance_value || 0) * dp,  // bidCur they want
+        askCurrency: o.ask_currency, askSymbol: o.ask_symbol || '?', askDecimals: o.ask_decimals || 0,
+        invPrice: o.inv_price,
+      };
+    }).filter(o => o.price > 0 && isFinite(o.price)).sort((a, b) => a.price - b.price);  // asks: lowest price first
 
     // Spread
     const bestBid = bids.length ? bids[0].price : null;
@@ -659,20 +673,21 @@ async function loadOffers() {
     if (bestBid && bestAsk) {
       const spread = bestAsk - bestBid;
       const spreadPct = (spread / bestBid * 100);
-      spreadEl.innerHTML = `Spread: <b style="color:var(--success)">${spread.toFixed(2)} ${askSym}</b> (${spreadPct.toFixed(1)}%) · Best bid: ${bestBid.toFixed(2)} · Best ask: ${bestAsk.toFixed(2)}`;
+      spreadEl.innerHTML = `Spread: <b style="color:var(--success)">${spread.toFixed(2)} ${bidSym}</b> (${spreadPct.toFixed(1)}%) · Best bid: ${bestBid.toFixed(2)} · Best ask: ${bestAsk.toFixed(2)}`;
     } else if (bestBid) {
-      spreadEl.innerHTML = `Best bid: ${bestBid.toFixed(2)} ${askSym}/${bidSym} · No asks`;
+      spreadEl.innerHTML = `Best bid: ${bestBid.toFixed(2)} ${bidSym}/${askSym} · No asks`;
     } else if (bestAsk) {
-      spreadEl.innerHTML = `Best ask: ${bestAsk.toFixed(2)} ${askSym}/${bidSym} · No bids`;
+      spreadEl.innerHTML = `Best ask: ${bestAsk.toFixed(2)} ${bidSym}/${askSym} · No bids`;
     } else {
       spreadEl.innerHTML = "No open offers for this pair";
     }
 
-    // Render order book: asks on top (reversed so lowest near spread), bids below
-    const renderLevel = (o, cls) => `<div class="row ${cls}" style="display:flex;justify-content:space-between;padding:4px 8px;border-bottom:1px solid var(--border);font-size:12px">
-      <span style="font-weight:600;min-width:60px">${o.price.toFixed(2)}</span>
-      <span style="flex:1;text-align:center">${o.size.toFixed(2)} ${cls === 'sell' ? askSym : bidSym}</span>
-      <button class="btn btn-primary" style="padding:1px 6px;font-size:10px" onclick="acceptOfferUI('${o.addr}','${escapeHtml(o.askCurrency)}','${escapeHtml(o.askSymbol)}',${o.askDecimals},'${o.invPrice}')">Buy</button>
+    // Render order book: asks on top (red, reversed so lowest near spread), bids below (green)
+    // Each row: price (bidCur per askCur) | askCur available | Accept button
+    const renderLevel = (o, cls) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-bottom:1px solid var(--border);font-size:12px">
+      <span style="font-weight:600;min-width:50px;color:${cls === 'sell' ? 'var(--danger)' : 'var(--success)'}">${o.price.toFixed(2)}</span>
+      <span style="flex:1;text-align:center;color:var(--text-muted)">${o.sizeAsk.toFixed(2)} ${askSym}</span>
+      <button class="btn" style="padding:1px 6px;font-size:10px;color:${cls === 'sell' ? 'var(--danger)' : 'var(--success)'};background:transparent;border:1px solid ${cls === 'sell' ? 'var(--danger)' : 'var(--success)'}" onclick="acceptOfferUI('${o.addr}','${escapeHtml(o.askCurrency)}','${escapeHtml(o.askSymbol)}',${o.askDecimals},'${o.invPrice}')">Accept</button>
     </div>`;
 
     let html = "";
