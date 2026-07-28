@@ -1,41 +1,104 @@
 /**
  * background.js — Background script for MMX wallet extension.
- * Handles communication between popup and content scripts (for dApp integration).
+ * Handles communication between popup, content scripts, and dApp integrations.
  * Wallet storage is handled by wallet-store.js (chrome.storage.local).
  *
- * SESSION PERSISTENCE:
- * The popup's JS context is destroyed when it closes. To avoid re-entering
- * the password on every popup reopen, the background holds the unlocked seed
- * in memory (not in persistent storage). The popup asks the background for
- * the session on open — if still valid, it restores without password entry.
+ * SESSION PERSISTENCE (MV3-compliant):
+ * In Chrome MV3, the service worker dies after ~30s of inactivity, wiping
+ * global variables. We use chrome.storage.session to persist the unlocked
+ * seed across SW sleep/wake cycles. storage.session is volatile (in-memory
+ * only, cleared on browser close) — safer than storage.local for seeds.
+ *
+ * AUTO-LOCK:
+ * We use chrome.alarms instead of setTimeout. Alarms survive SW death —
+ * the browser wakes the SW to fire the alarm, ensuring auto-lock always
+ * works even if the SW was asleep.
+ *
+ * FALLBACK:
+ * For browsers without storage.session or alarms (older Firefox), we fall
+ * back to in-memory globals + setTimeout. This is less reliable but
+ * works in Firefox's event page model (which is more persistent than
+ * Chrome's service worker).
  */
 
 const _browser = typeof browser !== "undefined" ? browser : chrome;
 
-// --- Session state (lives in background, survives popup close/reopen) ---
-let sessionSeed = null;       // Array (serializable form of Uint8Array)
-let sessionWallet = null;    // wallet metadata object
-let autoLockTimer = null;
-const AUTO_LOCK_MS = 5 * 60 * 1000; // 5 minutes
+// --- Feature detection ---
+const hasSessionStorage = _browser.storage && _browser.storage.session;
+const hasAlarms = _browser.alarms;
 
-function resetAutoLock() {
-  if (autoLockTimer) clearTimeout(autoLockTimer);
-  if (sessionSeed) {
-    autoLockTimer = setTimeout(() => {
-      clearSession();
-    }, AUTO_LOCK_MS);
+// --- Constants ---
+const AUTO_LOCK_MINUTES = 5;           // for chrome.alarms
+const AUTO_LOCK_MS = 5 * 60 * 1000;   // for setTimeout fallback
+const ALARM_NAME = "mmx-auto-lock";
+
+// --- In-memory fallback (for browsers without storage.session) ---
+let _memSeed = null;
+let _memWallet = null;
+let autoLockTimer = null;
+
+// --- Session helpers ---
+
+async function getSession() {
+  if (hasSessionStorage) {
+    return new Promise(resolve => {
+      _browser.storage.session.get(["seed", "wallet"], resolve);
+    });
+  }
+  return { seed: _memSeed, wallet: _memWallet };
+}
+
+async function setSession(seed, wallet) {
+  if (hasSessionStorage) {
+    return new Promise(resolve => {
+      _browser.storage.session.set({ seed, wallet }, resolve);
+    });
+  }
+  _memSeed = seed;
+  _memWallet = wallet;
+}
+
+async function clearSession() {
+  if (hasSessionStorage) {
+    // Zero the seed before removing
+    const result = await new Promise(r => _browser.storage.session.get(["seed"], r));
+    if (result.seed && result.seed.fill) result.seed.fill(0);
+    await new Promise(resolve => {
+      _browser.storage.session.remove(["seed", "wallet"], resolve);
+    });
+  }
+  if (_memSeed && _memSeed.fill) _memSeed.fill(0);
+  _memSeed = null;
+  _memWallet = null;
+  if (autoLockTimer) { clearTimeout(autoLockTimer); autoLockTimer = null; }
+  if (hasAlarms) {
+    _browser.alarms.clear(ALARM_NAME).catch(() => {});
   }
 }
 
-function clearSession() {
-  if (sessionSeed && sessionSeed.fill) sessionSeed.fill(0);
-  sessionSeed = null;
-  sessionWallet = null;
-  if (autoLockTimer) { clearTimeout(autoLockTimer); autoLockTimer = null; }
+async function isSessionValid() {
+  const session = await getSession();
+  return session.seed != null && session.wallet != null;
 }
 
-function isSessionValid() {
-  return sessionSeed !== null && sessionWallet !== null;
+function resetAutoLock() {
+  if (hasAlarms) {
+    // chrome.alarms.create replaces any existing alarm with the same name
+    _browser.alarms.create(ALARM_NAME, { delayInMinutes: AUTO_LOCK_MINUTES });
+  } else {
+    // Fallback: setTimeout (not SW-survivable, but works in Firefox event page)
+    if (autoLockTimer) clearTimeout(autoLockTimer);
+    autoLockTimer = setTimeout(() => clearSession(), AUTO_LOCK_MS);
+  }
+}
+
+// --- Alarm listener (fires even after SW restart) ---
+if (hasAlarms) {
+  _browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === ALARM_NAME) {
+      clearSession();
+    }
+  });
 }
 
 // --- Message handler ---
@@ -44,38 +107,38 @@ _browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // --- Session management (popup ↔ background) ---
 
   if (message.type === "SESSION_SET") {
-    sessionSeed = message.seed;       // Array
-    sessionWallet = message.wallet;   // {id, name, address, ...}
-    resetAutoLock();
-    sendResponse({ ok: true });
-    return false;
+    setSession(message.seed, message.wallet).then(() => {
+      resetAutoLock();
+      sendResponse({ ok: true });
+    });
+    return true; // async
   }
 
   if (message.type === "SESSION_GET") {
-    // Any message resets the auto-lock timer (user is active)
-    if (isSessionValid()) {
-      resetAutoLock();
-      sendResponse({
-        seed: sessionSeed,
-        wallet: sessionWallet
-      });
-    } else {
-      sendResponse({ seed: null, wallet: null });
-    }
-    return false;
+    (async () => {
+      const session = await getSession();
+      if (session.seed != null && session.wallet != null) {
+        resetAutoLock();
+        sendResponse({ seed: session.seed, wallet: session.wallet });
+      } else {
+        sendResponse({ seed: null, wallet: null });
+      }
+    })();
+    return true; // async
   }
 
   if (message.type === "SESSION_CLEAR") {
-    clearSession();
-    sendResponse({ ok: true });
-    return false;
+    clearSession().then(() => sendResponse({ ok: true }));
+    return true; // async
   }
 
   if (message.type === "SESSION_PING") {
-    // Reset auto-lock without returning session data (activity signal)
-    if (isSessionValid()) resetAutoLock();
-    sendResponse({ valid: isSessionValid() });
-    return false;
+    (async () => {
+      const valid = await isSessionValid();
+      if (valid) resetAutoLock();
+      sendResponse({ valid });
+    })();
+    return true; // async
   }
 
   // --- dApp integration (content script → background) ---
