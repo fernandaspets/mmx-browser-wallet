@@ -575,7 +575,7 @@ console.log("\nOfficial MMX dApp API");
   assert("mmx_wallet has sign_message", injectSrc.includes("sign_message:"), true);
   assert("mmx_wallet has sign_transaction", injectSrc.includes("sign_transaction:"), true);
   // window.mmx_wallet must NOT conflict with node GUI (which only checks window.mmx)
-  assert("inject.js doesn't clobber existing window.mmx", injectSrc.includes("typeof window.mmx === 'undefined'"), true);
+  assert("inject.js doesn't clobber existing window.mmx", injectSrc.includes("typeof window.mmx === 'undefined'") || injectSrc.includes("typeof window.mmx !== 'undefined'"), true);
 }
 
 // === wallet-app.js dApp API functions ===

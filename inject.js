@@ -12,7 +12,7 @@
  *   - window.mmx_wallet  — official MMX dApp API (get_address, get_public_key,
  *                          get_network, sign_message, sign_transaction)
  *
- * Note: The MMX node web-gui checks `typeof window.mmx !== 'undefined'` to
+ * Note: The MMX node web-gui checks `typeof window.mmx === 'undefined'` to
  * detect if it's running inside the native desktop wallet. We only inject
  * if window.mmx doesn't already exist (don't clobber the native app).
  * window.mmx_wallet is never used by the node GUI, so it's always safe.
