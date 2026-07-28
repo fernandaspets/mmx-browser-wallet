@@ -629,16 +629,14 @@ async function loadOffers() {
       for (const o of offers) {
         const bidSym = escapeHtml(o.bid_symbol || "?");
         const askSym = escapeHtml(o.ask_symbol || "?");
-        const price = o.display_price ? o.display_price.toFixed(6) : "?";
+        const rawPrice = o.display_price || 0;
         const bidBal = o.bid_balance_value || 0;
         const askBal = o.ask_balance_value || 0;
         const owner = escapeHtml((o.owner || "").substring(0, 16) + "...");
         const addr = escapeHtml(o.address);
         const hasBalance = bidBal > 0;
         // display_price = ask/bid (how much ask you get per 1 bid unit)
-        // e.g. MMX→TRAIL: display_price=0.01 → "1 MMX = 0.01 TRAIL"
-        // e.g. TRAIL→MMX: display_price=110 → "1 TRAIL = 110 MMX"
-        const priceDisplay = price > 0 ? price.toFixed(6).replace(/\.?0+$/, "") : "?";
+        const priceDisplay = rawPrice > 0 ? String(rawPrice).replace(/\.?0+$/, "") : "?";
         html += `<div style="padding:8px;border-bottom:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div><b>Selling ${bidBal} ${bidSym}</b> for <b>${askSym}</b></div>
