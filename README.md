@@ -64,15 +64,17 @@ npm test    # 246 tests across 4 suites
 | [PRIVACY.md](PRIVACY.md) | Privacy policy (for store listing) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor guide |
 
-## Demo
+## TrailShare dApp
 
-Standalone demos are included in `demo/` — all run on public RPC, no server needed:
+The TrailShare dApp (`dapp/`) combines wallet, swap, and paywall in one tabbed UI — all standalone, no extension or server needed:
 
-| Demo | Description |
+| Page | Description |
 |---|---|
-| [`demo/paywall.html`](demo/paywall.html) | Crypto paywall — locked content unlocks on TRAIL payment via wallet extension |
-| [`demo/swap-pools.html`](demo/swap-pools.html) | Live swap pool explorer — reserves, prices, APY, trade estimator |
-| [`demo/offers.html`](demo/offers.html) | Live offer book — open offers, prices, owners, pair filters |
+| [`dapp/app.html`](dapp/app.html) | Unified app: wallet + swap + paywall (live at [fernandaspets.github.io/mmx-browser-wallet/dapp/app.html](https://fernandaspets.github.io/mmx-browser-wallet/dapp/app.html)) |
+| [`dapp/paywall.html`](dapp/paywall.html) | Standalone paywall — locked content unlocks on TRAIL payment |
+| [`dapp/swap.html`](dapp/swap.html) | Uniswap-style swap pool trading |
+| [`dapp/swap-pools.html`](dapp/swap-pools.html) | Live swap pool explorer — reserves, prices, trade estimator |
+| [`dapp/offers.html`](dapp/offers.html) | Live offer book — open offers, prices, pair filters |
 
 See [docs/PAYWALL-DEMO.md](docs/PAYWALL-DEMO.md) for the paywall guide.
 
