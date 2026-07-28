@@ -6,7 +6,7 @@
 <title>TrailShare — Unlock Content</title>
 <style>
   @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-  
+
   :root {
     --bg: #0d0f1a;
     --bg-card: rgba(255,255,255,0.03);
@@ -21,9 +21,9 @@
     --danger: #ef5350;
     --radius: 12px;
   }
-  
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  
+
   body {
     font-family: 'Inter', -apple-system, sans-serif;
     background: var(--bg);
@@ -33,9 +33,9 @@
     min-height: 100vh;
     padding: 24px;
   }
-  
+
   .app { width: 100%; max-width: 520px; }
-  
+
   .header {
     display: flex;
     justify-content: space-between;
@@ -52,7 +52,7 @@
     color: var(--accent);
   }
   .badge.connected { color: var(--success); border-color: rgba(76,175,80,0.2); background: rgba(76,175,80,0.08); }
-  
+
   .card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -61,7 +61,7 @@
     margin-bottom: 16px;
     text-align: center;
   }
-  
+
   .price-tag {
     font-size: 32px;
     font-weight: 700;
@@ -69,20 +69,20 @@
     margin: 8px 0;
   }
   .price-tag small { font-size: 16px; color: var(--text-muted); font-weight: 400; }
-  
+
   .content-preview {
     position: relative;
     margin: 20px 0;
     border-radius: var(--radius);
     overflow: hidden;
   }
-  
+
   .locked-svg {
     filter: blur(14px);
     transition: filter 1.5s ease;
   }
   .locked-svg.unlocked { filter: blur(0px); }
-  
+
   .lock-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -95,7 +95,7 @@
   }
   .lock-overlay.hidden { opacity: 0; pointer-events: none; }
   .lock-icon { font-size: 48px; }
-  
+
   .btn {
     width: 100%;
     padding: 14px;
@@ -112,7 +112,25 @@
   }
   .btn-primary:hover { opacity: 0.9; }
   .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-  
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .input {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    margin: 6px 0;
+  }
+  .input:focus { border-color: var(--accent); outline: none; }
+  .input::placeholder { color: var(--text-muted); }
+
   .status {
     font-size: 13px;
     color: var(--text-muted);
@@ -122,7 +140,7 @@
   .status.success { color: var(--success); }
   .status.error { color: var(--danger); }
   .status.pending { color: var(--warning); }
-  
+
   .info-box {
     background: rgba(108,138,255,0.06);
     border: 1px solid rgba(108,138,255,0.12);
@@ -134,7 +152,7 @@
     text-align: left;
   }
   .info-box strong { color: var(--accent); }
-  
+
   .addr-box {
     font-family: 'SF Mono', monospace;
     font-size: 11px;
@@ -148,7 +166,7 @@
     transition: border-color 0.2s;
   }
   .addr-box:hover { border-color: var(--accent); }
-  
+
   .tx-link {
     font-family: 'SF Mono', monospace;
     font-size: 11px;
@@ -157,7 +175,7 @@
     word-break: break-all;
   }
   .tx-link:hover { text-decoration: underline; }
-  
+
   .unlocked-banner {
     display: none;
     background: rgba(76,175,80,0.08);
@@ -168,15 +186,8 @@
     text-align: center;
   }
   .unlocked-banner.show { display: block; animation: fadeIn 0.5s; }
-  
+
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  
-  .no-wallet {
-    display: none;
-    text-align: center;
-    padding: 40px 20px;
-  }
-  .no-wallet.show { display: block; }
 </style>
 </head>
 <body>
@@ -185,41 +196,49 @@
     <h1>TrailShare Content</h1>
     <div class="badge" id="statusBadge">checking...</div>
   </div>
-  
-  <!-- No wallet detected -->
-  <div class="no-wallet" id="noWallet">
-    <div class="card">
-      <div style="font-size:48px;margin-bottom:16px;">🔌</div>
-      <h2 style="font-size:18px;margin-bottom:8px;">MMX Wallet Not Detected</h2>
-      <p style="color:var(--text-muted);font-size:13px;line-height:1.5;margin-bottom:16px;">
-        Install the MMX Browser Wallet extension and unlock your wallet to access this content.
+
+  <!-- Unlock wallet (standalone — no extension needed) -->
+  <div class="card" id="unlockCard">
+    <h2 style="font-size:16px;margin-bottom:8px;">Pack Walk Content</h2>
+    <p style="color:var(--text-muted);font-size:13px;">Unlock the full pack walk animation</p>
+    <div class="price-tag">1 <small>TRAIL</small></div>
+
+    <div id="walletSelect" style="display:none;margin-top:16px;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">Select wallet:</div>
+      <select id="walletSelectBox" class="input" style="cursor:pointer;"></select>
+    </div>
+
+    <div id="unlockForm" style="display:none;margin-top:12px;">
+      <input type="password" class="input" id="unlockPass" placeholder="Wallet password" autocomplete="current-password">
+      <button class="btn btn-primary" id="unlockBtn" style="margin-top:8px;">🔓 Unlock Wallet</button>
+    </div>
+
+    <div id="noWalletMsg" style="display:none;margin-top:12px;">
+      <p style="color:var(--text-muted);font-size:13px;line-height:1.5;">
+        No wallet found on this device. Create one at
+        <a href="wallet.html" style="color:var(--accent);">wallet.html</a>
+        first, then come back here to unlock content.
       </p>
-      <a href="https://github.com/fernandaspets/mmx-browser-wallet" target="_blank" class="btn btn-primary" style="text-decoration:none;display:inline-block;width:auto;padding:12px 24px;">
-        Get MMX Wallet
-      </a>
     </div>
   </div>
-  
-  <!-- Wallet detected -->
+
+  <!-- Wallet ready — show payment UI -->
   <div id="walletView" style="display:none;">
     <div class="card">
-      <h2 style="font-size:16px;margin-bottom:8px;">Pack Walk Content</h2>
-      <p style="color:var(--text-muted);font-size:13px;">Unlock the full pack walk animation</p>
-      <div class="price-tag">1 <small>TRAIL</small></div>
-      
       <div class="info-box">
         <strong>Your wallet:</strong>
         <div class="addr-box" id="userAddr" onclick="copyAddr(this)">Loading...</div>
         <strong>Pay to (Morpheus):</strong>
         <div class="addr-box" id="payAddr" onclick="copyAddr(this)">mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5</div>
       </div>
+      <div id="trailBalance" style="font-size:13px;color:var(--text-muted);margin:8px 0;">Checking TRAIL balance...</div>
     </div>
-    
+
     <div class="unlocked-banner" id="unlockedBanner">
       <h2 style="color:var(--success);font-size:18px;">Content Unlocked!</h2>
       <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">Thanks for supporting TrailShare.</p>
     </div>
-    
+
     <div class="card">
       <div class="content-preview">
         <div class="locked-svg" id="svgContainer">
@@ -242,7 +261,7 @@
             <path d="M0,180 L80,120 L140,170 L200,110 L280,160 L340,120 L400,150 L400,180 Z" fill="#34495E" opacity="0.5"/>
             <rect y="180" width="400" height="70" fill="url(#ground)" rx="8"/>
             <path d="M0,200 Q100,195 200,200 T400,200" stroke="#D4A574" stroke-width="3" fill="none" opacity="0.4"/>
-            
+
             <g transform="translate(50,140)">
               <rect x="0" y="10" width="6" height="35" rx="3" fill="#3498DB"/>
               <circle cx="3" cy="5" r="8" fill="#F8C8A0"/>
@@ -255,7 +274,7 @@
               </line>
               <line x1="6" y1="20" x2="20" y2="25" stroke="#7F8C8D" stroke-width="2"/>
             </g>
-            
+
             <g transform="translate(75,150)">
               <ellipse cx="15" cy="20" rx="18" ry="10" fill="#8B4513"/>
               <circle cx="30" cy="15" r="9" fill="#A0522D"/>
@@ -266,14 +285,14 @@
               <line x1="0" y1="15" x2="-8" y2="8" stroke="#8B4513" stroke-width="4" stroke-linecap="round">
                 <animateTransform attributeName="transform" type="rotate" values="0 0 15;20 0 15;-20 0 15;0 0 15" dur="0.3s" repeatCount="indefinite"/>
               </line>
-              <line x1="8" y1="28" x2="6" y2="35" stroke="#6B3410" stroke-width="3" stroke-linecap="round">
+              <line x1="8" y1="28" x2="6" y2="35" stroke="#6B4226" stroke-width="3" stroke-linecap="round">
                 <animateTransform attributeName="transform" type="rotate" values="0 8 28;-10 8 28;0 8 28" dur="0.4s" repeatCount="indefinite"/>
               </line>
-              <line x1="20" y1="28" x2="22" y2="35" stroke="#6B3410" stroke-width="3" stroke-linecap="round">
+              <line x1="20" y1="28" x2="22" y2="35" stroke="#6B4226" stroke-width="3" stroke-linecap="round">
                 <animateTransform attributeName="transform" type="rotate" values="0 20 28;10 20 28;0 20 28" dur="0.4s" repeatCount="indefinite"/>
               </line>
             </g>
-            
+
             <g transform="translate(110,155)">
               <ellipse cx="10" cy="18" rx="12" ry="7" fill="#F4E1C1"/>
               <circle cx="20" cy="14" r="6" fill="#E8D5A8"/>
@@ -291,7 +310,7 @@
                 <animateTransform attributeName="transform" type="rotate" values="0 14 24;10 14 24;0 14 24" dur="0.35s" repeatCount="indefinite"/>
               </line>
             </g>
-            
+
             <g transform="translate(140,158)">
               <ellipse cx="7" cy="17" rx="8" ry="5" fill="#5C4033"/>
               <circle cx="14" cy="13" r="4" fill="#6B4226"/>
@@ -307,7 +326,7 @@
                 <animateTransform attributeName="transform" type="rotate" values="0 10 21;10 10 21;0 10 21" dur="0.3s" repeatCount="indefinite"/>
               </line>
             </g>
-            
+
             <g opacity="0.6">
               <path d="M250,40 Q255,35 260,40 Q265,35 270,40" stroke="#333" stroke-width="1.5" fill="none">
                 <animate attributeName="transform" type="translate" values="0,0;5,-3;0,0" dur="2s" repeatCount="indefinite"/>
@@ -316,7 +335,7 @@
                 <animate attributeName="transform" type="translate" values="0,0;-3,2;0,0" dur="2.5s" repeatCount="indefinite"/>
               </path>
             </g>
-            
+
             <g fill="#4A7C59" opacity="0.6">
               <path d="M10,210 L12,200 L14,210 L16,202 L18,210 Z"/>
               <path d="M380,212 L382,204 L384,212 L386,206 L388,212 Z"/>
@@ -329,182 +348,148 @@
           <div style="color:var(--text-muted);font-size:13px;">Content locked</div>
         </div>
       </div>
-      
+
       <div class="status" id="statusMsg"></div>
-      
-      <button class="btn btn-primary" id="payBtn" onclick="startPayment()">
+
+      <button class="btn btn-primary" id="payBtn" onclick="startPayment()" disabled>
         Unlock for 1 TRAIL
       </button>
-      
+
       <div id="txSection" style="display:none;margin-top:12px;">
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Payment TX:</div>
         <a class="tx-link" id="txLink" target="_blank" href="#"></a>
       </div>
     </div>
-    
+
     <div style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:16px;">
-      Powered by MMX public RPC · No server required
+      Powered by MMX public RPC · No server required · Keys never leave your browser
     </div>
   </div>
 </div>
 
-<script>
-// === Constants ===
-const RPC = "https://rpc.mmx.network";
+<!-- Wallet logic — standalone, no extension needed -->
+<script type="module">
+import * as app from "./wallet-app.js";
+import * as store from "./wallet-store.js";
+
 const MORPHEUS = "mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5";
 const TRAIL_CONTRACT = "mmx1q8cdxjwutex5t3s69d4nc0kdsvtcn2h207vcgvced78nzlvyh8mskhhgq7";
 const PRICE_TRAIL = 1;
 
-// === State ===
 let userAddress = null;
 let unlocked = false;
-let walletAPI = null;   // "mmx" (our extension) or "mmx_wallet" (official/native)
-
-// === Wallet detection — supports both window.mmx (our extension) and
-//     window.mmx_wallet (official API, native desktop wallet or our extension) ===
-
-function detectWallet() {
-  // Our extension: window.mmx with send() (simplest — handles build+sign+broadcast)
-  if (typeof window.mmx !== "undefined" && window.mmx.isMMX && window.mmx.send) {
-    return "mmx";
-  }
-  // Official API: window.mmx_wallet (native desktop wallet or our extension)
-  if (typeof window.mmx_wallet !== "undefined" && window.mmx_wallet.isMMX) {
-    return "mmx_wallet";
-  }
-  return null;
-}
-
-// === Get address — works with both APIs ===
-
-async function getAddress() {
-  if (walletAPI === "mmx") return await window.mmx.getAddress();
-  if (walletAPI === "mmx_wallet") return await window.mmx_wallet.get_address();
-  return null;
-}
-
-// === Get network — uses official API if available ===
-
-async function getNetwork() {
-  if (walletAPI === "mmx_wallet") {
-    try { return await window.mmx_wallet.get_network(); } catch {}
-  }
-  return "MMX/mainnet";
-}
-
-// === Send payment — two paths depending on wallet type ===
-
-async function sendPayment(to, amount, currency) {
-  if (walletAPI === "mmx") {
-    // Our extension: send() handles everything (build + sign + broadcast)
-    const result = await window.mmx.send({ to, amount: String(amount), currency });
-    return result?.txid || null;
-  }
-  
-  if (walletAPI === "mmx_wallet") {
-    // Official API: sign_transaction() returns signed tx, we broadcast via public RPC
-    const tx = buildTxObject(to, amount, currency);
-    const signedTx = await window.mmx_wallet.sign_transaction(tx);
-    if (!signedTx) return null; // user rejected
-    
-    // Broadcast the signed tx via public RPC
-    const resp = await fetch(`${RPC}/transaction/broadcast`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(signedTx),
-    });
-    if (!resp.ok) throw new Error(`Broadcast failed: ${resp.status}`);
-    
-    // The txid is in signedTx.id (array of bytes → hex)
-    if (signedTx.id) {
-      return signedTx.id.map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
-    }
-    return null;
-  }
-  
-  throw new Error("No wallet available");
-}
-
-// === Build a minimal transaction object for sign_transaction() ===
-
-function buildTxObject(to, amount, currency) {
-  const isNative = currency === "MMX";
-  const contract = isNative
-    ? "mmx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdgytev"
-    : TRAIL_CONTRACT;
-  
-  return {
-    __type: "mmx.Transaction",
-    version: 0,
-    expires: 0,          // wallet will fill with current height + 100
-    fee_ratio: 1024,
-    max_fee_amount: 5040000,
-    note: "TRANSFER",
-    nonce: "0",          // wallet will generate if 0
-    network: "mainnet",
-    sender: null,         // wallet will fill with user's address
-    inputs: [{
-      __type: "mmx.txin_t",
-      address: null,      // wallet fills sender
-      contract: null,     // wallet fills
-      amount: [amount, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], // uint128 LE
-      memo: null,
-      solution: 0,
-      flags: 0,
-    }],
-    outputs: [{
-      __type: "mmx.txout_t",
-      address: null,      // will be set from 'to' by wallet
-      contract: null,
-      amount: [amount, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-      memo: null,
-    }],
-    execute: [],
-    deploy: null,
-    static_cost: 50000,
-  };
-}
 
 // === Init ===
 
 async function init() {
-  await new Promise(r => setTimeout(r, 500));
-  
-  walletAPI = detectWallet();
-  
-  if (!walletAPI) {
-    document.getElementById("noWallet").classList.add("show");
+  await app.init();
+
+  // Check if extension is available (window.mmx injected)
+  if (typeof window.mmx !== "undefined" && window.mmx.isMMX && window.mmx.send) {
+    // Extension mode — use window.mmx directly
+    document.getElementById("unlockCard").style.display = "none";
+    document.getElementById("walletView").style.display = "block";
+    document.getElementById("statusBadge").textContent = "extension";
+    document.getElementById("statusBadge").classList.add("connected");
+
+    try {
+      userAddress = await window.mmx.getAddress();
+      if (!userAddress) {
+        document.getElementById("statusBadge").textContent = "wallet locked";
+        document.getElementById("userAddr").textContent = "Unlock your MMX wallet extension";
+        document.getElementById("payBtn").disabled = true;
+        setTimeout(init, 3000);
+        return;
+      }
+      document.getElementById("userAddr").textContent = userAddress;
+      document.getElementById("payBtn").disabled = false;
+      await checkTrailBalance();
+    } catch {
+      document.getElementById("userAddr").textContent = "Approve in MMX wallet extension";
+      setTimeout(init, 5000);
+    }
+    return;
+  }
+
+  // Standalone mode — check for wallets in localStorage
+  const wallets = await store.getWallets();
+  if (wallets.length === 0) {
+    document.getElementById("noWalletMsg").style.display = "block";
+    document.getElementById("unlockForm").style.display = "none";
+    document.getElementById("walletSelect").style.display = "none";
     document.getElementById("statusBadge").textContent = "no wallet";
     document.getElementById("statusBadge").style.color = "var(--danger)";
     return;
   }
-  
-  document.getElementById("walletView").style.display = "block";
-  document.getElementById("statusBadge").textContent = "wallet found";
-  document.getElementById("statusBadge").classList.add("connected");
-  
-  // Show network
-  const network = await getNetwork();
-  document.getElementById("statusBadge").textContent = network || "connected";
-  
-  try {
-    userAddress = await getAddress();
-    if (!userAddress) {
-      document.getElementById("statusBadge").textContent = "wallet locked";
-      document.getElementById("statusBadge").style.color = "var(--warning)";
-      document.getElementById("userAddr").textContent = "Wallet is locked. Unlock your MMX wallet.";
-      document.getElementById("payBtn").disabled = true;
-      setTimeout(init, 3000);
-      return;
+
+  // Show wallet selector
+  document.getElementById("walletSelect").style.display = "block";
+  const select = document.getElementById("walletSelectBox");
+  select.innerHTML = "";
+  const activeId = await store.getActiveWalletId();
+  for (const w of wallets) {
+    const opt = document.createElement("option");
+    opt.value = w.id;
+    opt.textContent = `${w.name} (${w.address.substring(0,12)}...)`;
+    if (w.id === activeId) opt.selected = true;
+    select.appendChild(opt);
+  }
+
+  document.getElementById("unlockForm").style.display = "block";
+  document.getElementById("statusBadge").textContent = "found " + wallets.length + " wallet(s)";
+
+  document.getElementById("unlockBtn").onclick = async () => {
+    const walletId = select.value;
+    const pass = document.getElementById("unlockPass").value;
+    if (!pass) return;
+
+    document.getElementById("unlockBtn").disabled = true;
+    try {
+      const wallet = await app.unlockWallet(walletId, pass);
+      userAddress = wallet.address;
+      document.getElementById("unlockCard").style.display = "none";
+      document.getElementById("walletView").style.display = "block";
+      document.getElementById("statusBadge").textContent = "unlocked";
+      document.getElementById("statusBadge").classList.add("connected");
+      document.getElementById("userAddr").textContent = userAddress;
+      document.getElementById("payBtn").disabled = false;
+      document.getElementById("unlockPass").value = "";
+      await checkTrailBalance();
+    } catch {
+      document.getElementById("unlockBtn").disabled = false;
+      const old = document.getElementById("unlockBtn").textContent;
+      document.getElementById("unlockBtn").textContent = "❌ Wrong password";
+      document.getElementById("unlockBtn").style.background = "var(--danger)";
+      setTimeout(() => {
+        document.getElementById("unlockBtn").textContent = old;
+        document.getElementById("unlockBtn").style.background = "";
+      }, 1500);
     }
-    document.getElementById("userAddr").textContent = userAddress;
-    document.getElementById("statusBadge").textContent = network || "connected";
-    document.getElementById("payBtn").disabled = false;
-  } catch (e) {
-    document.getElementById("userAddr").textContent = "Permission needed. Approve in MMX wallet.";
-    document.getElementById("payBtn").disabled = true;
-    setTimeout(init, 5000);
-    return;
+  };
+}
+
+// === Check TRAIL balance ===
+
+async function checkTrailBalance() {
+  try {
+    const balances = await app.fetchBalance();
+    const trail = balances.find(b => b.symbol === "TRAIL");
+    if (trail) {
+      document.getElementById("trailBalance").textContent =
+        `TRAIL balance: ${trail.spendable} (need ${PRICE_TRAIL})`;
+      if (trail.spendable < PRICE_TRAIL) {
+        document.getElementById("trailBalance").style.color = "var(--danger)";
+        document.getElementById("payBtn").disabled = true;
+        document.getElementById("payBtn").textContent = "Not enough TRAIL";
+      }
+    } else {
+      document.getElementById("trailBalance").textContent = "TRAIL balance: 0 (need " + PRICE_TRAIL + ")";
+      document.getElementById("trailBalance").style.color = "var(--danger)";
+      document.getElementById("payBtn").disabled = true;
+      document.getElementById("payBtn").textContent = "Not enough TRAIL";
+    }
+  } catch {
+    document.getElementById("trailBalance").textContent = "Could not check balance";
   }
 }
 
@@ -512,36 +497,46 @@ async function init() {
 
 async function startPayment() {
   if (!userAddress || unlocked) return;
-  
+
   const btn = document.getElementById("payBtn");
   const status = document.getElementById("statusMsg");
-  
+
   btn.disabled = true;
   status.className = "status pending";
   status.textContent = `Sending 1 TRAIL to Morpheus...`;
-  
+
   try {
-    const txid = await sendPayment(MORPHEUS, PRICE_TRAIL, "TRAIL");
-    
+    // If extension is available, use it. Otherwise use wallet-app.js directly.
+    let txid;
+    if (typeof window.mmx !== "undefined" && window.mmx.isMMX && window.mmx.send) {
+      const result = await window.mmx.send({ to: MORPHEUS, amount: String(PRICE_TRAIL), currency: "TRAIL" });
+      txid = result?.txid || null;
+    } else {
+      // Standalone: send via wallet-app.js
+      const amountSat = app.mmxToSat(String(PRICE_TRAIL), 0); // TRAIL has 0 decimals
+      const result = await app.sendTransaction(MORPHEUS, amountSat, TRAIL_CONTRACT);
+      txid = result.txid;
+    }
+
     if (!txid) throw new Error("Payment was rejected or failed");
-    
+
     status.className = "status success";
     status.textContent = "Payment sent! Unlocking...";
-    
+
     document.getElementById("txSection").style.display = "block";
     const txLink = document.getElementById("txLink");
     txLink.href = `https://explore.mmx.network/#/explore/transaction/${txid}`;
     txLink.textContent = txid;
-    
+
     setTimeout(() => {
       document.getElementById("lockOverlay").classList.add("hidden");
       document.getElementById("svgContainer").classList.add("unlocked");
       document.getElementById("unlockedBanner").classList.add("show");
       btn.style.display = "none";
     }, 500);
-    
+
     unlocked = true;
-    
+
   } catch (e) {
     status.className = "status error";
     status.textContent = e.message || "Payment failed";
@@ -551,19 +546,18 @@ async function startPayment() {
 
 // === Helpers ===
 
-function copyAddr(el) {
+window.copyAddr = function(el) {
   navigator.clipboard.writeText(el.textContent).then(() => {
     const orig = el.style.borderColor;
     el.style.borderColor = "var(--success)";
     setTimeout(() => { el.style.borderColor = orig; }, 1000);
   });
-}
+};
 
 // Listen for wallet extension injection
 window.addEventListener("mmx#initialized", init);
 window.addEventListener("mmx#extension-ready", init);
 
-// Also try init on load (in case event already fired)
 init();
 </script>
 </body>
