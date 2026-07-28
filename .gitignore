@@ -1,4 +1,11 @@
 node_modules/
+# Exception: @noble crypto packages needed for web wallet (GitHub Pages)
+!node_modules/@noble/secp256k1/index.js
+!node_modules/@noble/hashes/sha2.js
+!node_modules/@noble/hashes/hmac.js
+!node_modules/@noble/hashes/_md.js
+!node_modules/@noble/hashes/_u64.js
+!node_modules/@noble/hashes/utils.js
 *.bak
 .DS_Store
 dist/
