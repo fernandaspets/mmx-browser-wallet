@@ -470,8 +470,7 @@ async function estimateTrade() {
   if (fromIndex < 0) return;
   try {
     const est = await api.getSwapTradeEstimate(currentPool.address, fromIndex, amt, 1);
-    const out = est.output || est.amount || 0;
-    const toDecimals = tokens[fromIndex === 0 ? 1 : 0]?.decimals || 0;
+    const out = est.trade?.value || est.output || est.amount || 0;
     document.getElementById("swapToAmount").value = String(out);
     const fS = tokens[fromIndex]?.symbol || "?";
     const tS = tokens[fromIndex === 0 ? 1 : 0]?.symbol || "?";
@@ -496,7 +495,8 @@ async function executeSwap() {
     try {
       const est = await api.getSwapTradeEstimate(currentPool.address, fromIndex, amt, 1);
       const toDecimals = tokens[fromIndex === 0 ? 1 : 0]?.decimals || 0;
-      const estSat = BigInt(Math.floor(parseFloat(est.output || est.amount || 0) * Math.pow(10, toDecimals)));
+      const estOut = est.trade?.value || est.output || est.amount || 0;
+      const estSat = BigInt(Math.floor(parseFloat(estOut) * Math.pow(10, toDecimals)));
       minTradeSat = estSat * BigInt(100 - slippage) / BigInt(100);
     } catch {}
   }

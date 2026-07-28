@@ -373,7 +373,7 @@ async function estimateTrade() {
 
   try {
     const estimate = await api.getSwapTradeEstimate(currentPool.address, fromIndex, amountStr, 1);
-    const outAmount = estimate.output || estimate.amount || 0;
+    const outAmount = estimate.trade?.value || estimate.output || estimate.amount || 0;
     const toIndex = fromIndex === 0 ? 1 : 0;
     const toDecimals = tokens[toIndex]?.decimals || 0;
 
