@@ -84,7 +84,10 @@
 <div class="app">
   <div class="header">
     <h1>🐕 TrailShare</h1>
-    <div class="badge" id="statusBadge">checking...</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <a href="../wallet.html" style="font-size:13px;color:var(--accent);text-decoration:none;">💰 Wallet</a>
+      <div class="badge" id="statusBadge">checking...</div>
+    </div>
   </div>
 
   <!-- Unlock (shown before tabs) -->
@@ -100,7 +103,7 @@
     <div id="noWalletMsg" style="display:none;">
       <p style="color:var(--text-muted);font-size:13px;line-height:1.5;">
         No wallet found on this device. Create one at
-        <a href="wallet.html" style="color:var(--accent);">wallet.html</a>
+        <a href="../wallet.html" style="color:var(--accent);">wallet.html</a>
         first, then come back.
       </p>
     </div>

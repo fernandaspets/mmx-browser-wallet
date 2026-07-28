@@ -230,6 +230,18 @@ console.log("\n12. dapp directory contents");
   assert("dapp/index.html exists", files.includes("index.html"), true);
 }
 
+// === 13. Navigation links between wallet and dapp ===
+console.log("\n13. Navigation links");
+{
+  const appSrc = read(join(dappDir, 'app.html'));
+  assertIncludes("app.html links to ../wallet.html (correct relative path)", appSrc, 'href="../wallet.html"');
+  assertIncludes("app.html has Wallet nav link", appSrc, '>💰 Wallet<');
+
+  const walletSrc = read(join(dir, '../wallet.html'));
+  assertIncludes("wallet.html links to dapp/app.html", walletSrc, 'href="dapp/app.html"');
+  assertIncludes("wallet.html has Swap & Offers nav link", walletSrc, '>🔄 Swap & Offers<');
+}
+
 // === 13. Offer functions exist in wallet-app.js ===
 console.log("\n13. Offer functions");
 {
@@ -281,7 +293,7 @@ console.log("\n16. app.html offer UI");
 
 // === RESULTS ===
 console.log("\n==================================================");
-const passed = (process.exitCode ? 0 : 15);
+const passed = (process.exitCode ? 0 : 16);
 console.log(`dApp tests: ${passed} passed, ${process.exitCode ? 1 : 0} failed`);
 if (process.exitCode) {
   console.log("❌ SOME TESTS FAILED");
