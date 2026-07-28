@@ -190,7 +190,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
     version: 0,
     expires,
     fee_ratio: 1024,
-    max_fee_amount: 5040000,
+    max_fee_amount: calcMaxFee(staticCost),
     note: "TRANSFER",
     nonce,
     network: "mainnet",
@@ -620,6 +620,14 @@ async function getChainParamsLocal() {
   return _chainParams || CHAIN_PARAMS;
 }
 
+// Compute max_fee_amount = cost_to_fee(static_cost + gas_limit, fee_ratio)
+// gas_limit default = 5000000 (from spend_options_t)
+// With fee_ratio=1024: max_fee = static_cost + gas_limit
+const DEFAULT_GAS_LIMIT = 5000000;
+function calcMaxFee(staticCost, feeRatio = 1024, gasLimit = DEFAULT_GAS_LIMIT) {
+  return Math.floor((staticCost + gasLimit) * feeRatio / 1024);
+}
+
 function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, deployExec = null, params = CHAIN_PARAMS) {
   let cost = params.min_txfee;
   cost += numInputs * params.min_txfee_io;
@@ -728,7 +736,7 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
     version: 0,
     expires,
     fee_ratio: 1024,
-    max_fee_amount: 5040000,
+    max_fee_amount: calcMaxFee(staticCost),
     note: TX_NOTE_TRADE,
     nonce,
     network: "mainnet",
@@ -977,7 +985,7 @@ export async function makeOffer(bidCurrency, askCurrency, bidAmountSat, askAmoun
     version: 0,
     expires,
     fee_ratio: 1024,
-    max_fee_amount: 5040000,
+    max_fee_amount: 0, // computed below
     note: TX_NOTE_OFFER,
     nonce: randomNonce(),
     network: "mainnet",
@@ -994,8 +1002,11 @@ export async function makeOffer(bidCurrency, askCurrency, bidAmountSat, askAmoun
     outputs: [],
     execute: [],
     deploy: { hash: deployHash, fullHash: deployFullHash },
-    static_cost: calcStaticCost(1, 0, null, 1, executable, await getChainParamsLocal()),
+    static_cost: 0, // computed below
   };
+  const offerParams = await getChainParamsLocal();
+  tx.static_cost = calcStaticCost(1, 0, null, 1, executable, offerParams);
+  tx.max_fee_amount = calcMaxFee(tx.static_cost);
 
   // For broadcast, deploy needs the full Executable object
   const result = await buildAndSendTxDeploy(tx, executable, skey);
@@ -1087,7 +1098,7 @@ export async function acceptOffer(offerAddr, askAmountSat) {
     version: 0,
     expires,
     fee_ratio: 1024,
-    max_fee_amount: 5040000,
+    max_fee_amount: 0, // computed below
     note: TX_NOTE_TRADE,
     nonce: randomNonce(),
     network: "mainnet",
@@ -1187,7 +1198,7 @@ export async function cancelOffer(offerAddr) {
     version: 0,
     expires,
     fee_ratio: 1024,
-    max_fee_amount: 5040000,
+    max_fee_amount: 0, // computed below
     note: TX_NOTE.TRANSFER,  // TRANSFER
     nonce: randomNonce(),
     network: "mainnet",
@@ -1196,7 +1207,7 @@ export async function cancelOffer(offerAddr) {
     outputs: [],
     execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
     deploy: null,
-    static_cost: calcStaticCost(0, 0, [executeOp], 1, null, await getChainParamsLocal()),
+    static_cost: 0, // computed below
   };
 
   const txId = calcTxId(tx);
