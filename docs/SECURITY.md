@@ -31,9 +31,15 @@ A security audit was performed covering common crypto wallet audit requirements.
 
 | Issue | Severity | Fix |
 |---|---|---|
-| XSS via innerHTML (contact names, wallet names, tx fields) | Medium-High | `escapeHtml()` on all user-supplied data before innerHTML |
+| XSS via innerHTML (contact names, wallet names, tx fields, balance symbols) | Medium-High | `escapeHtml()` on all user-supplied data before innerHTML |
 | Seed not zeroed on lock | Low | `unlockedSeed.fill(0)` in wallet-app.js and background.js |
 | postMessage with '*' origin | Low-Medium | `respondToPage()` uses `window.location.origin` |
 | No Content Security Policy | Low | Added CSP to manifest: `script-src 'self'; object-src 'self'` |
+| Prototype pollution — `_request` exposed on window.mmx (ARTTOO) | Critical | IIFE closure — `_request` is a local variable, not a property |
+| MV3 service worker dies — seed lost on sleep (ARTTOO) | High | `chrome.storage.session` for seed persistence + `chrome.alarms` for auto-lock |
+| dApp toggle — no instant activation/deactivation (ARTTOO) | Medium | `tabs.sendMessage` for ON, `storage.onChanged` + `MMX_DEACTIVATE` event for OFF |
+| Listener leak — approvalListener never removed on deny/dismiss (ARTTOO) | Medium | `DAPP_DENIED` message + 5-min auto-timeout cleanup |
+| Concurrent dApp requests overwrite each other in storage (ARTTOO) | Medium | ID-prefixed storage keys (`mmx_psend_{id}`, `mmx_pdapp_{id}`) |
+| SESSION_GET returns seed to any caller including content scripts | Medium | `sender.tab` check — only popup (no tab) can retrieve seed |
 
 See [CODE-REVIEW.md](../CODE-REVIEW.md) for the full code review.

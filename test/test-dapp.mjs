@@ -131,52 +131,18 @@ console.log("\n3. app.html swap logic");
   assertIncludes("app.html calls swapTrade", src, 'app.swapTrade(');
 }
 
-// === 4. swap.html exists and has swap UI ===
-console.log("\n4. swap.html structure");
+// === 4. app.html paywall (Content tab) ===
+console.log("\n4. app.html paywall");
 {
-  const src = read(join(dappDir, 'swap.html'));
-  assert("swap.html exists", src.length > 0, true);
-
-  assertIncludes("swap.html imports ../wallet-app.js", src, 'from "../wallet-app.js"');
-  assertIncludes("swap.html imports ../mmx-node-api.js", src, 'from "../mmx-node-api.js"');
-  assertNotIncludes("swap.html does NOT import ./wallet-app.js", src, 'from "./wallet-app.js"');
-
-  // Must use est.trade.value
-  assertIncludes("swap.html uses estimate.trade?.value", src, 'estimate.trade?.value');
-
-  // Pool transform
-  assertIncludes("swap.html transforms pool tokens", src, 'p.tokens || []).map');
+  const src = read(join(dappDir, 'app.html'));
+  assertIncludes("app.html has paywall tab content", src, 'id="tab-paywall"');
+  assertIncludes("app.html has paywall button", src, 'id="paywallBtn"');
+  assertIncludes("app.html has Morpheus address", src, 'mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5');
+  assertIncludes("app.html checks TRAIL balance", src, 'TRAIL');
+  assertIncludes("app.html has Not enough TRAIL", src, 'Not enough TRAIL');
 }
 
-// === 5. paywall.html exists and has payment flow ===
-console.log("\n5. paywall.html structure");
-{
-  const src = read(join(dappDir, 'paywall.html'));
-  assert("paywall.html exists", src.length > 0, true);
-
-  assertIncludes("paywall imports ../wallet-app.js", src, 'from "../wallet-app.js"');
-  assertIncludes("paywall imports ../wallet-store.js", src, 'from "../wallet-store.js"');
-  assertNotIncludes("paywall does NOT import ./wallet-app.js", src, 'from "./wallet-app.js"');
-
-  // Payment flow
-  assertIncludes("paywall has startPayment", src, 'startPayment');
-  assertIncludes("paywall has Morpheus address", src, 'mmx1vywfs5ymt9hfhkc3a37a3a5uw35mpl0j5l09qz59g3ek9t9az5sqgl8cq5');
-  assertIncludes("paywall has TRAIL contract", src, 'mmx1q8cdxjwutex5t3s69d4nc0kdsvtcn2h207vcgvced78nzlvyh8mskhhgq7');
-
-  // Error handling
-  assertIncludes("paywall has try/catch", src, 'catch (e)');
-  assertIncludes("paywall re-enables button on error", src, 'btn.disabled = false');
-
-  // TRAIL balance check
-  assertIncludes("paywall checks TRAIL balance", src, 'TRAIL');
-  assertIncludes("paywall has Not enough TRAIL", src, 'Not enough TRAIL');
-
-  // Unlock UI (standalone)
-  assertIncludes("paywall has unlock password input", src, 'id="unlockPass"');
-  assertIncludes("paywall has unlock button", src, 'id="unlockBtn"');
-}
-
-// === 6. swap-pools.html (old demo) still works ===
+// === 5. swap-pools.html (read-only explorer) still works ===
 console.log("\n6. swap-pools.html (old demo)");
 {
   const src = read(join(dappDir, 'swap-pools.html'));
@@ -257,9 +223,7 @@ console.log("\n12. dapp directory contents");
 {
   const files = readdirSync(dappDir).filter(f => f.endsWith('.html'));
   assert("dapp/app.html exists", files.includes("app.html"), true);
-  assert("dapp/swap.html exists", files.includes("swap.html"), true);
-  assert("dapp/paywall.html exists", files.includes("paywall.html"), true);
-  assert("dapp/swap-pools.html exists", files.includes("swap-pools.html"), true);
+      assert("dapp/swap-pools.html exists", files.includes("swap-pools.html"), true);
   assert("dapp/offers.html exists", files.includes("offers.html"), true);
   assert("dapp/index.html exists", files.includes("index.html"), true);
 }

@@ -1,48 +1,36 @@
-# Crypto Paywall Demo
+# Crypto Paywall
 
-The repo includes a standalone paywall demo at `demo/paywall.html` — a fully functional example of dApp integration with zero server infrastructure.
+The TrailShare dApp includes a paywall in the unified app (`dapp/app.html` → Content tab). It works standalone — no extension needed.
 
 ## How It Works
 
-1. **Detects wallet** — checks for `window.mmx` (extension with dApp enabled)
-2. **Gets address** — calls `window.mmx.getAddress()` (user approves per-site)
-3. **Requests payment** — calls `window.mmx.send({to: Morpheus, amount: "1", currency: "TRAIL"})`
-4. **User confirms** — extension popup shows amount, destination, fee
-5. **Content unlocks** — on broadcast (TXID returned, ~1s), no block confirmation wait needed
-6. **TX link** — links to `explore.mmx.network/#/explore/transaction/<TXID>`
+1. **Unlock wallet** — user enters password to unlock their wallet (stored in browser localStorage)
+2. **Check balance** — shows user's TRAIL balance, disables button if insufficient
+3. **Pay 1 TRAIL** — sends to Morpheus address via `wallet-app.js` → public RPC
+4. **Content unlocks** — on broadcast success, locked SVG animates and blur clears
+5. **TX link** — links to `explore.mmx.network/#/explore/transaction/<TXID>`
+
+Also supports extension mode: if `window.mmx` is detected (extension with dApp enabled), uses `window.mmx.send()` instead of direct wallet unlock.
 
 ## Running Locally
 
 ```bash
 # From the repo root:
-python3 -m http.server 8080
-# Visit http://localhost:8080/demo/paywall.html
+python3 -m http.server 8060
+# Visit http://localhost:8060/dapp/app.html → Content tab
 ```
-
-The extension must be installed with dApp integration enabled.
 
 ## Hosting
 
-`paywall.html` is fully self-contained — no server, no database, no build step. Host it on any static file server:
+`app.html` is fully self-contained — no server, no database, no build step. Host on any static file server (GitHub Pages, Netlify, etc.).
 
-- GitHub Pages
-- Netlify
-- Any web server
-
-The only requirement: the visitor has the MMX Browser Wallet extension installed with dApp integration enabled.
+The only requirement: the visitor has a wallet (create one at `wallet.html` first, or use the extension).
 
 ## Customizing
 
-Edit `demo/paywall.html` to change:
+Edit `dapp/app.html` to change:
 
 - **Payment address** — replace the `MORPHEUS` constant with your address
-- **Token** — replace `TRAIL_CONTRACT` and `currency: "TRAIL"` with your token
+- **Token** — replace `TRAIL_CONTRACT` with your token contract address
 - **Price** — change `PRICE_TRAIL`
 - **Locked content** — replace the SVG with your own content (image, video, text, etc.)
-
-## Other Demos
-
-The repo also includes:
-
-- [`demo/swap-pools.html`](../demo/swap-pools.html) — live swap pool explorer (reserves, prices, APY, fees, trade estimator). All from public RPC, no wallet needed.
-- [`demo/offers.html`](../demo/offers.html) — live offer book (open offers, prices, owners, pair filters). All from public RPC, no wallet needed.

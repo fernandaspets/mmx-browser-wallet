@@ -9,9 +9,11 @@ dApp integration is **off by default** — no content script runs, no `window.mm
 1. Open the wallet extension popup
 2. Toggle "dApp Integration" ON
 3. The background script dynamically registers the content script via `chrome.scripting.registerContentScripts()`
-4. `window.mmx` is now available on all web pages
+4. `window.mmx` is injected into all open tabs instantly via `tabs.sendMessage` (no reload needed)
 
-When toggled OFF, the content script is unregistered — zero page access.
+When toggled OFF:
+1. The content script is unregistered for future page loads
+2. `window.mmx` and `window.mmx_wallet` are nullified in all open tabs via `MMX_DEACTIVATE` event (no reload needed)
 
 `<all_urls>` is in `host_permissions` (granted at install time), but the content script only **runs** when the user opts in. No runtime permission dialog needed.
 
@@ -89,4 +91,4 @@ Returns the signed transaction in full. Returns `null` if the user doesn't appro
 
 ## Demo
 
-See [`demo/paywall.html`](../demo/paywall.html) for a working paywall demo.
+See [`dapp/app.html`](../dapp/app.html) for a working paywall demo.

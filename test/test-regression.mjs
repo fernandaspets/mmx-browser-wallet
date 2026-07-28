@@ -661,7 +661,7 @@ console.log("\nDemo files");
   const demoDir = path.resolve(import.meta.dirname, "../dapp");
   const files = fs.readdirSync(demoDir).filter(f => f.endsWith(".html"));
   assert("dapp/index.html exists", files.includes("index.html"), true);
-  assert("dapp/paywall.html exists", files.includes("paywall.html"), true);
+  
   assert("dapp/swap-pools.html exists", files.includes("swap-pools.html"), true);
   assert("dapp/offers.html exists", files.includes("offers.html"), true);
   // Index links to all demos

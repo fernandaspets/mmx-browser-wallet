@@ -227,12 +227,12 @@ console.log("\n9. popup.js sends DAPP_DENIED");
 // === 10. Error propagation in paywall ===
 console.log("\n10. Error propagation in paywall demo");
 {
-  const src = read('dapp/paywall.html');
+  const src = read('dapp/app.html');
 
   // Must have try/catch in startPayment
-  assertIncludes("paywall has try/catch in payment", src, "catch (e)");
-  assertIncludes("paywall shows error message", src, "status.error");
-  assertIncludes("paywall re-enables button on error", src, "btn.disabled = false");
+  assertIncludes("app.html paywall has try/catch", src, "catch (e)");
+  assertIncludes("app.html paywall shows error message", src, "status.error");
+  assertIncludes("app.html paywall re-enables button on error", src, "btn.disabled = false");
 }
 
 // === RESULTS ===

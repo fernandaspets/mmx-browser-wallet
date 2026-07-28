@@ -87,8 +87,8 @@ The seed lives in background memory only — never written to disk.
 | `wallet-page.js` | Full-page wallet logic (external script for CSP compliance) |
 | `wallet-app.js` | Wallet logic: keys, tx, balance, history, contacts |
 | `wallet-store.js` | Encrypted storage (AES-GCM), address book |
-| `mmx-tx.js` | Transaction serialization & signing (VNX binary) |
-| `mmx-node-api.js` | Public RPC client |
+| `mmx-tx.js` | Transaction serialization & signing (VNX binary), Deposit operation hashing for swap trades |
+| `mmx-node-api.js` | Public RPC client (balance, validate, broadcast, swap APIs) |
 | `theme.css` | CSS variables for dark/light themes |
 | `background.js` | Extension background (session persistence, dApp request routing, content script registration) |
 | `content.js` / `inject.js` | dApp integration (`window.mmx` API) — only loaded when user opts in |
