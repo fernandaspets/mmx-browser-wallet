@@ -638,7 +638,7 @@ async function loadOffers() {
             ${hasBalance ? `<button class="btn btn-primary" style="padding:2px 8px;font-size:11px" onclick="acceptOfferUI('${o.address}','${escapeHtml(o.ask_currency)}','${escapeHtml(o.ask_symbol || "?")}',${o.ask_decimals || 0},${parseFloat(o.inv_price || "0")})">✅ Accept</button>` : "<span style='font-size:11px;color:var(--text-muted)'>empty</span>"}
           </div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
-            Bid: ${bidBal} ${bidSym} · Ask: ${askBal} ${askSym} · Owner: ${owner}
+            Selling: ${bidBal} ${bidSym} · Received: ${askBal} ${askSym} · Owner: ${owner}
             · <a href="https://explore.mmx.network/#/explore/address/${o.address}" target="_blank">explorer ↗</a>
           </div>
         </div>`;
