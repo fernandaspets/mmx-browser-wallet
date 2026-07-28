@@ -115,6 +115,12 @@ _browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "SESSION_GET") {
+    // Security: only respond to popup (no sender.tab), not content scripts.
+    // A content script in a compromised page could otherwise request the raw seed.
+    if (sender.tab) {
+      sendResponse({ seed: null, wallet: null });
+      return false;
+    }
     (async () => {
       const session = await getSession();
       if (session.seed != null && session.wallet != null) {

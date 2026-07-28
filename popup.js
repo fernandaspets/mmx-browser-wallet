@@ -619,8 +619,8 @@ function renderBalances(balances) {
   for (const b of balances) {
     const amount = b.spendable !== undefined ? b.spendable : b.total || 0;
     html += `<div class="balance-row">
-      <span style="font-weight:600;font-size:14px;">${b.symbol || '?'}</span>
-      <span style="font-family:monospace;font-size:14px;color:#4caf50;">${amount}</span>
+      <span style="font-weight:600;font-size:14px;">${app.escapeHtml(b.symbol || '?')}</span>
+      <span style="font-family:monospace;font-size:14px;color:#4caf50;">${app.escapeHtml(amount)}</span>
     </div>`;
   }
   list.innerHTML = html;
