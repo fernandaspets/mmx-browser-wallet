@@ -198,10 +198,12 @@
       </div>
       <div class="card">
         <div class="swap-label">Open Offers</div>
-        <select class="swap-select" id="offerPairFilter" style="width:100%;margin-bottom:8px">
-          <option value="">All pairs</option>
-        </select>
-        <div id="offersList" style="max-height:300px;overflow-y:auto"></div>
+        <div class="swap-row" style="margin-bottom:8px">
+          <select class="swap-select" id="offerFilterBid" style="flex:1"></select>
+          <select class="swap-select" id="offerFilterAsk" style="flex:1"></select>
+          <button class="btn" id="offerRefreshBtn" style="padding:4px 8px">🔄</button>
+        </div>
+        <div id="offersList" style="max-height:400px;overflow-y:auto"></div>
         <div class="status" id="acceptStatus"></div>
       </div>
     </div>
@@ -551,17 +553,14 @@ function initOffersUI() {
     if (t.address && !seen.has(t.address)) { seen.add(t.address); poolTokens.push(t); }
   }));
 
-  // Populate currency dropdowns
+  // Populate currency dropdowns for create offer
   const bidSel = document.getElementById("offerBidCurrency");
   const askSel = document.getElementById("offerAskCurrency");
-  const pairFilter = document.getElementById("offerPairFilter");
-  [bidSel, askSel, pairFilter].forEach(s => s.innerHTML = "");
-  // Add MMX + TRAIL options
+  [bidSel, askSel].forEach(s => s.innerHTML = "");
   const opts = [
     { sym: "MMX", addr: MMX_NULL, dec: 6 },
     { sym: "TRAIL", addr: TRAIL_CONTRACT, dec: 0 },
   ];
-  // Add swap pool tokens
   poolTokens.forEach(t => {
     if (!opts.find(o => o.addr === t.address)) opts.push({ sym: t.symbol, addr: t.address, dec: t.decimals });
   });
@@ -569,14 +568,22 @@ function initOffersUI() {
     bidSel.add(new Option(`${o.sym}`, o.addr));
     askSel.add(new Option(`${o.sym}`, o.addr));
   });
-  // Default: sell MMX for TRAIL
   bidSel.value = MMX_NULL;
   askSel.value = TRAIL_CONTRACT;
-  // Pair filter
-  pairFilter.add(new Option("All pairs", ""));
-  opts.forEach(o => pairFilter.add(new Option(o.sym + "/TRAIL", o.addr + "," + TRAIL_CONTRACT)));
+
+  // Populate filter dropdowns for open offers
+  const filterBid = document.getElementById("offerFilterBid");
+  const filterAsk = document.getElementById("offerFilterAsk");
+  [filterBid, filterAsk].forEach(s => { s.innerHTML = ""; s.add(new Option("Any", "")); });
+  opts.forEach(o => {
+    filterBid.add(new Option(o.sym, o.addr));
+    filterAsk.add(new Option(o.sym, o.addr));
+  });
 
   document.getElementById("makeOfferBtn").onclick = makeOffer;
+  document.getElementById("offerRefreshBtn").onclick = () => loadOffers();
+  filterBid.onchange = () => loadOffers();
+  filterAsk.onchange = () => loadOffers();
   loadOffers();
 }
 
@@ -609,23 +616,31 @@ async function loadOffers() {
   const list = document.getElementById("offersList");
   list.innerHTML = "<div style='color:var(--text-muted);padding:8px'>Loading offers...</div>";
   try {
-    const trades = await api.getTradeHistory(null, null, 20);
-    // Fetch recent offers from trade history — we also need open offers
-    // Use the offers list from existing offer contracts we know about
-    // Actually, there's no public "list all offers" endpoint, so use trade_history
+    const bidFilter = document.getElementById("offerFilterBid").value;
+    const askFilter = document.getElementById("offerFilterAsk").value;
+    const offers = await api.getOffers(bidFilter || null, askFilter || null, 50);
     let html = "";
-    if (!trades || trades.length === 0) {
-      html = "<div style='color:var(--text-muted);padding:8px'>No recent trades found.</div>";
+    if (!offers || offers.length === 0) {
+      html = "<div style='color:var(--text-muted);padding:8px'>No open offers found.</div>";
     } else {
-      for (const t of trades.slice(0, 15)) {
-        const bidSym = t.bid_symbol || "?";
-        const askSym = t.ask_symbol || "?";
-        const price = t.display_price ? t.display_price.toFixed(6) : "?";
-        const height = t.height || "?";
-        html += `<div style="padding:6px;border-bottom:1px solid var(--border)">
-          <div><b>${escapeHtml(bidSym)}</b> / <b>${escapeHtml(askSym)}</b> @ ${price}</div>
-          <div style="font-size:11px;color:var(--text-muted)">Block ${height}
-            ${t.txid ? ` · <a href="https://explore.mmx.network/#/explore/transaction/${t.txid}" target="_blank">tx ↗</a>` : ""}</div>
+      for (const o of offers) {
+        const bidSym = escapeHtml(o.bid_symbol || "?");
+        const askSym = escapeHtml(o.ask_symbol || "?");
+        const price = o.display_price ? o.display_price.toFixed(6) : "?";
+        const bidBal = o.bid_balance_value || 0;
+        const askBal = o.ask_balance_value || 0;
+        const owner = escapeHtml((o.owner || "").substring(0, 16) + "...");
+        const addr = escapeHtml(o.address);
+        const hasBalance = bidBal > 0;
+        html += `<div style="padding:8px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><b>${bidSym}</b> → <b>${askSym}</b> @ ${price}</div>
+            ${hasBalance ? `<button class="btn btn-primary" style="padding:2px 8px;font-size:11px" onclick="acceptOfferUI('${o.address}','${escapeHtml(o.ask_currency)}','${escapeHtml(o.ask_symbol || "?")}',${o.ask_decimals || 0},${parseFloat(o.inv_price || "0")})">✅ Accept</button>` : "<span style='font-size:11px;color:var(--text-muted)'>empty</span>"}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
+            Bid: ${bidBal} ${bidSym} · Ask: ${askBal} ${askSym} · Owner: ${owner}
+            · <a href="https://explore.mmx.network/#/explore/address/${o.address}" target="_blank">explorer ↗</a>
+          </div>
         </div>`;
       }
     }
@@ -634,6 +649,30 @@ async function loadOffers() {
     list.innerHTML = `<div style='color:var(--danger);padding:8px'>${escapeHtml(e.message)}</div>`;
   }
 }
+
+window.acceptOfferUI = async function(offerAddr, askCurrency, askSymbol, askDecimals, invPrice) {
+  const status = document.getElementById("acceptStatus");
+  status.className = "status pending";
+  status.textContent = `Accepting offer (buying with ${askSymbol})...`;
+  try {
+    // Ask user how much to spend (in ask currency)
+    const amountStr = window.prompt(`How much ${askSymbol} to spend?`, "1");
+    if (!amountStr) { status.className = ""; status.textContent = ""; return; }
+    const amount = parseFloat(amountStr);
+    if (!amount || amount <= 0) throw new Error("Invalid amount");
+    const askSat = app.mmxToSat(String(amount), askDecimals);
+    if (askSat <= 0n) throw new Error("Amount too small");
+
+    const result = await app.acceptOffer(offerAddr, askSat);
+    status.className = "status success";
+    status.textContent = `Offer accepted! TX: ${result.txid}`;
+    status.innerHTML += ` · <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">explorer ↗</a>`;
+    loadOffers(); // Refresh
+  } catch (e) {
+    status.className = "status error";
+    status.textContent = e.message;
+  }
+};
 
 function getDecimals(addr) {
   if (addr === MMX_NULL) return 6;

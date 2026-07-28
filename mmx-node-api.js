@@ -181,3 +181,12 @@ export async function getOfferTradeEstimate(offerAddr, amount) {
   if (!resp.ok) throw new Error(`Offer trade estimate error: ${resp.status}`);
   return await resp.json();
 }
+
+export async function getOffers(bidCurrency, askCurrency, limit = 50) {
+  let qs = `limit=${limit}`;
+  if (bidCurrency) qs += `&bid=${bidCurrency}`;
+  if (askCurrency) qs += `&ask=${askCurrency}`;
+  const resp = await fetch(`${_nodeUrl}/offers?${qs}`);
+  if (!resp.ok) throw new Error(`Offers error: ${resp.status}`);
+  return await resp.json();
+}
