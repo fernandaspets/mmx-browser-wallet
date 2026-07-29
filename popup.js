@@ -361,15 +361,15 @@ async function tryRestoreFromBackground() {
 // --- Initialize ---
 
 async function init() {
+  // Load wordlist in background — don't block wallet detection if it fails
   try {
     await api.initNodeUrl();
+  } catch(e) { console.error("initNodeUrl error:", e); }
+  try {
     await app.init();
-  } catch(e) {
-    setStatus("createStatus", "Init error: " + e.message, "error");
-    console.error("Init error:", e);
-    return;
-  }
+  } catch(e) { console.error("Wordlist load error:", e); }
 
+  // ALWAYS check for wallets, even if init() had errors
   let wallets = [];
   try {
     wallets = await app.getWalletsList();
