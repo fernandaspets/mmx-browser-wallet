@@ -153,6 +153,35 @@ console.log("\n5. OFFER CANCEL");
   check("id", "35B2D38D45566AF15AAE342525048EBEE04385ECA50C96D6F22E9BD7A7E1FAFC", bytesToHex(calcTxId(tx)));
 }
 
+
+// === 6. OFFER TRADE (partial fill) ===
+console.log("\n6. OFFER TRADE");
+{
+  const sender = "mmx16aq5vpcmxcrh9xck0z06eqnmr87w5r2j062snjj6g7cvj0thry7q0mp3w6";
+  const offerAddr = "mmx1lr5vtm5sx5yspj6283hv3zqrp0jc450yzxdt4adv62v7gqty6gsqxn3nk5";
+  const askCurrency = "mmx1ey6mxts9rcarq9jgl89su8cgex527plw3wskpnwxr4xgzkw4z65qxpj3fg";
+  const deposit = {
+    version: 0, address: addrToBytes32(offerAddr), method: "trade",
+    args: [sender, "0x3e90000000000000000"], user: null,
+    currency: addrToBytes32(askCurrency), amount: uint128LE(25n),
+  };
+  const tx = {
+    version: 0, expires: 649660, fee_ratio: 1024, max_fee_amount: 5049700,
+    note: TX_NOTE_TRADE, nonce: 16020945385765470065n, network: "mainnet",
+    sender: addrToBytes32(sender),
+    inputs: [{ address: addrToBytes32(sender), contract: addrToBytes32(askCurrency), amount: uint128LE(25n), memo: null, solution: 0, flags: 0 }],
+    outputs: [], execute: [{ hash: Array.from(calcDepositHash(deposit, false)), fullHash: Array.from(calcDepositHash(deposit, true)) }],
+    deploy: null, static_cost: 59700,
+  };
+  const txid = bytesToHex(calcTxId(tx));
+  check("trade hash is 64 chars", 64, txid.length);
+  // Trade and accept must produce different hashes (different method + amount)
+  const acceptDeposit = { ...deposit, method: "accept", amount: uint128LE(50n) };
+  const acceptTx = { ...tx, execute: [{ hash: Array.from(calcDepositHash(acceptDeposit, false)), fullHash: Array.from(calcDepositHash(acceptDeposit, true)) }], inputs: [{ address: addrToBytes32(sender), contract: addrToBytes32(askCurrency), amount: uint128LE(50n), memo: null, solution: 0, flags: 0 }] };
+  const acceptTxid = bytesToHex(calcTxId(acceptTx));
+  check("trade hash != accept hash", false, txid === acceptTxid);
+}
+
 // === RESULTS ===
 console.log("\n==================================================");
 console.log(`Golden tests: ${pass} passed, ${fail} failed`);

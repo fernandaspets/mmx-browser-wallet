@@ -294,10 +294,60 @@ console.log("\n16. app.html offer UI");
 
 // === RESULTS ===
 console.log("\n==================================================");
-const passed = (process.exitCode ? 0 : 16);
+let _dappPass = 0, _dappFail = 0;
+const _origAssertIncludes = assertIncludes;
+// Count will be computed from exit code
+const passed = process.exitCode ? 0 : 'all';
 console.log(`dApp tests: ${passed} passed, ${process.exitCode ? 1 : 0} failed`);
 if (process.exitCode) {
   console.log("❌ SOME TESTS FAILED");
 } else {
   console.log("✅ ALL DAPP TESTS PASSED");
+}
+
+// === 17. Offer trade/accept/sweep functions ===
+console.log("\n17. Offer trade/accept/sweep");
+{
+  const appSrc = read(join(dappDir, 'app.html'));
+  const walletSrc = read(join(root, 'wallet-app.js'));
+
+  // wallet-app.js has offerTrade
+  assertIncludes("wallet-app.js has offerTrade", walletSrc, 'export async function offerTrade');
+  assertIncludes("wallet-app.js has validateOfferTx", walletSrc, 'export async function validateOfferTx');
+  assertIncludes("wallet-app.js has _offerDeposit helper", walletSrc, 'async function _offerDeposit');
+
+  // user must be null (not offer.owner) for trade/accept
+  assertIncludes("wallet-app.js _offerDeposit uses user: null", walletSrc, 'user: null');
+  assertNotIncludes("wallet-app.js does NOT use user: addrToBytes32(offer.owner)", walletSrc, 'user: addrToBytes32(offer.owner)');
+
+  // max_fee_amount must be computed (not left at 0)
+  assertIncludes("wallet-app.js _offerDeposit computes max_fee_amount", walletSrc, 'tx.max_fee_amount = calcMaxFee(tx.static_cost)');
+
+  // outputs must be empty for deposit operations (node auto-creates)
+  assertIncludes("wallet-app.js _offerDeposit has empty outputs comment", walletSrc, 'outputs: EMPTY');
+
+  // cancelOffer must set solution: 0
+  assertIncludes("wallet-app.js cancelOffer sets solution: 0", walletSrc, 'solution: 0');
+
+  // app.html has modal and buttons
+  assertIncludes("app.html has offerModal", appSrc, 'id="offerModal"');
+  assertIncludes("app.html has openOfferModal", appSrc, 'window.openOfferModal');
+  assertIncludes("app.html has closeOfferModal", appSrc, 'window.closeOfferModal');
+  assertIncludes("app.html has confirmOfferAction", appSrc, 'window.confirmOfferAction');
+  assertIncludes("app.html has onTradeAmountChange", appSrc, 'window.onTradeAmountChange');
+  assertIncludes("app.html has increaseTradeAmount", appSrc, 'window.increaseTradeAmount');
+  assertIncludes("app.html has sweepAsks", appSrc, 'window.sweepAsks');
+
+  // Trade and Accept buttons in order book rows
+  assertIncludes("app.html has trade button (gear)", appSrc, "openOfferModal('trade'");
+  assertIncludes("app.html has accept button (check)", appSrc, "openOfferModal('accept'");
+
+  // Sweep UI
+  assertIncludes("app.html has sweepMaxAmount", appSrc, 'id="sweepMaxAmount"');
+  assertIncludes("app.html has sweepMaxPrice", appSrc, 'id="sweepMaxPrice"');
+  assertIncludes("app.html has sweepBtn", appSrc, 'id="sweepBtn"');
+  assertIncludes("app.html has sweepStatus", appSrc, 'id="sweepStatus"');
+
+  // No prompt() calls (use modal instead)
+  assertNotIncludes("app.html does NOT use window.prompt for offers", appSrc, 'window.prompt');
 }

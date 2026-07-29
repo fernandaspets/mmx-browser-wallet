@@ -1111,16 +1111,13 @@ async function _offerDeposit(method, offerAddr, askAmountSat, broadcast = true) 
       solution: 0,
       flags: 0,
     }],
-    outputs: [{
-      address: offerAddrBytes,
-      contract: askCurrencyBytes,
-      amount: uint128LE(askAmountSat),
-      memo: null,
-    }],
+    // outputs: EMPTY — the node auto-creates deposit output to the offer contract during validation
+    outputs: [],
     execute: [{ hash: Array.from(opHash), fullHash: Array.from(opFullHash) }],
     deploy: null,
     static_cost: calcStaticCost(1, 0, [deposit], 1, null, await getChainParamsLocal()),
   };
+  tx.max_fee_amount = calcMaxFee(tx.static_cost);
 
   // For broadcast, include the full deposit object
   const txId = calcTxId(tx);
@@ -1219,6 +1216,7 @@ export async function cancelOffer(offerAddr) {
     method: "cancel",
     args: [],
     user: ownerBytes,  // must be offer owner
+    solution: 0,       // our PubKey solution is at index 0 (node validates against owner)
   };
 
   const opHash = calcExecuteHash(executeOp, false);
@@ -1242,9 +1240,10 @@ export async function cancelOffer(offerAddr) {
     deploy: null,
     static_cost: 0, // computed below
   };
-
+  const cancelParams = await getChainParamsLocal();
+  tx.static_cost = calcStaticCost(0, 0, [executeOp], 1, null, cancelParams);
+  tx.max_fee_amount = calcMaxFee(tx.static_cost);
   const txId = calcTxId(tx);
-  const solution = await signTx(txId, skey);
   tx.solutions = [solution];
   const contentHash = calcContentHash(tx);
   const txObj = {
