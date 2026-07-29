@@ -642,7 +642,7 @@ function renderTxHistory(txs, append = false) {
   for (const tx of txs) {
     const isSent = tx.direction === 'sent';
     const arrow = isSent ? '📤' : '📥';
-    const color = isSent ? '#ff9800' : '#4caf50';
+    const color = isSent ? '#f44336' : '#4caf50';
     const addrShort = app.escapeHtml(tx.id.substring(0, 12)) + '...';
     const confirmations = tx.confirm || 0;
     const pendingBadge = confirmations < 1 ? ' <span style="color:#ff9800;font-size:9px;">⏳ pending</span>' : '';

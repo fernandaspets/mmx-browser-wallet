@@ -514,7 +514,7 @@ export async function getTransactionHistory(limit = 20, offset = 0) {
     height: tx.height,
     confirm: tx.is_pending ? 0 : 1,
     note: tx.memo,
-    direction: tx.type === 'SEND' ? 'sent' : 'received',
+    direction: (tx.type === 'SPEND' || tx.type === 'TXFEE' || tx.type === 'DEPOSIT') ? 'sent' : 'received',
     amount: tx.value != null ? String(tx.value) : formatAmount(tx.amount, tx.decimals || 0),
     symbol: tx.symbol || 'MMX',
     fee: 0,

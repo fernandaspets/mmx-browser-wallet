@@ -699,3 +699,24 @@ if (failed > 0) {
 } else {
   console.log("✅ ALL REGRESSION TESTS PASSED");
 }
+
+// === TX history direction bug: type === 'SEND' was always false ===
+console.log("\nTX history direction");
+{
+  const fs = await import("fs");
+  // The API returns types: SPEND, RECEIVE, TXFEE, DEPOSIT — never 'SEND'
+  // The old code checked tx.type === 'SEND' which was always false → everything showed as received
+  const walletSrc = fs.readFileSync(import.meta.dirname + "/../wallet-app.js", "utf8");
+  
+  // Must check for SPEND/TXFEE/DEPOSIT, not just SEND
+  assert("wallet-app.js checks SPEND type for direction", walletSrc.includes("tx.type === 'SPEND'"), true);
+  assert("wallet-app.js checks TXFEE type for direction", walletSrc.includes("tx.type === 'TXFEE'"), true);
+  assert("wallet-app.js does NOT use tx.type === 'SEND'", walletSrc.includes("tx.type === 'SEND'"), false);
+  
+  // Colors: sent = red, received = green
+  const pageSrc = fs.readFileSync(import.meta.dirname + "/../wallet-page.js", "utf8");
+  assert("wallet-page.js uses red for sent", pageSrc.includes("'#f44336'"), true);
+  
+  const popupSrc = fs.readFileSync(import.meta.dirname + "/../popup.js", "utf8");
+  assert("popup.js uses red for sent", popupSrc.includes("'#f44336'"), true);
+}

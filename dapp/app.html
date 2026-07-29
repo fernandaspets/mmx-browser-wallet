@@ -448,11 +448,14 @@ async function loadTxHistory() {
   try {
     const txs = await app.getTransactionHistory(10);
     if (!txs || txs.length === 0) { document.getElementById("txHistory").textContent = "No transactions yet"; return; }
-    document.getElementById("txHistory").innerHTML = txs.map(tx =>
-      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);">
-        <span>${tx.direction === 'sent' ? '📤' : '📥'} ${app.escapeHtml(tx.amount)} ${app.escapeHtml(tx.symbol)}</span>
+    document.getElementById("txHistory").innerHTML = txs.map(tx => {
+      const isSent = tx.direction === 'sent';
+      const color = isSent ? 'var(--danger)' : 'var(--success)';
+      return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);">
+        <span style="color:${color}">${isSent ? '📤' : '📥'} ${isSent ? '-' : '+'}${app.escapeHtml(tx.amount)} ${app.escapeHtml(tx.symbol)}</span>
         <a href="https://explore.mmx.network/#/explore/transaction/${app.escapeHtml(tx.id)}" target="_blank" style="color:var(--text-muted);font-size:10px;text-decoration:none;">↗</a>
-      </div>`).join("");
+      </div>`;
+    }).join("");
   } catch { document.getElementById("txHistory").textContent = "Could not load history"; }
 }
 
