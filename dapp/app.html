@@ -216,6 +216,7 @@
         </div>
         <div id="orderBookSpread" style="font-size:11px;color:var(--text-muted);margin-bottom:4px"></div>
         <div id="poolPriceHint" style="font-size:10px;color:var(--accent);margin-bottom:4px;display:none"></div>
+        <div id="lockedFunds" style="font-size:10px;color:var(--text);margin-bottom:4px;display:none"></div>
         <div style="display:flex;gap:4px">
           <div style="flex:1">
             <div style="font-size:10px;color:var(--danger);font-weight:600;padding:2px 4px;border-bottom:1px solid var(--border)">ASKS — sell TRAIL</div>
@@ -812,13 +813,18 @@ async function loadOffers() {
       spreadEl.innerHTML = "No open offers";
     }
 
-    // Compact row: Price | TRAIL | Trade (⚙) + Accept (✓)
-    const renderRow = (o, cls) => `<div style="display:flex;align-items:center;padding:2px 4px;border-bottom:1px solid var(--border);font-size:11px">
+    // Compact row: ★(mine) | Price | TRAIL | Trade (⚙) + Accept (✓)
+    const renderRow = (o, cls) => {
+      const mine = o.owner === userAddress;
+      const star = mine ? '<span style="color:var(--accent);font-size:9px" title="Your offer">★</span>' : '<span style="width:9px;display:inline-block"></span>';
+      return `<div style="display:flex;align-items:center;padding:2px 4px;border-bottom:1px solid var(--border);font-size:11px${mine ? ';background:rgba(100,149,237,0.05)':''}">
+      ${star}
       <span style="flex:1;font-weight:600;color:${cls === 'ask' ? 'var(--danger)' : 'var(--success)'}">${o.price.toFixed(2)}</span>
       <span style="flex:1;text-align:right;color:var(--text-muted)">${o.trailAmount.toFixed(0)}</span>
       <button style="margin-left:4px;padding:0 3px;font-size:9px;color:var(--text-muted);background:transparent;border:1px solid var(--border);border-radius:3px;cursor:pointer" onclick="openOfferModal('trade','${o.addr}','${escapeHtml(o.askCurrency)}','${escapeHtml(o.askSymbol)}',${o.askDecimals})" title="Partial fill">⚙</button>
       <button style="margin-left:2px;padding:0 4px;font-size:10px;color:${cls === 'ask' ? 'var(--danger)' : 'var(--success)'};background:transparent;border:1px solid currentColor;border-radius:3px;cursor:pointer" onclick="openOfferModal('accept','${o.addr}','${escapeHtml(o.askCurrency)}','${escapeHtml(o.askSymbol)}',${o.askDecimals})" title="Full fill">✓</button>
     </div>`;
+    };
 
     if (asksList) {
       asksList.innerHTML = asks.length
@@ -829,6 +835,21 @@ async function loadOffers() {
       bidsList.innerHTML = bids.length
         ? bids.map(o => renderRow(o, "bid")).join("")
         : "<div style='color:var(--text-muted);padding:4px;font-size:11px'>none</div>";
+    }
+
+    // Show locked funds in user's own offers
+    const myAsks = asks.filter(o => o.owner === userAddress);
+    const myBids = bids.filter(o => o.owner === userAddress);
+    const lockedTRAIL = myAsks.reduce((s, o) => s + o.trailAmount, 0);  // TRAIL I'm selling
+    const lockedMMX = myBids.reduce((s, o) => s + o.mmxAmount, 0);      // MMX I'm bidding
+    const lockedEl = document.getElementById("lockedFunds");
+    if (lockedEl) {
+      if (lockedTRAIL > 0 || lockedMMX > 0) {
+        lockedEl.style.display = '';
+        lockedEl.innerHTML = `🔒 Your offers: <b>${lockedTRAIL.toFixed(0)} TRAIL</b> + <b>${lockedMMX.toFixed(2)} MMX</b> locked`;
+      } else {
+        lockedEl.style.display = 'none';
+      }
     }
   } catch (e) {
     if (asksList) asksList.innerHTML = `<div style='color:var(--danger);padding:4px;font-size:11px'>${escapeHtml(e.message)}</div>`;
