@@ -361,6 +361,21 @@ async function tryRestoreFromBackground() {
 // --- Initialize ---
 
 async function init() {
+  // Safety timeout: if init takes too long, force wallet check
+  const timeoutId = setTimeout(() => {
+    console.warn("init() timeout — forcing wallet check");
+    app.getWalletsList().then(wallets => {
+      if (wallets && wallets.length > 0) {
+        const wallet = wallets[0];
+        const nameEl = document.getElementById("unlockWalletName");
+        if (nameEl) nameEl.textContent = wallet.name;
+        showView("unlockView");
+      } else {
+        showView("onboardingView");
+      }
+    }).catch(() => showView("onboardingView"));
+  }, 3000);
+
   // Load wordlist in background — don't block wallet detection if it fails
   try {
     await api.initNodeUrl();
@@ -376,6 +391,9 @@ async function init() {
   } catch(e) {
     console.error("Get wallets error:", e);
   }
+
+  // init() completed — clear the safety timeout
+  clearTimeout(timeoutId);
 
   if (wallets.length === 0) {
     showView("onboardingView");
@@ -1217,4 +1235,18 @@ async function initDappToggle() {
 }
 
 // --- Start ---
-init();
+init().catch(e => {
+  console.error("init() fatal error:", e);
+  // If init fails completely, at least try to show SOMETHING
+  try {
+    app.getWalletsList().then(wallets => {
+      if (wallets && wallets.length > 0) {
+        const wallet = wallets[0];
+        document.getElementById("unlockWalletName").textContent = wallet.name;
+        showView("unlockView");
+      } else {
+        showView("onboardingView");
+      }
+    }).catch(() => showView("onboardingView"));
+  } catch { showView("onboardingView"); }
+});
