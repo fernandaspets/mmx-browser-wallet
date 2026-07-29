@@ -114,6 +114,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
       <div class="addr-box" id="userAddr" onclick="copyAddr(this)" style="flex:1;font-size:10px">Loading...</div>
       <span id="pollIndicator" style="font-size:9px;color:var(--text-muted);white-space:nowrap">●</span>
+      <button id="dappSettingsBtn" style="background:none;border:1px solid var(--border);border-radius:3px;color:var(--text-muted);cursor:pointer;font-size:10px;padding:0 4px" title="Settings">⚙</button>
     </div>
     <div id="balances" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
 
@@ -263,6 +264,24 @@
       </div>
     </div>
 
+    <!-- Settings modal -->
+    <div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;max-width:380px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.5)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="font-weight:600;font-size:14px">⚙ Settings</span>
+          <button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px" onclick="document.getElementById('settingsModal').style.display='none'">✕</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">RPC Node URL</div>
+        <input type="text" id="rpcUrlInput" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;margin-bottom:8px">
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <button class="btn" style="flex:1;font-size:10px;padding:4px" onclick="document.getElementById('rpcUrlInput').value='https://rpc.mmx.network'">Official</button>
+          <button class="btn" style="flex:1;font-size:10px;padding:4px" onclick="document.getElementById('rpcUrlInput').value='http://localhost:11380'">Local</button>
+        </div>
+        <div id="rpcStatus" style="font-size:10px;color:var(--text-muted);margin-bottom:8px"></div>
+        <button class="btn btn-primary" id="rpcSaveBtn" style="width:100%">Save & Reload</button>
+      </div>
+    </div>
+
     <!-- Offer Trade/Accept modal -->
     <div id="offerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)closeOfferModal()">
       <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;max-width:400px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.5)">
@@ -344,6 +363,7 @@ document.querySelectorAll(".tab").forEach(tab => {
 
 // === Init ===
 async function init() {
+  await api.initNodeUrl();
   await app.init();
 
   if (typeof window.mmx !== "undefined" && window.mmx.isMMX && window.mmx.getAddress) {
@@ -407,6 +427,19 @@ async function showApp() {
   initOffersUI();
   await initPaywallUI();
   startPolling();
+  // Settings modal
+  document.getElementById("dappSettingsBtn").onclick = () => {
+    document.getElementById("settingsModal").style.display = "flex";
+    document.getElementById("rpcUrlInput").value = api.getNodeUrl();
+    document.getElementById("rpcStatus").textContent = "Current: " + api.getNodeUrl();
+  };
+  document.getElementById("rpcSaveBtn").onclick = async () => {
+    const url = document.getElementById("rpcUrlInput").value.trim();
+    if (!url) return;
+    await api.saveNodeUrl(url);
+    document.getElementById("rpcStatus").innerHTML = '<span style="color:var(--success)">✓ Saved! Reloading...</span>';
+    setTimeout(() => location.reload(), 1000);
+  };
 }
 
 // === Balances ===

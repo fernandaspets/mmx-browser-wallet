@@ -41,12 +41,38 @@ const status = document.getElementById("status");
       localStorage.setItem("mmx_theme", newTheme);
     };
 
+    // --- Settings modal ---
+    const settingsBtn = document.getElementById("settingsBtn");
+    const settingsModal = document.getElementById("settingsModal");
+    if (settingsBtn) settingsBtn.onclick = () => {
+      settingsModal.style.display = "flex";
+      document.getElementById("rpcUrlInput").value = api.getNodeUrl();
+      document.getElementById("rpcStatus").textContent = "Current: " + api.getNodeUrl();
+    };
+    const rpcPresetOfficial = document.getElementById("rpcPresetOfficial");
+    if (rpcPresetOfficial) rpcPresetOfficial.onclick = () => {
+      document.getElementById("rpcUrlInput").value = "https://rpc.mmx.network";
+    };
+    const rpcPresetLocal = document.getElementById("rpcPresetLocal");
+    if (rpcPresetLocal) rpcPresetLocal.onclick = () => {
+      document.getElementById("rpcUrlInput").value = "http://localhost:11380";
+    };
+    const rpcSaveBtn = document.getElementById("rpcSaveBtn");
+    if (rpcSaveBtn) rpcSaveBtn.onclick = async () => {
+      const url = document.getElementById("rpcUrlInput").value.trim();
+      if (!url) return;
+      await api.saveNodeUrl(url);
+      document.getElementById("rpcStatus").innerHTML = '<span style="color:#4caf50">✓ Saved! Reloading...</span>';
+      setTimeout(() => location.reload(), 1000);
+    };
+
     // --- Load ---
     try {
       setStatus("Loading crypto libraries...");
       const app = await import("./wallet-app.js");
       const api = await import("./mmx-node-api.js");
       const { bech32m } = await import("./lib/bech32-esm.js");
+      await api.initNodeUrl();
       await app.init();
       setStatus("Ready");
       window.app = app;

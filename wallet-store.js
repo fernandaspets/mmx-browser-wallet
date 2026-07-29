@@ -262,3 +262,22 @@ export async function autoTrackAddress(address, defaultName) {
   // Auto-save with default name (user can rename later)
   return await addContact(defaultName || "Unknown", address);
 }
+
+// --- Generic settings (key-value, persisted) ---
+const SETTINGS_KEY = "mmx_settings";
+
+export async function getSetting(key) {
+  const data = await storageGet(SETTINGS_KEY);
+  if (!data) return null;
+  return data[key] ?? null;
+}
+
+export async function setSetting(key, value) {
+  const data = (await storageGet(SETTINGS_KEY)) || {};
+  data[key] = value;
+  await storageSet(SETTINGS_KEY, data);
+}
+
+export async function getAllSettings() {
+  return (await storageGet(SETTINGS_KEY)) || {};
+}

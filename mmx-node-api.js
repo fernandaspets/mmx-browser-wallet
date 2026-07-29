@@ -24,6 +24,35 @@ export function getNodeUrl() {
   return _nodeUrl;
 }
 
+export function getDefaultNodeUrl() {
+  return DEFAULT_NODE;
+}
+
+// Load saved RPC URL from storage on startup (call from app init)
+export async function initNodeUrl() {
+  try {
+    // Dynamic import to avoid circular dependency in extension context
+    const store = await import("./wallet-store.js");
+    const saved = await store.getSetting("rpc_url");
+    if (saved && typeof saved === "string" && saved.startsWith("http")) {
+      _nodeUrl = saved.replace(/\/+$/, "");
+    }
+  } catch {
+    // wallet-store.js not available (e.g. test environment) — use default
+  }
+}
+
+// Save RPC URL to storage
+export async function saveNodeUrl(url) {
+  try {
+    const store = await import("./wallet-store.js");
+    await store.setSetting("rpc_url", url);
+    setNodeUrl(url);
+  } catch {
+    setNodeUrl(url); // at least apply in-memory
+  }
+}
+
 // --- Balance ---
 
 export async function getBalance(address) {

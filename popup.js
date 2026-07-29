@@ -362,6 +362,7 @@ async function tryRestoreFromBackground() {
 
 async function init() {
   try {
+    await api.initNodeUrl();
     await app.init();
   } catch(e) {
     setStatus("createStatus", "Init error: " + e.message, "error");
@@ -763,6 +764,37 @@ app.onLock(() => {
 document.getElementById("showSeedBtn").addEventListener("click", () => {
   showReauth("Show Mnemonic", "Enter your password to reveal your 24-word seed:", 'mnemonic');
 });
+
+// Settings
+if (document.getElementById("settingsBtn")) {
+  document.getElementById("settingsBtn").addEventListener("click", () => {
+    document.getElementById("popupRpcUrl").value = api.getNodeUrl();
+    document.getElementById("popupRpcStatus").textContent = "Current: " + api.getNodeUrl();
+    showView("settingsView");
+  });
+}
+if (document.getElementById("settingsBackBtn")) {
+  document.getElementById("settingsBackBtn").addEventListener("click", () => showView("dashboardView"));
+}
+if (document.getElementById("popupRpcOfficial")) {
+  document.getElementById("popupRpcOfficial").addEventListener("click", () => {
+    document.getElementById("popupRpcUrl").value = "https://rpc.mmx.network";
+  });
+}
+if (document.getElementById("popupRpcLocal")) {
+  document.getElementById("popupRpcLocal").addEventListener("click", () => {
+    document.getElementById("popupRpcUrl").value = "http://localhost:11380";
+  });
+}
+if (document.getElementById("popupRpcSave")) {
+  document.getElementById("popupRpcSave").addEventListener("click", async () => {
+    const url = document.getElementById("popupRpcUrl").value.trim();
+    if (!url) return;
+    await api.saveNodeUrl(url);
+    document.getElementById("popupRpcStatus").innerHTML = '<span style="color:#4caf50">✓ Saved! Reloading...</span>';
+    setTimeout(() => location.reload(), 1000);
+  });
+}
 
 document.getElementById("lockBtn").addEventListener("click", async () => {
   app.stopAutoRefresh();

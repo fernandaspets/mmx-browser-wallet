@@ -720,3 +720,43 @@ console.log("\nTX history direction");
   const popupSrc = fs.readFileSync(import.meta.dirname + "/../popup.js", "utf8");
   assert("popup.js uses red for sent", popupSrc.includes("'#f44336'"), true);
 }
+
+// === RPC URL configurable settings ===
+console.log("\nRPC URL settings");
+{
+  const fs = await import("fs");
+  
+  // mmx-node-api.js has initNodeUrl and saveNodeUrl
+  const apiSrc = fs.readFileSync(import.meta.dirname + "/../mmx-node-api.js", "utf8");
+  assert("mmx-node-api.js has initNodeUrl", apiSrc.includes("export async function initNodeUrl"), true);
+  assert("mmx-node-api.js has saveNodeUrl", apiSrc.includes("export async function saveNodeUrl"), true);
+  assert("mmx-node-api.js has getDefaultNodeUrl", apiSrc.includes("export function getDefaultNodeUrl"), true);
+  assert("mmx-node-api.js persists to wallet-store", apiSrc.includes("getSetting(\"rpc_url\")"), true);
+  
+  // wallet-store.js has getSetting/setSetting
+  const storeSrc = fs.readFileSync(import.meta.dirname + "/../wallet-store.js", "utf8");
+  assert("wallet-store.js has getSetting", storeSrc.includes("export async function getSetting"), true);
+  assert("wallet-store.js has setSetting", storeSrc.includes("export async function setSetting"), true);
+  
+  // All entry points call initNodeUrl
+  const pageSrc = fs.readFileSync(import.meta.dirname + "/../wallet-page.js", "utf8");
+  assert("wallet-page.js calls initNodeUrl", pageSrc.includes("api.initNodeUrl()"), true);
+  
+  const popupSrc = fs.readFileSync(import.meta.dirname + "/../popup.js", "utf8");
+  assert("popup.js calls initNodeUrl", popupSrc.includes("api.initNodeUrl()"), true);
+  
+  const dappSrc = fs.readFileSync(import.meta.dirname + "/../dapp/app.html", "utf8");
+  assert("dapp/app.html calls initNodeUrl", dappSrc.includes("api.initNodeUrl()"), true);
+  assert("dapp/app.html has settings modal", dappSrc.includes('id="settingsModal"'), true);
+  assert("dapp/app.html has settings button", dappSrc.includes('id="dappSettingsBtn"'), true);
+  
+  // wallet.html has settings button
+  const walletHtml = fs.readFileSync(import.meta.dirname + "/../wallet.html", "utf8");
+  assert("wallet.html has settings button", walletHtml.includes('id="settingsBtn"'), true);
+  assert("wallet.html has settings modal", walletHtml.includes('id="settingsModal"'), true);
+  
+  // popup.html has settings view
+  const popupHtml = fs.readFileSync(import.meta.dirname + "/../popup.html", "utf8");
+  assert("popup.html has settings view", popupHtml.includes('id="settingsView"'), true);
+  assert("popup.html has settings button", popupHtml.includes('id="settingsBtn"'), true);
+}
