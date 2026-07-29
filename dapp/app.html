@@ -224,6 +224,28 @@
           </div>
         </div>
         <div class="status" id="acceptStatus"></div>
+        <!-- Sweep / Limit Buy -->
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px">⚡ Limit Buy — sweep asks up to your max price</div>
+          <div style="display:flex;gap:4px;align-items:center">
+            <input type="text" id="sweepMaxAmount" style="flex:1;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px" placeholder="Max MMX" inputmode="decimal">
+            <input type="text" id="sweepMaxPrice" style="flex:1;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px" placeholder="Max price (MMX/TRAIL)" inputmode="decimal">
+            <button class="btn btn-primary" id="sweepBtn" style="padding:4px 8px;font-size:11px">⚡ Sweep</button>
+          </div>
+          <div id="sweepStatus" style="font-size:10px;color:var(--text-muted);margin-top:2px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Offer Trade/Accept modal -->
+    <div id="offerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)closeOfferModal()">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;max-width:400px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.5)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span id="offerModalTitle" style="font-weight:600;font-size:14px"></span>
+          <button style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px" onclick="closeOfferModal()">✕</button>
+        </div>
+        <div id="offerModalBody"></div>
+        <div id="offerModalActions" style="display:flex;gap:8px;margin-top:12px"></div>
       </div>
     </div>
 
@@ -595,6 +617,7 @@ function initOffersUI() {
 
   document.getElementById("makeOfferBtn").onclick = makeOffer;
   document.getElementById("offerRefreshBtn").onclick = () => loadOffers();
+  document.getElementById("sweepBtn").onclick = () => sweepAsks();
   loadOffers();
 }
 
@@ -686,11 +709,12 @@ async function loadOffers() {
       spreadEl.innerHTML = "No open offers";
     }
 
-    // Compact row: Price | TRAIL | Accept
+    // Compact row: Price | TRAIL | Trade (⚙) + Accept (✓)
     const renderRow = (o, cls) => `<div style="display:flex;align-items:center;padding:2px 4px;border-bottom:1px solid var(--border);font-size:11px">
       <span style="flex:1;font-weight:600;color:${cls === 'ask' ? 'var(--danger)' : 'var(--success)'}">${o.price.toFixed(2)}</span>
       <span style="flex:1;text-align:right;color:var(--text-muted)">${o.trailAmount.toFixed(0)}</span>
-      <button style="margin-left:4px;padding:0 4px;font-size:10px;color:${cls === 'ask' ? 'var(--danger)' : 'var(--success)'};background:transparent;border:1px solid currentColor;border-radius:3px;cursor:pointer" onclick="acceptOfferUI('${o.addr}','${escapeHtml(o.askCurrency)}','${escapeHtml(o.askSymbol)}',${o.askDecimals},'${o.invPrice}')">✓</button>
+      <button style="margin-left:4px;padding:0 3px;font-size:9px;color:var(--text-muted);background:transparent;border:1px solid var(--border);border-radius:3px;cursor:pointer" onclick="openOfferModal('trade','${o.addr}','${escapeHtml(o.askCurrency)}','${escapeHtml(o.askSymbol)}',${o.askDecimals})" title="Partial fill">⚙</button>
+      <button style="margin-left:2px;padding:0 4px;font-size:10px;color:${cls === 'ask' ? 'var(--danger)' : 'var(--success)'};background:transparent;border:1px solid currentColor;border-radius:3px;cursor:pointer" onclick="openOfferModal('accept','${o.addr}','${escapeHtml(o.askCurrency)}','${escapeHtml(o.askSymbol)}',${o.askDecimals})" title="Full fill">✓</button>
     </div>`;
 
     if (asksList) {
@@ -709,26 +733,274 @@ async function loadOffers() {
   }
 }
 
-window.acceptOfferUI = async function(offerAddr, askCurrency, askSymbol, askDecimals, invPrice) {
-  const status = document.getElementById("acceptStatus");
-  status.className = "status pending";
-  status.textContent = `Accepting offer (buying with ${askSymbol})...`;
-  try {
-    // Ask user how much to spend (in ask currency)
-    const amountStr = window.prompt(`How much ${askSymbol} to spend?`, "1");
-    if (!amountStr) { status.className = ""; status.textContent = ""; return; }
-    const amount = parseFloat(amountStr);
-    if (!amount || amount <= 0) throw new Error("Invalid amount");
-    const askSat = app.mmxToSat(String(amount), askDecimals);
-    if (askSat <= 0n) throw new Error("Amount too small");
+window.closeOfferModal = function() {
+  document.getElementById("offerModal").style.display = "none";
+};
 
-    const result = await app.acceptOffer(offerAddr, askSat);
-    status.className = "status success";
-    status.innerHTML = `Offer accepted! <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
-    loadOffers(); // Refresh
+// State for the current offer modal
+let _offerModalState = null;
+
+window.openOfferModal = async function(mode, offerAddr, askCurrency, askSymbol, askDecimals) {
+  const modal = document.getElementById("offerModal");
+  const title = document.getElementById("offerModalTitle");
+  const body = document.getElementById("offerModalBody");
+  const actions = document.getElementById("offerModalActions");
+  modal.style.display = "flex";
+  body.innerHTML = "<div style='color:var(--text-muted);padding:8px'>Loading offer...</div>";
+  actions.innerHTML = "";
+  title.textContent = `${mode === 'trade' ? '⚙ Trade' : '✓ Accept'} — ${askSymbol}`;
+
+  try {
+    const offer = await api.getOffer(offerAddr);
+    const bidSymbol = offer.bid_symbol || '?';
+    const bidDec = offer.bid_decimals || 0;
+    const askVal = parseFloat(offer.ask_value || 0);   // human ask_amount
+    const bidVal = parseFloat(offer.bid_balance_value || 0); // human bid_balance
+    const price = parseFloat(offer.display_price || 0); // bid per ask (human)
+    const invPrice = offer.inv_price;
+
+    _offerModalState = { mode, offerAddr, askCurrency, askSymbol, askDecimals, bidSymbol, bidDec, offer, askVal, bidVal, price, invPrice };
+
+    if (mode === 'accept') {
+      // Full fill: show summary, no input needed
+      // You send: askVal (ask_currency), You receive: bidVal (bid_currency)
+      body.innerHTML = `
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">
+          <span style="color:var(--text-muted)">You send:</span>
+          <span><b>${askVal.toFixed(6)}</b> ${askSymbol}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">
+          <span style="color:var(--text-muted)">You receive:</span>
+          <span style="color:var(--success)"><b>${bidVal}</b> ${bidSymbol}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;color:var(--text-muted)">
+          <span>Price:</span>
+          <span>${price.toFixed(2)} ${askSymbol}/${bidSymbol}</span>
+        </div>
+        <div id="offerFeeRow" style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;color:var(--text-muted)">
+          <span>Est. fee:</span>
+          <span id="offerFeeVal">calculating...</span>
+        </div>
+        <div id="offerConfirmNote" style="font-size:11px;color:var(--text-muted);padding:4px 0">
+          This buys ALL remaining ${bidVal} ${bidSymbol}. Change will be returned.
+        </div>
+      `;
+      actions.innerHTML = `
+        <button class="btn" style="flex:1" onclick="closeOfferModal()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1" id="offerConfirmBtn" disabled onclick="confirmOfferAction()">Confirm</button>
+      `;
+
+      // Dry-run validation to get fee
+      try {
+        const askSat = BigInt(offer.ask_amount);
+        const result = await app.validateOfferTx('accept', offerAddr, askSat);
+        const feeEl = document.getElementById("offerFeeVal");
+        if (result.did_fail) {
+          feeEl.innerHTML = `<span style="color:var(--danger)">Validation failed: ${escapeHtml(result.error || 'unknown')}</span>`;
+        } else {
+          feeEl.textContent = `${result.fee_value.toFixed(6)} MMX`;
+          document.getElementById("offerConfirmBtn").disabled = false;
+        }
+      } catch (e) {
+        document.getElementById("offerFeeVal").innerHTML = `<span style="color:var(--danger)">${escapeHtml(e.message)}</span>`;
+      }
+
+    } else {
+      // Trade: partial fill, user enters amount
+      body.innerHTML = `
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;color:var(--text-muted)">
+          <span>Offer has:</span>
+          <span><b>${bidVal}</b> ${bidSymbol}</span>
+        </div>
+        <div style="margin:8px 0">
+          <label style="font-size:11px;color:var(--text-muted)">You send (${askSymbol}):</label>
+          <input type="text" id="tradeAmountInput" style="width:100%;padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:13px" placeholder="0.0" inputmode="decimal" oninput="onTradeAmountChange()">
+        </div>
+        <div id="tradeEstimateRow" style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px">
+          <span style="color:var(--text-muted)">You receive:</span>
+          <span id="tradeReceiveVal" style="color:var(--text-muted)">—</span>
+        </div>
+        <div id="offerFeeRow" style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px;color:var(--text-muted)">
+          <span>Est. fee:</span>
+          <span id="offerFeeVal">—</span>
+        </div>
+        <div id="tradeWarning" style="font-size:10px;color:var(--danger);padding:2px 0"></div>
+        <button id="increaseBtn" style="font-size:10px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:2px 0;display:none" onclick="increaseTradeAmount()">⬆ Increase to minimum for 1 unit</button>
+      `;
+      actions.innerHTML = `
+        <button class="btn" style="flex:1" onclick="closeOfferModal()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1" id="offerConfirmBtn" disabled onclick="confirmOfferAction()">Confirm Trade</button>
+      `;
+    }
   } catch (e) {
+    body.innerHTML = `<div style='color:var(--danger);padding:8px'>${escapeHtml(e.message)}</div>`;
+  }
+};
+
+let _tradeEstimateTimer = null;
+let _tradeNextInput = null;
+
+window.onTradeAmountChange = function() {
+  const btn = document.getElementById("offerConfirmBtn");
+  const receiveEl = document.getElementById("tradeReceiveVal");
+  const feeEl = document.getElementById("offerFeeVal");
+  const warnEl = document.getElementById("tradeWarning");
+  const incBtn = document.getElementById("increaseBtn");
+  if (btn) btn.disabled = true;
+  if (receiveEl) receiveEl.textContent = "—";
+  if (feeEl) feeEl.textContent = "—";
+  if (warnEl) warnEl.textContent = "";
+  if (incBtn) incBtn.style.display = "none";
+
+  clearTimeout(_tradeEstimateTimer);
+  _tradeEstimateTimer = setTimeout(async () => {
+    const input = document.getElementById("tradeAmountInput");
+    if (!input) return;
+    const amountStr = input.value.trim();
+    if (!amountStr || parseFloat(amountStr) <= 0) return;
+
+    try {
+      // Call trade_estimate API (human-readable amount)
+      const est = await api.getOfferTradeEstimate(_offerModalState.offerAddr, amountStr);
+      const tradeVal = parseFloat(est.trade?.value || 0);
+      const receiveStr = `${tradeVal} ${_offerModalState.bidSymbol}`;
+      if (receiveEl) receiveEl.innerHTML = `<span style="color:var(--success)">${tradeVal} ${_offerModalState.bidSymbol}</span>`;
+      _tradeNextInput = est.next_input?.value || null;
+
+      if (tradeVal <= 0) {
+        if (warnEl) warnEl.textContent = `⚠ Amount too small — you'd receive 0 ${_offerModalState.bidSymbol} (integer truncation). Increase amount.`;
+        if (incBtn && _tradeNextInput) {
+          incBtn.textContent = `⬆ Increase to ${_tradeNextInput} ${_offerModalState.askSymbol} (minimum for 1 ${_offerModalState.bidSymbol})`;
+          incBtn.style.display = "block";
+        }
+        return;
+      }
+
+      // Dry-run validation for fee
+      const askSat = app.mmxToSat(amountStr, _offerModalState.askDecimals);
+      if (askSat <= 0n) return;
+      const result = await app.validateOfferTx('trade', _offerModalState.offerAddr, askSat);
+      if (result.did_fail) {
+        feeEl.innerHTML = `<span style="color:var(--danger)">Validation failed</span>`;
+        if (warnEl) warnEl.textContent = result.error || '';
+      } else {
+        feeEl.textContent = `${result.fee_value.toFixed(6)} MMX`;
+        if (btn) btn.disabled = false;
+      }
+    } catch (e) {
+      if (receiveEl) receiveEl.innerHTML = `<span style="color:var(--danger)">${escapeHtml(e.message)}</span>`;
+    }
+  }, 400);
+};
+
+window.increaseTradeAmount = function() {
+  if (_tradeNextInput) {
+    document.getElementById("tradeAmountInput").value = _tradeNextInput;
+    onTradeAmountChange();
+  }
+};
+
+window.confirmOfferAction = async function() {
+  const status = document.getElementById("acceptStatus");
+  const btn = document.getElementById("offerConfirmBtn");
+  if (btn) btn.disabled = true;
+  if (btn) btn.textContent = "Sending...";
+  try {
+    const st = _offerModalState;
+    let result;
+    if (st.mode === 'accept') {
+      result = await app.acceptOffer(st.offerAddr);
+    } else {
+      const amountStr = document.getElementById("tradeAmountInput").value.trim();
+      const askSat = app.mmxToSat(amountStr, st.askDecimals);
+      result = await app.offerTrade(st.offerAddr, askSat);
+    }
+    closeOfferModal();
+    status.className = "status success";
+    status.innerHTML = `${st.mode === 'trade' ? 'Trade' : 'Offer accepted'}! <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a> · Fee: ${result.fee_value.toFixed(6)} MMX`;
+    loadOffers();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = "Confirm"; }
+    const status = document.getElementById("acceptStatus");
     status.className = "status error";
     status.textContent = e.message;
+  }
+};
+
+// === Sweep / Limit Buy ===
+// Walks through asks (cheapest first), trades each until budget exhausted or price > max.
+// NOT atomic — offers may change between trades. Each trade is a separate TX.
+window.sweepAsks = async function() {
+  const status = document.getElementById("sweepStatus");
+  const maxAmountStr = document.getElementById("sweepMaxAmount").value.trim();
+  const maxPriceStr = document.getElementById("sweepMaxPrice").value.trim();
+  if (!maxAmountStr || !maxPriceStr) { status.textContent = "Enter max MMX and max price"; return; }
+  const maxMMX = parseFloat(maxAmountStr);
+  const maxPrice = parseFloat(maxPriceStr);
+  if (!maxMMX || maxMMX <= 0) { status.textContent = "Invalid max MMX"; return; }
+  if (!maxPrice || maxPrice <= 0) { status.textContent = "Invalid max price"; return; }
+
+  status.innerHTML = "<span style='color:var(--text-muted)'>Fetching asks...</span>";
+  try {
+    // Fetch all asks (bid=TRAIL, ask=MMX) — people selling TRAIL for MMX
+    const asksRaw = await api.getOffers(TRAIL_CONTRACT, MMX_NULL, 100);
+    // Filter: only funded offers with price <= maxPrice
+    // display_price = MMX per TRAIL for asks (bid=TRAIL, ask=MMX)
+    const asks = (asksRaw || [])
+      .filter(o => (o.bid_balance_value || 0) > 0)
+      .map(o => ({ addr: o.address, price: parseFloat(o.display_price) || 0, trailAvail: o.bid_balance_value, askAmount: o.ask_amount, askValue: o.ask_value, invPrice: o.inv_price }))
+      .filter(o => o.price > 0 && o.price <= maxPrice)
+      .sort((a, b) => a.price - b.price);  // cheapest first
+
+    if (!asks.length) { status.innerHTML = "<span style='color:var(--text-muted)'>No asks found at or below ${maxPrice} MMX/TRAIL</span>"; return; }
+
+    let budgetSat = app.mmxToSat(String(maxMMX), 6);  // MMX has 6 decimals
+    let totalTRAIL = 0;
+    let totalMMX = 0;
+    let trades = 0;
+
+    for (const ask of asks) {
+      if (budgetSat <= 0n) break;
+      status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${asks.length} — ${ask.price.toFixed(2)} MMX/TRAIL...</span>`;
+
+      // How much MMX needed to fill this ask entirely?
+      const fillCostSat = BigInt(ask.askAmount);  // raw MMX satoshis
+      // Trade the minimum of budget and fill cost
+      const tradeAmountSat = budgetSat < fillCostSat ? budgetSat : fillCostSat;
+
+      // Check trade_estimate first — don't trade if we'd get 0 TRAIL
+      const tradeAmountHuman = (Number(tradeAmountSat) / 1e6).toString();
+      const est = await api.getOfferTradeEstimate(ask.addr, tradeAmountHuman);
+      const trailReceived = parseFloat(est.trade?.value || 0);
+
+      if (trailReceived <= 0) {
+        // Amount too small for even 1 TRAIL — try accept instead if we can afford it
+        if (budgetSat >= fillCostSat) {
+          // Accept the full offer
+          const result = await app.acceptOffer(ask.addr);
+          totalTRAIL += ask.trailAvail;
+          totalMMX += ask.askValue;
+          budgetSat -= fillCostSat;
+          trades++;
+        } else {
+          // Can't afford the full ask and partial gives 0 — skip
+          status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped offer at ${ask.price.toFixed(2)} — too small for partial</span>`;
+          continue;
+        }
+      } else {
+        // Trade partial
+        const result = await app.offerTrade(ask.addr, tradeAmountSat);
+        totalTRAIL += trailReceived;
+        totalMMX += Number(tradeAmountSat) / 1e6;
+        budgetSat -= tradeAmountSat;
+        trades++;
+      }
+    }
+
+    status.innerHTML = `<span style='color:var(--success)'>✅ Sweep complete: ${trades} trades, bought ${totalTRAIL} TRAIL for ${totalMMX.toFixed(6)} MMX</span>`;
+    loadOffers();
+  } catch (e) {
+    status.innerHTML = `<span style='color:var(--danger)'>${escapeHtml(e.message)}</span>`;
   }
 };
 

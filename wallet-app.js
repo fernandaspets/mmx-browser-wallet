@@ -1057,10 +1057,10 @@ async function buildAndSendTxDeploy(tx, executable, skey) {
   };
 }
 
-// acceptOffer: accept an existing offer (Deposit to offer contract with method "accept")
-// offerAddr: the offer contract address
-// askAmountSat: amount of ask currency to send (what the offer asks for)
-export async function acceptOffer(offerAddr, askAmountSat) {
+// _offerDeposit: shared helper for offer trade/accept (Deposit to offer contract)
+// method: 'trade' (partial fill) or 'accept' (full fill)
+// broadcast: if false, only validate (for fee estimation). if true, validate + broadcast.
+async function _offerDeposit(method, offerAddr, askAmountSat, broadcast = true) {
   if (!unlockedSeed) throw new Error("Wallet is locked");
   if (askAmountSat <= 0n) throw new Error("Amount must be positive");
 
@@ -1068,22 +1068,22 @@ export async function acceptOffer(offerAddr, askAmountSat) {
   const fromAddrBytes = Array.from(addrHash);
   const fromAddrStr = hashToAddress(addrHash);
 
-  // Fetch offer to get ask_currency and price
+  // Fetch offer to get ask_currency and inv_price
   const offer = await api.getOffer(offerAddr);
   const askCurrencyBytes = addrToBytes32(offer.ask_currency);
   const offerAddrBytes = addrToBytes32(offerAddr);
 
-  // price = offer.inv_price (hex string)
+  // Deposit: user MUST be null (official Wallet.cpp doesn't set options.user)
   const deposit = {
     __type: "mmx.operation.Deposit",
     version: 0,
     address: offerAddrBytes,
-    method: "accept",
+    method: method,
     args: [
-      fromAddrStr,      // dst_addr: where to send the bid currency
-      offer.inv_price,  // price (hex string)
+      fromAddrStr,      // dst_addr: where to send bid currency + change
+      offer.inv_price,  // price (hex string, must match current inv_price)
     ],
-    user: addrToBytes32(offer.owner),  // user: offer.owner (C++ sets options_.user = offer.owner)
+    user: null,          // MUST be null — not offer.owner
     currency: askCurrencyBytes,
     amount: uint128LE(askAmountSat),
   };
@@ -1156,13 +1156,46 @@ export async function acceptOffer(offerAddr, askAmountSat) {
     }
     throw new Error("Validation failed: " + msg);
   }
-  await api.broadcastTransaction(toVNX(txObj));
+  if (broadcast) {
+    await api.broadcastTransaction(toVNX(txObj));
+  }
   skey.fill(0);
   return {
     txid: Buffer.from(txId).toString("hex").toUpperCase(),
     fee: result.total_fee || tx.static_cost,
     fee_value: (result.total_fee || tx.static_cost) / 1e6,
+    did_fail: result.did_fail,
+    outputs: result.outputs || [],
   };
+}
+
+// acceptOffer: accept an existing offer — full fill (buy ALL remaining bid currency)
+// Sends offer.ask_amount of ask_currency, receives all bid_balance, gets change back.
+// For convenience, askAmountSat defaults to offer.ask_amount if not provided.
+export async function acceptOffer(offerAddr, askAmountSat = null) {
+  if (!unlockedSeed) throw new Error("Wallet is locked");
+  if (askAmountSat === null) {
+    const offer = await api.getOffer(offerAddr);
+    askAmountSat = BigInt(offer.ask_amount);
+  }
+  if (askAmountSat <= 0n) throw new Error("Amount must be positive");
+  return _offerDeposit("accept", offerAddr, askAmountSat, true);
+}
+
+// offerTrade: trade against an offer — partial fill (user-specified amount)
+// Sends askAmountSat of ask_currency, receives floor(amount * inv_price >> 64) of bid currency.
+// Leftover ask_currency stays in the offer (owner withdraws later).
+export async function offerTrade(offerAddr, askAmountSat) {
+  if (!unlockedSeed) throw new Error("Wallet is locked");
+  if (askAmountSat <= 0n) throw new Error("Amount must be positive");
+  return _offerDeposit("trade", offerAddr, askAmountSat, true);
+}
+
+// validateOfferTx: dry-run validation only (no broadcast) — for fee estimation
+export async function validateOfferTx(method, offerAddr, askAmountSat) {
+  if (!unlockedSeed) throw new Error("Wallet is locked");
+  if (askAmountSat <= 0n) throw new Error("Amount must be positive");
+  return _offerDeposit(method, offerAddr, askAmountSat, false);
 }
 
 // cancelOffer: cancel an offer (Execute on offer contract with method "cancel")
