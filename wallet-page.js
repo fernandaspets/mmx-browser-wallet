@@ -285,6 +285,7 @@ const status = document.getElementById("status");
         const toAddr = document.getElementById("sendTo").value.trim();
         const amountStr = document.getElementById("sendAmount").value.trim();
         const currency = document.getElementById("sendCurrency").value;
+        const memo = document.getElementById("sendMemo").value.trim() || null;
         
         if (!toAddr || !toAddr.startsWith("mmx1")) return setStatus("Enter a valid MMX address", "error");
         if (!amountStr) return setStatus("Enter an amount", "error");
@@ -340,13 +341,20 @@ const status = document.getElementById("status");
         } catch {}
         
         // Show confirm card
-        pendingSend = { toAddr, amountSat, contractAddr, decimals, currency, amountStr };
+        pendingSend = { toAddr, amountSat, contractAddr, decimals, currency, amountStr, memo };
         const feeMmx = (Number(feeSat) / 1e6).toFixed(6);
         document.getElementById("confirmAmount").textContent = `${amountStr} ${currency}`;
         document.getElementById("confirmTo").textContent = toAddr;
         document.getElementById("confirmFee").textContent = `~${feeMmx} MMX`;
         const totalStr = currency === "MMX" ? `${(parseFloat(amountStr) + parseFloat(feeMmx)).toFixed(6)} MMX` : `${amountStr} ${currency} + ${feeMmx} MMX fee`;
         document.getElementById("confirmTotal").textContent = totalStr;
+        // Show memo in confirm card if present
+        if (memo) {
+          document.getElementById("confirmMemo").textContent = memo;
+          document.getElementById("confirmMemoRow").style.display = "block";
+        } else {
+          document.getElementById("confirmMemoRow").style.display = "none";
+        }
         document.getElementById("sendConfirmStatus").textContent = "";
         document.getElementById("sendConfirmCard").style.display = "block";
       };
@@ -362,10 +370,11 @@ const status = document.getElementById("status");
         btn.disabled = true;
         document.getElementById("sendConfirmStatus").textContent = "Sending...";
         try {
-          const sendResult = await app.sendTransaction(pendingSend.toAddr, pendingSend.amountSat, pendingSend.contractAddr);
+          const sendResult = await app.sendTransaction(pendingSend.toAddr, pendingSend.amountSat, pendingSend.contractAddr, pendingSend.memo);
           document.getElementById("sendConfirmCard").style.display = "none";
           document.getElementById("sendTo").value = "";
           document.getElementById("sendAmount").value = "";
+          document.getElementById("sendMemo").value = "";
           setStatus(`✅ Sent! TXID: ${sendResult.txid} Fee: ${sendResult.fee_value} MMX`, "success");
           await refreshBalance();
           // Fetch updated tx history (new tx will show as pending)

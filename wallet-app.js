@@ -151,7 +151,7 @@ function formatAmount(raw, decimals) {
   return fracStr ? `${whole}.${fracStr}` : whole.toString();
 }
 
-export async function sendTransaction(toAddress, amountSat, currencyContract) {
+export async function sendTransaction(toAddress, amountSat, currencyContract, memo = null) {
   if (!unlockedSeed) throw new Error("Wallet is locked");
 
   // Derive keys from unlocked seed
@@ -177,7 +177,10 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
 
   // Compute static_cost correctly (must match Transaction::calc_cost in C++)
   // For simple transfer: 1 input + 1 output + 0 execute + 1 solution
-  const params = await getChainParamsLocal(); const staticCost = calcStaticCost(1, 1, null, 1, null, params);
+  // Memo cost: max(ceil(memo.size/32), 1) * min_txfee_memo per txio with memo
+  const outMemo = memo ? memo.slice(0, 64) : null;  // txio_t::MAX_MEMO_SIZE = 64
+  const params = await getChainParamsLocal();
+  const staticCost = calcStaticCost(1, 1, null, 1, null, params, [null], [outMemo]);
 
   // 64-bit random nonce (crypto.getRandomValues, not Math.random)
   const nonceBytes = crypto.getRandomValues(new Uint8Array(8));
@@ -207,7 +210,7 @@ export async function sendTransaction(toAddress, amountSat, currencyContract) {
       address: dstBytes,
       contract: contractBytes,
       amount: uint128LE(amountSat),
-      memo: null,
+      memo: outMemo,
     }],
     execute: [],
     deploy: null,
@@ -624,14 +627,25 @@ async function getChainParamsLocal() {
 // gas_limit default = 5000000 (from spend_options_t)
 // With fee_ratio=1024: max_fee = static_cost + gas_limit
 const DEFAULT_GAS_LIMIT = 5000000;
-function calcMaxFee(staticCost, feeRatio = 1024, gasLimit = DEFAULT_GAS_LIMIT) {
+export function calcMaxFee(staticCost, feeRatio = 1024, gasLimit = DEFAULT_GAS_LIMIT) {
   return Math.floor((staticCost + gasLimit) * feeRatio / 1024);
 }
 
-function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, deployExec = null, params = CHAIN_PARAMS) {
+export function calcStaticCost(numInputs, numOutputs, executeOps, numSolutions, deployExec = null, params = CHAIN_PARAMS, inputMemos = [], outputMemos = []) {
   let cost = params.min_txfee;
   cost += numInputs * params.min_txfee_io;
   cost += numOutputs * params.min_txfee_io;
+  // Add memo cost per txio_t::calc_cost: max(ceil(memo.size / 32), 1) * min_txfee_memo
+  for (const memo of (inputMemos || [])) {
+    if (memo) {
+      cost += Math.max(Math.ceil(memo.length / 32), 1) * (params.min_txfee_memo || 5000);
+    }
+  }
+  for (const memo of (outputMemos || [])) {
+    if (memo) {
+      cost += Math.max(Math.ceil(memo.length / 32), 1) * (params.min_txfee_memo || 5000);
+    }
+  }
   cost += (executeOps?.length || 0) * params.min_txfee_exec;
   cost += numSolutions * params.min_txfee_sign;
   // Add execute payload cost

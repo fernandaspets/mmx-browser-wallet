@@ -760,3 +760,28 @@ console.log("\nRPC URL settings");
   assert("popup.html has settings view", popupHtml.includes('id="settingsView"'), true);
   assert("popup.html has settings button", popupHtml.includes('id="settingsBtn"'), true);
 }
+
+// === Memo cost test (madMAx feedback: static_cost must include min_txfee_memo) ===
+{
+  const { calcStaticCost } = await import("../wallet-app.js");
+  
+  // No memo: cost = 20000 + 10000(in) + 10000(out) + 10000(sol) = 50000
+  const noMemoCost = calcStaticCost(1, 1, null, 1, null, { min_txfee: 20000, min_txfee_io: 10000, min_txfee_sign: 10000, min_txfee_exec: 10000, min_txfee_byte: 100, min_txfee_deploy: 20000, min_txfee_depend: 10000, min_txfee_memo: 5000 });
+  assert("No memo: static_cost = 50000", noMemoCost, 50000);
+  
+  // With 1 output memo (1-32 chars): +5000 = 55000
+  const shortMemoCost = calcStaticCost(1, 1, null, 1, null, { min_txfee: 20000, min_txfee_io: 10000, min_txfee_sign: 10000, min_txfee_exec: 10000, min_txfee_byte: 100, min_txfee_deploy: 20000, min_txfee_depend: 10000, min_txfee_memo: 5000 }, [null], ["hello"]);
+  assert("1 output memo (5 chars): +5000 = 55000", shortMemoCost, 55000);
+  
+  // With 1 output memo (33 chars = 2 chunks): +10000 = 60000
+  const longMemoCost = calcStaticCost(1, 1, null, 1, null, { min_txfee: 20000, min_txfee_io: 10000, min_txfee_sign: 10000, min_txfee_exec: 10000, min_txfee_byte: 100, min_txfee_deploy: 20000, min_txfee_depend: 10000, min_txfee_memo: 5000 }, [null], ["a".repeat(33)]);
+  assert("1 output memo (33 chars = 2 chunks): +10000 = 60000", longMemoCost, 60000);
+  
+  // With input memo AND output memo: +5000 + 5000 = 60000
+  const bothMemoCost = calcStaticCost(1, 1, null, 1, null, { min_txfee: 20000, min_txfee_io: 10000, min_txfee_sign: 10000, min_txfee_exec: 10000, min_txfee_byte: 100, min_txfee_deploy: 20000, min_txfee_depend: 10000, min_txfee_memo: 5000 }, ["in_memo"], ["out_memo"]);
+  assert("input+output memos: +5000+5000 = 60000", bothMemoCost, 60000);
+  
+  // Max memo (64 chars = 2 chunks): +10000
+  const maxMemoCost = calcStaticCost(1, 1, null, 1, null, { min_txfee: 20000, min_txfee_io: 10000, min_txfee_sign: 10000, min_txfee_exec: 10000, min_txfee_byte: 100, min_txfee_deploy: 20000, min_txfee_depend: 10000, min_txfee_memo: 5000 }, [null], ["x".repeat(64)]);
+  assert("Max memo (64 chars = 2 chunks): +10000 = 60000", maxMemoCost, 60000);
+}
