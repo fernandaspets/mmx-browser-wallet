@@ -981,6 +981,7 @@ let pendingSend = null; // stores { to, amountSat, contractAddr, decimals, curre
 document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   const to = document.getElementById("sendTo").value.trim();
   const amount = document.getElementById("sendAmount").value.trim();
+  const memo = document.getElementById("sendMemo").value.trim() || null;
 
   if (!to || !to.startsWith("mmx1")) { setStatus("sendStatus", "Valid MMX address required", "error"); return; }
   if (!amount || parseFloat(amount) <= 0) { setStatus("sendStatus", "Valid amount required", "error"); return; }
@@ -1053,7 +1054,7 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   }
 
   // Store pending send so broadcast reads from state, not DOM
-  pendingSend = { to, amountSat, contractAddr, decimals, currency, feeSat };
+  pendingSend = { to, amountSat, contractAddr, decimals, currency, feeSat, memo };
 
   // Show confirmation view
   const feeMmx = (Number(feeSat) / 1e6).toFixed(6);
@@ -1066,6 +1067,12 @@ document.getElementById("sendReviewBtn").addEventListener("click", async () => {
   document.getElementById("confirmTo").textContent = to;
   document.getElementById("confirmFee").textContent = `~${feeMmx} MMX`;
   document.getElementById("confirmTotal").textContent = totalDisplay;
+  if (memo) {
+    document.getElementById("confirmMemo").textContent = memo;
+    document.getElementById("confirmMemoRow").style.display = "block";
+  } else {
+    document.getElementById("confirmMemoRow").style.display = "none";
+  }
   showView("sendConfirmView");
 });
 
@@ -1083,10 +1090,11 @@ document.getElementById("sendBroadcastBtn").addEventListener("click", async () =
   setStatus("sendConfirmStatus", "Building & signing...", "");
 
   try {
-    const sendResult = await app.sendTransaction(pendingSend.to, pendingSend.amountSat, pendingSend.contractAddr);
+    const sendResult = await app.sendTransaction(pendingSend.to, pendingSend.amountSat, pendingSend.contractAddr, pendingSend.memo);
     setStatus("sendConfirmStatus", `✅ Sent! Fee: ${sendResult.fee_value} MMX`, "success");
     document.getElementById("sendTo").value = "";
     document.getElementById("sendAmount").value = "";
+    document.getElementById("sendMemo").value = "";
     pendingSend = null;
 
     const txLink = document.createElement("div");

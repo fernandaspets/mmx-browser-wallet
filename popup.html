@@ -315,6 +315,10 @@
         <label>Amount</label>
         <input type="text" id="sendAmount" placeholder="0.0001">
       </div>
+      <div class="input-group">
+        <label>Memo (optional, max 64 chars)</label>
+        <input type="text" id="sendMemo" placeholder="" maxlength="64">
+      </div>
       <div class="status" id="sendStatus"></div>
       <button class="btn btn-primary" id="sendReviewBtn">Review Send</button>
     </div>
@@ -335,6 +339,10 @@
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
           <span style="color:#888;font-size:12px;">Fee</span>
           <span style="font-size:13px;color:#ff9800;" id="confirmFee">~0.05 MMX</span>
+        </div>
+        <div id="confirmMemoRow" style="display:none;margin-bottom:8px;">
+          <span style="color:#888;font-size:12px;">Memo</span>
+          <div style="font-family:monospace;font-size:11px;word-break:break-all;padding:4px 0;" id="confirmMemo"></div>
         </div>
         <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:8px;display:flex;justify-content:space-between;">
           <span style="color:#888;font-size:12px;">Total</span>
