@@ -41,5 +41,9 @@ A security audit was performed covering common crypto wallet audit requirements.
 | Listener leak — approvalListener never removed on deny/dismiss (ARTTOO) | Medium | `DAPP_DENIED` message + 5-min auto-timeout cleanup |
 | Concurrent dApp requests overwrite each other in storage (ARTTOO) | Medium | ID-prefixed storage keys (`mmx_psend_{id}`, `mmx_pdapp_{id}`) |
 | SESSION_GET returns seed to any caller including content scripts | Medium | `sender.tab` check — only popup (no tab) can retrieve seed |
+| Offer accept/trade: `user: offer.owner` (validation fails on others' offers) | Critical | Changed to `user: null` — matches official Wallet.cpp |
+| Offer accept/trade: `max_fee_amount: 0` (never computed, tx rejected) | Critical | Added `tx.max_fee_amount = calcMaxFee(tx.static_cost)` |
+| Offer accept/trade: explicit output on Deposit (tx hash mismatch) | Critical | Changed to `outputs: []` — node auto-creates deposit output |
+| Offer cancel: `solution: 0xFFFF` (default, validation fails) | Critical | Set `solution: 0` (our PubKey solution index) |
 
 See [CODE-REVIEW.md](../CODE-REVIEW.md) for the full code review.

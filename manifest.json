@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MMX Wallet",
-  "version": "1.0.0",
+  "version": "0.9.0",
   "description": "Lightweight MMX wallet for the browser — keys never leave your device",
   "author": "FernandasPets",
   "homepage_url": "https://github.com/fernandaspets/mmx-browser-wallet",

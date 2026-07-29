@@ -8,7 +8,7 @@ Works as both a **browser extension** (Firefox/Chrome) and a **web page**.
 
 Key security hardening contributions by [ARTTOO](https://github.com/ARTTOO) — prototype pollution fix (IIFE closure), MV3 service worker persistence (`storage.session` + `alarms`), instant dApp toggle, listener leak fix, and concurrent request isolation.
 
-Golden test vectors and architectural inspiration from [Stotiks](https://github.com/stotiks) — his [mmx-node wallet implementation](https://github.com/stotiks/mmx-node/tree/wxt/ui/src/mmx/wallet) provided byte-for-byte hash verification test cases for TRANSFER, SWAP TRADE, OFFER DEPLOY, OFFER ACCEPT, and OFFER CANCEL, plus the pattern of fetching ChainParams from the node API instead of hardcoding fee values.
+Golden test vectors and architectural inspiration from [Stotiks](https://github.com/stotiks) — his [mmx-node wallet implementation](https://github.com/stotiks/mmx-node/tree/wxt/ui/src/mmx/wallet) provided byte-for-byte hash verification test cases for TRANSFER, SWAP TRADE, OFFER DEPLOY, OFFER ACCEPT, OFFER CANCEL, and OFFER TRADE, plus the pattern of fetching ChainParams from the node API instead of hardcoding fee values.
 
 ## Features
 
@@ -17,8 +17,10 @@ Golden test vectors and architectural inspiration from [Stotiks](https://github.
 - **Password-protected** — wallet locked at rest, auto-lock after 5 min inactivity
 - **Send transactions** — builds, signs, and broadcasts entirely in the browser
 - **Swap pool trading** — Uniswap-style swap UI with price estimate and slippage protection
-- **Balance display** — auto-refreshes every 30 seconds from public RPC
-- **Transaction history** — paginated, with pending tx indicator and explorer links
+- **Offer trading** — order book with partial fill (Trade) and full fill (Accept)
+- **Limit sweep** — buy or sell TRAIL across multiple offers up to your price limit
+- **Balance display** — colored cards, auto-refreshes every 15 seconds from public RPC
+- **Transaction history** — paginated, with explorer links
 - **Multi-wallet** — create/import/switch between multiple wallets
 - **Address book** — auto-saves addresses you send to, name them, quick-select when sending
 - **Send confirmation** — review amount, destination, fee, and total before broadcasting
@@ -30,7 +32,7 @@ Golden test vectors and architectural inspiration from [Stotiks](https://github.
 
 ### Web App (easiest — no install)
 
-Visit **[fernandaspets.github.io/mmx-browser-wallet/dapp/app.html](https://fernandaspets.github.io/mmx-browser-wallet/dapp/app.html)** — wallet, swap, and content unlock in one page. Works on phone too.
+Visit **[fernandaspets.github.io/mmx-browser-wallet/dapp/app.html](https://fernandaspets.github.io/mmx-browser-wallet/dapp/app.html)** — wallet, swap, offers, and content unlock in one page. Works on phone too.
 
 ### Browser Extension
 
@@ -47,14 +49,10 @@ cd mmx-wallet
 ### Tests
 
 ```bash
-node test/test-crypto.mjs
-node test/test-regression.mjs
-node test/test-fuzz.mjs
-node test/test-integration.mjs
-node test/test-security.mjs
-node test/test-dapp.mjs
-# 268 tests across 6 suites
+npm test    # runs all 7 suites
 ```
+
+7 test suites: crypto (22), regression (131), fuzz (38), integration (54), security (10), dApp (19), golden (7) — **281 tests total**.
 
 ## Documentation
 
@@ -71,13 +69,7 @@ node test/test-dapp.mjs
 
 ## TrailShare dApp
 
-The TrailShare dApp (`dapp/`) combines wallet, swap, and paywall in one tabbed UI — all standalone, no extension or server needed:
-
-| Page | Description |
-|---|---|
-| [`dapp/app.html`](dapp/app.html) | Unified app: wallet + swap + paywall ([live](https://fernandaspets.github.io/mmx-browser-wallet/dapp/app.html)) |
-| [`dapp/swap-pools.html`](dapp/swap-pools.html) | Read-only swap pool explorer — reserves, prices, trade estimator (no wallet needed) |
-| [`dapp/offers.html`](dapp/offers.html) | Read-only offer book — open offers, prices, pair filters (no wallet needed) |
+The TrailShare dApp (`dapp/app.html`) combines wallet, swap, offers, and paywall in one tabbed UI — all standalone, no extension or server needed. [Live on GitHub Pages](https://fernandaspets.github.io/mmx-browser-wallet/dapp/app.html).
 
 ## License
 

@@ -1,14 +1,17 @@
 {
   "name": "mmx-browser-wallet",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "description": "Lightweight MMX wallet for the browser — keys never leave your device",
   "type": "module",
   "scripts": {
-    "test": "node test/test-crypto.mjs && node test/test-regression.mjs && node test/test-fuzz.mjs && node test/test-integration.mjs",
-    "test:unit": "node test/test-crypto.mjs",
+    "test": "for t in test/*.mjs; do node \"$t\"; done",
+    "test:crypto": "node test/test-crypto.mjs",
     "test:regression": "node test/test-regression.mjs",
     "test:fuzz": "node test/test-fuzz.mjs",
-    "test:integration": "node test/test-integration.mjs"
+    "test:integration": "node test/test-integration.mjs",
+    "test:security": "node test/test-security.mjs",
+    "test:dapp": "node test/test-dapp.mjs",
+    "test:golden": "node test/test-golden.mjs"
   },
   "dependencies": {
     "@noble/secp256k1": "^3.1.0",

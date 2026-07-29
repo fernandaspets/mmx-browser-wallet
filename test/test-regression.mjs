@@ -638,33 +638,19 @@ console.log("\ncontent.js handles new request types");
   assert("content.js uses ID-prefixed dapp result keys", contentSrc.includes("mmx_dresult_") || contentSrc.includes("mmx_dapp_result"), true);
 }
 
-// === Swap pool demo: human amounts, iters, price display ===
-console.log("\nSwap pool demo");
-{
-  const fs = await import("fs");
-  const swapSrc = fs.readFileSync(import.meta.dirname + "/../dapp/swap-pools.html", "utf8");
-  // Must send human amounts directly (not raw satoshis)
-  assert("swap dapp sends human amount directly", swapSrc.includes("const rawAmt = amt"), true);
-  // Must use iters=1 (matches official GUI)
-  assert("swap dapp uses iters=1", swapSrc.includes("iters=1"), true);
-  // Must not multiply by 10^decimals
-  assert("swap dapp does not convert to raw", swapSrc.includes("Math.pow(10, decimals)"), false);
-  // Buy direction shows inverted price (1/avg_price = MMX/TRAIL)
-  assert("swap dapp inverts price for buy direction", swapSrc.includes("1 / avgPrice"), true);
-}
-
-// === Demo hub and pages exist ===
-console.log("\nDemo files");
+// === dapp directory structure ===
+console.log("\nDapp files");
 {
   const fs = await import("fs");
   const path = await import("path");
   const demoDir = path.resolve(import.meta.dirname, "../dapp");
   const files = fs.readdirSync(demoDir).filter(f => f.endsWith(".html"));
+  assert("dapp/app.html exists", files.includes("app.html"), true);
   assert("dapp/index.html exists", files.includes("index.html"), true);
-  
-  assert("dapp/swap-pools.html exists", files.includes("swap-pools.html"), true);
-  assert("dapp/offers.html exists", files.includes("offers.html"), true);
-  // Index links to all demos
+  // Old demo pages removed
+  assert("dapp/swap-pools.html removed", files.includes("swap-pools.html"), false);
+  assert("dapp/offers.html removed", files.includes("offers.html"), false);
+  // Index redirects to app.html
   const indexSrc = fs.readFileSync(path.join(demoDir, "index.html"), "utf8");
   assert("dapp/index redirects to app.html", indexSrc.includes("app.html"), true);
 }

@@ -11,11 +11,14 @@ cd mmx-browser-wallet
 ## Running Tests
 
 ```bash
-npm test              # all 169 tests
-npm run test:unit     # crypto unit tests
-npm run test:regression  # regression tests (prevents past bugs)
-npm run test:fuzz      # fuzz tests (invalid inputs)
-npm run test:integration  # integration tests (components together)
+npm test              # all 281 tests across 7 suites
+npm run test:crypto     # crypto unit tests (22)
+npm run test:regression  # regression tests (131)
+npm run test:fuzz        # fuzz tests (38)
+npm run test:integration # integration tests (54)
+npm run test:security    # security tests (10)
+npm run test:dapp        # dApp UI tests (19)
+npm run test:golden      # golden hash vectors (7)
 ```
 
 All tests must pass before submitting changes.
@@ -25,18 +28,19 @@ All tests must pass before submitting changes.
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture.
 
 ```
-wallet-app.js          Wallet logic (keys, tx, balance, history)
+wallet-app.js          Wallet logic (keys, tx, balance, history, offers)
 wallet-store.js         Encrypted storage (AES-GCM + PBKDF2)
 mmx-tx.js               Transaction serialization (VNX binary format)
 mmx-node-api.js         Public RPC client (rpc.mmx.network)
 theme.css                Dark/light theme CSS variables
 popup.html / popup.js   Extension popup UI
 wallet.html              Web page wallet UI + logic
-background.js            Extension background (session persistence, dApp message routing, content script registration)
-content.js / inject.js   dApp integration (window.mmx API) — opt-in only, loaded when user enables
-lib/                     bech32m encoder, Buffer polyfill
-test/                    Test suites (205 tests)
-docs/                    Documentation (architecture, security, dApp, store submission)
+background.js            Extension background (session, dApp routing)
+content.js / inject.js   dApp integration (window.mmx API) — opt-in only
+dapp/app.html            Unified TrailShare dApp (wallet + swap + offers + paywall)
+lib/                     bech32m encoder, Buffer polyfill, @noble crypto
+test/                    7 test suites (281 tests)
+docs/                    Documentation
 wordlist.txt             BIP-0039 wordlist (MMX variant)
 ```
 
@@ -51,8 +55,8 @@ wordlist.txt             BIP-0039 wordlist (MMX variant)
 ## Adding a New Feature
 
 1. Write the code
-2. Add tests (regression test for each bug you find, fuzz test for edge cases)
-3. Run `npm test` — all 169+ tests must pass
+2. Add tests (regression test for each bug, fuzz test for edge cases)
+3. Run `npm test` — all 281 tests must pass
 4. Update README if user-facing
 5. Keep comments clean (no issue numbers, no AI artifacts)
 

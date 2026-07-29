@@ -3,7 +3,7 @@
 ## Overview
 
 ```
-popup.html / wallet.html  (UI)
+popup.html / wallet.html / dapp/app.html  (UI)
        ↓
   wallet-app.js           (wallet logic)
       ├── wallet-store.js     (encrypted storage: localStorage / chrome.storage)
@@ -43,14 +43,14 @@ Ported from `mmx-node` `Transaction::hash_serialize()`:
 5. Submit to node via `POST /transaction/broadcast`
 
 Key details:
-- `max_fee_amount` is `uint32` (8 bytes promoted to uint64), **not** uint128 —
-  this is the MAX fee you're willing to pay, not the actual fee. The node
-  determines the real fee during validation (`exec_result.total_fee`). For
-  standard transfers: 50000 sat = min_txfee(20000) + input + output + solution
+- `max_fee_amount` is computed via `calcMaxFee(static_cost)` — `cost_to_fee(static_cost + gas_limit, fee_ratio)`. Must not be left at 0 or the node rejects the tx.
 - `expires` is an **absolute block height** (current + 100), not a relative offset
 - MMX is **account-based**: input amount = output amount, fee deducted separately
 - `@noble/secp256k1` v3 defaults to `prehash: true` — must override to `false`
 - `nonce` is a 64-bit BigInt — must call `.toString()` before `JSON.stringify`
+- Deposit operations (swap trade, offer trade/accept) must have `outputs: []` — the node auto-creates the deposit output during validation
+- Offer trade/accept: `user` field must be `null` (not offer owner) — the official Wallet.cpp doesn't set `options.user`
+- Offer cancel: `user` = offer owner, `solution` = 0 (our PubKey solution index)
 
 ## Public RPC
 
@@ -60,9 +60,26 @@ The wallet talks directly to `https://rpc.mmx.network` — CORS enabled, no API 
 |---|---|---|
 | `/balance?id=<addr>` | GET | Token balances for address |
 | `/headers?limit=1` | GET | Latest block height |
-| `/transactions?addr=<addr>&limit=N&offset=N` | GET | Transaction history |
-| `/transaction/validate` | POST | Validate a transaction |
+| `/address/history?id=<addr>&limit=N` | GET | Transaction history (paginated by height) |
+| `/transaction/validate` | POST | Validate a transaction (dry-run, returns fees) |
 | `/transaction/broadcast` | POST | Broadcast a transaction |
+| `/offers?bid=<addr>&ask=<addr>&limit=N` | GET | Open offers filtered by pair |
+| `/offer?id=<addr>` | GET | Single offer details |
+| `/offer/trade_estimate?id=<addr>&amount=<human>` | GET | Estimate partial fill output |
+| `/swap/list` | GET | All swap pools |
+| `/swap/info?id=<addr>` | GET | Swap pool reserves and tokens |
+| `/swap/trade_estimate?id=<addr>&index=<i>&amount=<human>` | GET | Estimate swap output |
+| `/chain/info` | GET | Chain parameters (fee rates, decimals) |
+
+## Offer Trading
+
+Offers are fixed-price contracts on MMX. Each offer has a `bid_currency` (what they're offering) and `ask_currency` (what they want).
+
+- **Trade** (partial fill): send some ask_currency, receive `floor(amount * inv_price >> 64)` bid_currency. Leftover ask_currency stays in the offer.
+- **Accept** (full fill): send `offer.ask_amount`, receive all `bid_balance`, change returned.
+- **Sweep**: client-side loop that walks offers sorted by price, using accept when affordable (change returned) and trade for partial fills.
+
+For 0-decimal tokens (TRAIL), partial trades below the minimum threshold return 0 — the `trade_estimate` API returns `next_input` (the minimum for 1 whole unit).
 
 ## Session Persistence (Extension)
 
@@ -85,13 +102,14 @@ The seed lives in background memory only — never written to disk.
 | `popup.html` / `popup.js` | Extension popup UI |
 | `wallet.html` | Full-page wallet UI (opened via "Open Tab" button) |
 | `wallet-page.js` | Full-page wallet logic (external script for CSP compliance) |
-| `wallet-app.js` | Wallet logic: keys, tx, balance, history, contacts |
+| `wallet-app.js` | Wallet logic: keys, tx, balance, history, contacts, swap, offers |
 | `wallet-store.js` | Encrypted storage (AES-GCM), address book |
-| `mmx-tx.js` | Transaction serialization & signing (VNX binary), Deposit operation hashing for swap trades |
-| `mmx-node-api.js` | Public RPC client (balance, validate, broadcast, swap APIs) |
+| `mmx-tx.js` | Transaction serialization & signing (VNX binary), Deposit/Execute/Executable hashing |
+| `mmx-node-api.js` | Public RPC client (balance, validate, broadcast, swap, offer APIs) |
 | `theme.css` | CSS variables for dark/light themes |
 | `background.js` | Extension background (session persistence, dApp request routing, content script registration) |
 | `content.js` / `inject.js` | dApp integration (`window.mmx` API) — only loaded when user opts in |
+| `dapp/app.html` | Unified TrailShare dApp (wallet + swap + offers + paywall) |
 | `lib/bech32-esm.js` | bech32m encoder/decoder |
 | `lib/buffer-esm.js` | Buffer polyfill for browser |
 | `wordlist.txt` | BIP-0039 wordlist (2048 words) |

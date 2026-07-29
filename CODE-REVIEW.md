@@ -1,7 +1,7 @@
 # Code Review — MMX Browser Wallet
 
-**Date:** July 28, 2026
-**Commit:** 288e092
+**Date:** July 29, 2026
+**Commit:** d421472
 **Scope:** All source files + dapp/ directory
 
 ## Summary
@@ -22,10 +22,18 @@ Well-structured with clear separation: crypto (`mmx-tx.js`), storage (`wallet-st
 8. ~~Swap estimate shows 0~~ — **Fixed**: `est.trade?.value` not `est.output`
 9. ~~Pool tokens not parsed~~ — **Fixed**: transform parallel arrays to token objects
 10. ~~Deposit hash serialization~~ — **Fixed**: `null` → `"NULL"`, solution as uint16, dual op hashes
+11. ~~Offer accept/trade: `user: offer.owner`~~ — **Fixed**: `user: null` (matches official Wallet.cpp)
+12. ~~Offer accept/trade: `max_fee_amount: 0`~~ — **Fixed**: `calcMaxFee(tx.static_cost)` — was root cause of "invalid tx"
+13. ~~Offer accept/trade: explicit output on Deposit~~ — **Fixed**: `outputs: []` — node auto-creates deposit output
+14. ~~Offer cancel: `solution: 0xFFFF`~~ — **Fixed**: `solution: 0` (our PubKey solution index)
+15. ~~Sweep wastes MMX on partial fills~~ — **Fixed**: uses `accept()` when affordable (returns change), `trade()` only for partials
+16. ~~Transaction history uses wrong endpoint~~ — **Fixed**: `/address/history` not `/transactions` (which returns global txs)
+17. ~~No auto-refresh~~ — **Fixed**: 15s polling for balances, 30s for order book, stops when tab hidden
 
 ### Remaining (low priority)
 
-- `getFeeEstimate()` always returns 50000n regardless of `average_txfee` — dead API call,- `satToMmx()` hardcodes 6 decimals — safe for MMX fees but not general-purpose
+- `getFeeEstimate()` always returns 50000n regardless of `average_txfee` — dead API call
+- `satToMmx()` hardcodes 6 decimals — safe for MMX fees but not general-purpose
 - `waitForResult()` in content.js has no timeout — hangs if popup never responds
 - `setPermission()` in content.js is dead code (never called)
 - `MMX_REQUEST` in `IMMEDIATE_TYPES` is dead code (never sent)
@@ -40,4 +48,5 @@ Well-structured with clear separation: crypto (`mmx-tx.js`), storage (`wallet-st
 - **Origin-restricted postMessage**: `window.location.origin`, not `'*'`
 - **CSP enabled**: `script-src 'self'; object-src 'self'`
 - **Swap trade**: Deposit operation hash matches C++ `Deposit::calc_hash()` exactly
-- **268 tests pass** across 6 suites (crypto, regression, fuzz, integration, security, dApp)
+- **Offer trade/accept/cancel**: Golden test vectors verify hash computation byte-for-byte
+- **281 tests pass** across 7 suites (crypto, regression, fuzz, integration, security, dApp, golden)

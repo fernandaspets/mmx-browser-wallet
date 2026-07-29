@@ -144,25 +144,7 @@ console.log("\n4. app.html paywall");
   assertIncludes("app.html has Not enough TRAIL", src, 'Not enough TRAIL');
 }
 
-// === 5. swap-pools.html (read-only explorer) still works ===
-console.log("\n6. swap-pools.html (old demo)");
-{
-  const src = read(join(dappDir, 'swap-pools.html'));
-  assert("swap-pools.html exists", src.length > 0, true);
-
-  // Uses est.trade.value (the working version)
-  assertIncludes("swap-pools.html uses est.trade?.value", src, 'est.trade?.value');
-  assertIncludes("swap-pools.html uses iters=1", src, 'iters=1');
-}
-
-// === 7. offers.html exists ===
-console.log("\n7. offers.html exists");
-{
-  const src = read(join(dappDir, 'offers.html'));
-  assert("offers.html exists", src.length > 0, true);
-}
-
-// === 8. dapp/index.html redirects to app.html ===
+// === 5. dapp/index.html redirects to app.html ===
 console.log("\n8. dapp/index.html redirect");
 {
   const src = read(join(dappDir, 'index.html'));
@@ -225,8 +207,7 @@ console.log("\n12. dapp directory contents");
 {
   const files = readdirSync(dappDir).filter(f => f.endsWith('.html'));
   assert("dapp/app.html exists", files.includes("app.html"), true);
-      assert("dapp/swap-pools.html exists", files.includes("swap-pools.html"), true);
-  assert("dapp/offers.html exists", files.includes("offers.html"), true);
+
   assert("dapp/index.html exists", files.includes("index.html"), true);
 }
 

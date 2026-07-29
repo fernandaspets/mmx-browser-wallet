@@ -211,7 +211,7 @@
       </div>
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <span class="swap-label" style="margin:0">Order Book — MMX / TRAIL</span>
+          <span class="swap-label" style="margin:0">Order Book — TRAIL / MMX</span>
           <button style="padding:0 4px;font-size:10px;color:var(--text-muted);background:transparent;border:1px solid var(--border);border-radius:3px;cursor:pointer" id="offerRefreshBtn" title="Refresh">🔄</button>
         </div>
         <div id="orderBookSpread" style="font-size:11px;color:var(--text-muted);margin-bottom:4px"></div>
@@ -656,7 +656,7 @@ function initOffersUI() {
   askSel.value = TRAIL_CONTRACT;
 
   // Populate filter dropdowns for open offers
-  // (removed — order book is hardcoded MMX/TRAIL)
+  // (removed — order book is hardcoded TRAIL/MMX)
 
   document.getElementById("makeOfferBtn").onclick = makeOffer;
   document.getElementById("offerRefreshBtn").onclick = () => loadOffers();
@@ -805,9 +805,9 @@ async function loadOffers() {
       const spreadPct = (spread / bestBid * 100);
       spreadEl.innerHTML = `Spread: <b style="color:var(--success)">${spread.toFixed(2)} MMX</b> (${spreadPct.toFixed(1)}%) · Bid: ${bestBid.toFixed(2)} · Ask: ${bestAsk.toFixed(2)}`;
     } else if (bestBid) {
-      spreadEl.innerHTML = `Best bid: ${bestBid.toFixed(2)} MMX/TRAIL · No asks`;
+      spreadEl.innerHTML = `Best bid: ${bestBid.toFixed(2)} TRAIL/MMX · No asks`;
     } else if (bestAsk) {
-      spreadEl.innerHTML = `Best ask: ${bestAsk.toFixed(2)} MMX/TRAIL · No bids`;
+      spreadEl.innerHTML = `Best ask: ${bestAsk.toFixed(2)} TRAIL/MMX · No bids`;
     } else {
       spreadEl.innerHTML = "No open offers";
     }
@@ -1055,7 +1055,7 @@ window.sweepAsks = async function() {
       .filter(o => o.price > 0 && o.price <= maxPrice)
       .sort((a, b) => a.price - b.price);  // cheapest first
 
-    if (!asks.length) { status.innerHTML = "<span style='color:var(--text-muted)'>No asks found at or below ${maxPrice} MMX/TRAIL</span>"; return; }
+    if (!asks.length) { status.innerHTML = "<span style='color:var(--text-muted)'>No asks found at or below ${maxPrice} TRAIL/MMX</span>"; return; }
 
     let budgetSat = app.mmxToSat(String(maxMMX), 6);  // MMX has 6 decimals
     let totalTRAIL = 0;
@@ -1064,7 +1064,7 @@ window.sweepAsks = async function() {
 
     for (const ask of asks) {
       if (budgetSat <= 0n) break;
-      status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${asks.length} — ${ask.price.toFixed(2)} MMX/TRAIL...</span>`;
+      status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${asks.length} — ${ask.price.toFixed(2)} TRAIL/MMX...</span>`;
 
       // How much MMX needed to fill this ask entirely?
       const fillCostSat = BigInt(ask.askAmount);  // raw MMX satoshis
@@ -1179,7 +1179,7 @@ window.sweepBids = async function() {
   status.innerHTML = "<span style='color:var(--text-muted)'>Fetching bids...</span>";
   try {
     // Fetch all bids (bid=MMX, ask=TRAIL) — people buying TRAIL with MMX
-    // display_price = TRAIL per MMX for bids. Price in MMX/TRAIL = 1/display_price
+    // display_price = TRAIL per MMX for bids. Price in TRAIL/MMX = 1/display_price
     const bidsRaw = await api.getOffers(MMX_NULL, TRAIL_CONTRACT, 100);
     const bids = (bidsRaw || [])
       .filter(o => (o.bid_balance_value || 0) > 0)
@@ -1193,7 +1193,7 @@ window.sweepBids = async function() {
       .filter(o => o.price > 0 && o.price >= minPrice)
       .sort((a, b) => b.price - a.price);  // highest price first (best for seller)
 
-    if (!bids.length) { status.innerHTML = `<span style='color:var(--text-muted)'>No bids found at or above ${minPrice} MMX/TRAIL</span>`; return; }
+    if (!bids.length) { status.innerHTML = `<span style='color:var(--text-muted)'>No bids found at or above ${minPrice} TRAIL/MMX</span>`; return; }
 
     let trailBudgetSat = app.mmxToSat(String(sellTRAIL), 0);  // TRAIL has 0 decimals
     let totalTRAIL = 0;
@@ -1202,7 +1202,7 @@ window.sweepBids = async function() {
 
     for (const bid of bids) {
       if (trailBudgetSat <= 0n) break;
-      status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${bids.length} — ${bid.price.toFixed(2)} MMX/TRAIL...</span>`;
+      status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${bids.length} — ${bid.price.toFixed(2)} TRAIL/MMX...</span>`;
 
       // How much TRAIL needed to fill this bid entirely?
       const fillCostSat = BigInt(bid.askAmount);  // TRAIL needed to fill (ask_amount)
