@@ -379,3 +379,27 @@ console.log("\n18. Polling + sweep sell");
   assertIncludes("app.html has MMX accent color", src, "color:var(--accent)");
   assertIncludes("app.html has TRAIL success color", src, "color:var(--success)");
 }
+
+// === 19. Offer percentage buttons + pool price ===
+console.log("\n19. Offer pct + pool price");
+{
+  const src = read(join(dappDir, 'app.html'));
+
+  // Percentage buttons on create offer
+  assertIncludes("app.html has offer pct 25%", src, 'data-offer-pct="25"');
+  assertIncludes("app.html has offer pct 50%", src, 'data-offer-pct="50"');
+  assertIncludes("app.html has offer pct 100%", src, 'data-offer-pct="100"');
+  assertIncludes("app.html has offerPriceHint", src, 'id="offerPriceHint"');
+  assertIncludes("app.html has updateOfferPriceHint", src, 'function updateOfferPriceHint');
+
+  // Pool price
+  assertIncludes("app.html has poolPriceHint", src, 'id="poolPriceHint"');
+  assertIncludes("app.html has loadPoolPrice", src, 'function loadPoolPrice');
+  assertIncludes("app.html calls loadPoolPrice in init", src, 'loadPoolPrice()');
+  assertIncludes("app.html pool price refreshes in poll", src, 'await loadPoolPrice()');
+
+  // Sweep uses accept when affordable (change returned)
+  assertIncludes("app.html sweep uses accept for full fill", src, "We can afford the full offer");
+  assertIncludes("app.html sweep buy uses accept", src, "app.acceptOffer(ask.addr)");
+  assertIncludes("app.html sweep sell uses accept", src, "app.acceptOffer(bid.addr)");
+}

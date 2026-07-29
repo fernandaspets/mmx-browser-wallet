@@ -194,11 +194,18 @@
           <input type="text" class="swap-input" id="offerBidAmount" placeholder="0.0" inputmode="decimal">
           <select class="swap-select" id="offerBidCurrency"></select>
         </div>
+        <div id="offerPctRow" style="display:flex;gap:4px;margin-top:2px">
+          <button class="swap-pct-btn" data-offer-pct="25">25%</button>
+          <button class="swap-pct-btn" data-offer-pct="50">50%</button>
+          <button class="swap-pct-btn" data-offer-pct="75">75%</button>
+          <button class="swap-pct-btn" data-offer-pct="100">Max</button>
+        </div>
         <div class="swap-label">For</div>
         <div class="swap-row">
           <input type="text" class="swap-input" id="offerAskAmount" placeholder="0.0" inputmode="decimal">
           <select class="swap-select" id="offerAskCurrency"></select>
         </div>
+        <div id="offerPriceHint" style="font-size:10px;color:var(--text-muted);margin-top:2px"></div>
         <div class="status" id="offerStatus"></div>
         <button class="btn btn-primary" id="makeOfferBtn">📋 Create Offer</button>
       </div>
@@ -208,6 +215,7 @@
           <button class="btn" id="offerRefreshBtn" style="padding:2px 6px;font-size:11px">🔄</button>
         </div>
         <div id="orderBookSpread" style="font-size:11px;color:var(--text-muted);margin-bottom:4px"></div>
+        <div id="poolPriceHint" style="font-size:10px;color:var(--accent);margin-bottom:4px;display:none"></div>
         <div style="display:flex;gap:4px">
           <div style="flex:1">
             <div style="font-size:10px;color:var(--danger);font-weight:600;padding:2px 4px;border-bottom:1px solid var(--border)">ASKS — sell TRAIL</div>
@@ -656,8 +664,64 @@ function initOffersUI() {
   document.getElementById("sweepSellBtn").onclick = () => sweepBids();
   document.getElementById("sweepTabBuy").onclick = () => switchSweepTab('buy');
   document.getElementById("sweepTabSell").onclick = () => switchSweepTab('sell');
+
+  // Percentage buttons for offer amount (based on bid currency balance)
+  document.querySelectorAll('[data-offer-pct]').forEach(btn => {
+    btn.onclick = () => {
+      const pct = parseInt(btn.dataset.offerPct);
+      const bidCurrency = bidSel.value;
+      const bal = balances.find(b => b.contract === bidCurrency);
+      if (!bal) return;
+      const amount = (parseFloat(bal.spendable) * pct / 100).toFixed(bal.decimals || 0);
+      document.getElementById("offerBidAmount").value = amount;
+      updateOfferPriceHint();
+    };
+  });
+
+  // Update price hint when amounts change
+  document.getElementById("offerBidAmount").oninput = updateOfferPriceHint;
+  document.getElementById("offerAskAmount").oninput = updateOfferPriceHint;
+  document.getElementById("offerBidCurrency").onchange = updateOfferPriceHint;
+  document.getElementById("offerAskCurrency").onchange = updateOfferPriceHint;
+
   loadOffers();
   switchSweepTab('buy');
+  loadPoolPrice();
+}
+
+function updateOfferPriceHint() {
+  const bidAmt = parseFloat(document.getElementById("offerBidAmount").value || 0);
+  const askAmt = parseFloat(document.getElementById("offerAskAmount").value || 0);
+  const hint = document.getElementById("offerPriceHint");
+  if (bidAmt > 0 && askAmt > 0) {
+    const price = askAmt / bidAmt;
+    const bidSym = document.querySelector('#offerBidCurrency option:checked')?.textContent || '?';
+    const askSym = document.querySelector('#offerAskCurrency option:checked')?.textContent || '?';
+    hint.textContent = `Price: 1 ${bidSym} = ${price.toFixed(6)} ${askSym}`;
+  } else {
+    hint.textContent = '';
+  }
+}
+
+async function loadPoolPrice() {
+  try {
+    // Find the TRAIL/MMX pool from the pools array
+    const pool = pools.find(p => 
+      p.tokens.some(t => t.address === TRAIL_CONTRACT) &&
+      p.tokens.some(t => t.address === MMX_NULL)
+    );
+    if (!pool) return;
+    // Get trade estimate: sell 1 TRAIL → get MMX (index = TRAIL's position in pool)
+    const trailIdx = pool.tokens.findIndex(t => t.address === TRAIL_CONTRACT);
+    if (trailIdx < 0) return;
+    const est = await api.getSwapTradeEstimate(pool.address, trailIdx, '1', 1);
+    const mmxPerTrail = parseFloat(est.trade?.value || 0);
+    const el = document.getElementById("poolPriceHint");
+    if (mmxPerTrail > 0) {
+      el.textContent = `🏊 Pool: 1 TRAIL ≈ ${mmxPerTrail.toFixed(2)} MMX`;
+      el.style.display = '';
+    }
+  } catch { /* pool price is optional */ }
 }
 
 async function makeOffer() {
@@ -1004,35 +1068,29 @@ window.sweepAsks = async function() {
 
       // How much MMX needed to fill this ask entirely?
       const fillCostSat = BigInt(ask.askAmount);  // raw MMX satoshis
-      // Trade the minimum of budget and fill cost
-      const tradeAmountSat = budgetSat < fillCostSat ? budgetSat : fillCostSat;
 
-      // Check trade_estimate first — don't trade if we'd get 0 TRAIL
-      const tradeAmountHuman = (Number(tradeAmountSat) / 1e6).toString();
-      const est = await api.getOfferTradeEstimate(ask.addr, tradeAmountHuman);
-      const trailReceived = parseFloat(est.trade?.value || 0);
-
-      if (trailReceived <= 0) {
-        // Amount too small for even 1 TRAIL — try accept instead if we can afford it
-        if (budgetSat >= fillCostSat) {
-          // Accept the full offer
-          const result = await app.acceptOffer(ask.addr);
-          totalTRAIL += ask.trailAvail;
-          totalMMX += ask.askValue;
-          budgetSat -= fillCostSat;
+      if (budgetSat >= fillCostSat) {
+        // We can afford the full offer → ACCEPT (returns change, no MMX wasted)
+        const result = await app.acceptOffer(ask.addr);
+        totalTRAIL += ask.trailAvail;
+        totalMMX += ask.askValue;
+        budgetSat -= fillCostSat;
+        trades++;
+      } else {
+        // Can't afford full offer → TRADE partial (leftover MMX stays in offer)
+        // But only if we get at least 1 TRAIL, otherwise skip
+        const tradeAmountHuman = (Number(budgetSat) / 1e6).toString();
+        const est = await api.getOfferTradeEstimate(ask.addr, tradeAmountHuman);
+        const trailReceived = parseFloat(est.trade?.value || 0);
+        if (trailReceived > 0) {
+          const result = await app.offerTrade(ask.addr, budgetSat);
+          totalTRAIL += trailReceived;
+          totalMMX += Number(budgetSat) / 1e6;
+          budgetSat = 0n;
           trades++;
         } else {
-          // Can't afford the full ask and partial gives 0 — skip
-          status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped offer at ${ask.price.toFixed(2)} — too small for partial</span>`;
-          continue;
+          status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped offer at ${ask.price.toFixed(2)} — budget too small for 1 TRAIL</span>`;
         }
-      } else {
-        // Trade partial
-        const result = await app.offerTrade(ask.addr, tradeAmountSat);
-        totalTRAIL += trailReceived;
-        totalMMX += Number(tradeAmountSat) / 1e6;
-        budgetSat -= tradeAmountSat;
-        trades++;
       }
     }
 
@@ -1057,9 +1115,10 @@ function startPolling() {
     if (ind) ind.style.color = 'var(--accent)';
     try {
       await loadBalances();
-      // Refresh order book every 2nd poll (~30s, since block time is ~10s)
+      // Refresh order book + pool price every 2nd poll (~30s)
       if (_pollCount % 2 === 0) {
         await loadOffers();
+        await loadPoolPrice();
       }
       if (ind) ind.style.color = 'var(--success)';
     } catch {
@@ -1145,34 +1204,30 @@ window.sweepBids = async function() {
       if (trailBudgetSat <= 0n) break;
       status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${bids.length} — ${bid.price.toFixed(2)} MMX/TRAIL...</span>`;
 
-      // How much TRAIL can this bid absorb? (min of our budget and their capacity)
-      const trailCapSat = app.mmxToSat(String(bid.trailCap), 0);
-      const tradeAmountSat = trailBudgetSat < trailCapSat ? trailBudgetSat : trailCapSat;
+      // How much TRAIL needed to fill this bid entirely?
+      const fillCostSat = BigInt(bid.askAmount);  // TRAIL needed to fill (ask_amount)
 
-      // Check trade_estimate — sending TRAIL to a bid (ask=TRAIL)
-      const tradeAmountHuman = (Number(tradeAmountSat) / Math.pow(10, 0)).toString();
-      const est = await api.getOfferTradeEstimate(bid.addr, tradeAmountHuman);
-      const mmxReceived = parseFloat(est.trade?.value || 0);
-
-      if (mmxReceived <= 0) {
-        // Can't get any MMX — try accept if we can fill the whole bid
-        const fillCostSat = BigInt(bid.askAmount);  // TRAIL needed to fill
-        if (trailBudgetSat >= fillCostSat) {
-          const result = await app.acceptOffer(bid.addr);
-          totalTRAIL += Number(fillCostSat);
-          totalMMX += bid.mmxFunded;
-          trailBudgetSat -= fillCostSat;
+      if (trailBudgetSat >= fillCostSat) {
+        // We can fill the whole bid → ACCEPT (returns change, no TRAIL wasted)
+        const result = await app.acceptOffer(bid.addr);
+        totalTRAIL += Number(fillCostSat);
+        totalMMX += bid.mmxFunded;
+        trailBudgetSat -= fillCostSat;
+        trades++;
+      } else {
+        // Can't fill whole bid → TRADE partial (leftover TRAIL stays in offer)
+        const tradeAmountHuman = (Number(trailBudgetSat) / Math.pow(10, 0)).toString();
+        const est = await api.getOfferTradeEstimate(bid.addr, tradeAmountHuman);
+        const mmxReceived = parseFloat(est.trade?.value || 0);
+        if (mmxReceived > 0) {
+          const result = await app.offerTrade(bid.addr, trailBudgetSat);
+          totalTRAIL += Number(trailBudgetSat);
+          totalMMX += mmxReceived;
+          trailBudgetSat = 0n;
           trades++;
         } else {
-          status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped bid at ${bid.price.toFixed(2)} — too small</span>`;
-          continue;
+          status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped bid at ${bid.price.toFixed(2)} — amount too small</span>`;
         }
-      } else {
-        const result = await app.offerTrade(bid.addr, tradeAmountSat);
-        totalTRAIL += Number(tradeAmountSat);
-        totalMMX += mmxReceived;
-        trailBudgetSat -= tradeAmountSat;
-        trades++;
       }
     }
 
