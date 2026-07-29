@@ -351,3 +351,31 @@ console.log("\n17. Offer trade/accept/sweep");
   // No prompt() calls (use modal instead)
   assertNotIncludes("app.html does NOT use window.prompt for offers", appSrc, 'window.prompt');
 }
+
+// === 18. Polling + sweep sell ===
+console.log("\n18. Polling + sweep sell");
+{
+  const src = read(join(dappDir, 'app.html'));
+
+  // Polling
+  assertIncludes("app.html has startPolling", src, 'function startPolling');
+  assertIncludes("app.html has stopPolling", src, 'function stopPolling');
+  assertIncludes("app.html calls startPolling in init", src, 'startPolling()');
+  assertIncludes("app.html has pollIndicator", src, 'id="pollIndicator"');
+  assertIncludes("app.html polls every 15s", src, '15000');
+
+  // Sweep sell
+  assertIncludes("app.html has sweepTabBuy", src, 'id="sweepTabBuy"');
+  assertIncludes("app.html has sweepTabSell", src, 'id="sweepTabSell"');
+  assertIncludes("app.html has sweepSellPanel", src, 'id="sweepSellPanel"');
+  assertIncludes("app.html has sweepSellAmount", src, 'id="sweepSellAmount"');
+  assertIncludes("app.html has sweepMinPrice", src, 'id="sweepMinPrice"');
+  assertIncludes("app.html has sweepSellBtn", src, 'id="sweepSellBtn"');
+  assertIncludes("app.html has sweepBids function", src, 'window.sweepBids');
+  assertIncludes("app.html has switchSweepTab", src, 'window.switchSweepTab');
+
+  // Balance cards
+  assertIncludes("app.html has balance card styling", src, 'flex-direction:column');
+  assertIncludes("app.html has MMX accent color", src, "color:var(--accent)");
+  assertIncludes("app.html has TRAIL success color", src, "color:var(--success)");
+}

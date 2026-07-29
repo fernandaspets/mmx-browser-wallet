@@ -111,8 +111,11 @@
 
   <!-- Main app (shown after unlock) -->
   <div id="appView" style="display:none;">
-    <div class="addr-box" id="userAddr" onclick="copyAddr(this)">Loading...</div>
-    <div id="balances" style="font-size:11px;color:var(--text-muted);margin:4px 0 12px;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+      <div class="addr-box" id="userAddr" onclick="copyAddr(this)" style="flex:1;font-size:10px">Loading...</div>
+      <span id="pollIndicator" style="font-size:9px;color:var(--text-muted);white-space:nowrap">●</span>
+    </div>
+    <div id="balances" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
 
     <!-- Tabs -->
     <div class="tabs">
@@ -224,13 +227,27 @@
           </div>
         </div>
         <div class="status" id="acceptStatus"></div>
-        <!-- Sweep / Limit Buy -->
+        <!-- Sweep / Limit Order -->
         <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:4px">⚡ Limit Buy — sweep asks up to your max price</div>
-          <div style="display:flex;gap:4px;align-items:center">
-            <input type="text" id="sweepMaxAmount" style="flex:1;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px" placeholder="Max MMX" inputmode="decimal">
-            <input type="text" id="sweepMaxPrice" style="flex:1;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px" placeholder="Max price (MMX/TRAIL)" inputmode="decimal">
-            <button class="btn btn-primary" id="sweepBtn" style="padding:4px 8px;font-size:11px">⚡ Sweep</button>
+          <div style="display:flex;gap:4px;margin-bottom:4px">
+            <button id="sweepTabBuy" class="btn" style="flex:1;padding:4px;font-size:11px;font-weight:600;color:var(--success);border-color:var(--success)">⚡ Buy TRAIL</button>
+            <button id="sweepTabSell" class="btn" style="flex:1;padding:4px;font-size:11px;color:var(--text-muted)">💸 Sell TRAIL</button>
+          </div>
+          <div id="sweepBuyPanel">
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Sweep asks (sell TRAIL) — buy cheapest first</div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input type="text" id="sweepMaxAmount" style="flex:1;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px" placeholder="Max MMX" inputmode="decimal">
+              <input type="text" id="sweepMaxPrice" style="flex:1;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px" placeholder="Max price" inputmode="decimal">
+              <button class="btn btn-primary" id="sweepBtn" style="padding:4px 8px;font-size:11px">⚡ Buy</button>
+            </div>
+          </div>
+          <div id="sweepSellPanel" style="display:none">
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Sweep bids (buy TRAIL) — sell to highest first</div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input type="text" id="sweepSellAmount" style="flex:1;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px" placeholder="TRAIL to sell" inputmode="decimal">
+              <input type="text" id="sweepMinPrice" style="flex:1;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px" placeholder="Min price" inputmode="decimal">
+              <button class="btn" id="sweepSellBtn" style="padding:4px 8px;font-size:11px;color:var(--danger);border:1px solid var(--danger)">💸 Sell</button>
+            </div>
           </div>
           <div id="sweepStatus" style="font-size:10px;color:var(--text-muted);margin-top:2px"></div>
         </div>
@@ -380,23 +397,41 @@ async function showApp() {
   initSwapUI();
   initOffersUI();
   await initPaywallUI();
+  startPolling();
 }
 
 // === Balances ===
 async function loadBalances() {
   try {
     balances = await app.fetchBalance();
-    const html = balances.map(b => `${app.escapeHtml(b.symbol)}: ${app.escapeHtml(String(b.spendable))}`).join(" · ");
-    document.getElementById("balances").textContent = html || "No balances";
+    // Render as nice cards
+    const el = document.getElementById("balances");
+    if (!balances || balances.length === 0) {
+      el.innerHTML = "<div style='color:var(--text-muted);font-size:11px;padding:4px'>No balances</div>";
+    } else {
+      el.innerHTML = balances.map(b => {
+        const sym = escapeHtml(b.symbol || "?");
+        const val = escapeHtml(String(b.spendable || 0));
+        const isMMX = (b.symbol === "MMX");
+        const isTRAIL = (b.symbol === "TRAIL");
+        const color = isMMX ? "var(--accent)" : isTRAIL ? "var(--success)" : "var(--text)";
+        return `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;display:flex;flex-direction:column;min-width:80px">
+          <span style="font-size:9px;color:var(--text-muted);text-transform:uppercase">${sym}</span>
+          <span style="font-size:14px;font-weight:700;color:${color}">${val}</span>
+        </div>`;
+      }).join("");
+    }
     // Populate send currency selector
     const sel = document.getElementById("sendCurrency");
-    sel.innerHTML = "";
-    for (const b of balances) {
-      const opt = document.createElement("option");
-      opt.value = b.symbol; opt.textContent = b.symbol;
-      sel.appendChild(opt);
+    if (sel) {
+      sel.innerHTML = "";
+      for (const b of balances) {
+        const opt = document.createElement("option");
+        opt.value = b.symbol; opt.textContent = b.symbol;
+        sel.appendChild(opt);
+      }
     }
-  } catch { document.getElementById("balances").textContent = "Could not load balances"; }
+  } catch { document.getElementById("balances").innerHTML = "<div style='color:var(--danger);font-size:11px'>Could not load balances</div>"; }
 }
 
 // === TX History ===
@@ -618,6 +653,9 @@ function initOffersUI() {
   document.getElementById("makeOfferBtn").onclick = makeOffer;
   document.getElementById("offerRefreshBtn").onclick = () => loadOffers();
   document.getElementById("sweepBtn").onclick = () => sweepAsks();
+  document.getElementById("sweepSellBtn").onclick = () => sweepBids();
+  document.getElementById("sweepTabBuy").onclick = () => switchSweepTab('buy');
+  document.getElementById("sweepTabSell").onclick = () => switchSweepTab('sell');
   loadOffers();
 }
 
@@ -999,6 +1037,132 @@ window.sweepAsks = async function() {
 
     status.innerHTML = `<span style='color:var(--success)'>✅ Sweep complete: ${trades} trades, bought ${totalTRAIL} TRAIL for ${totalMMX.toFixed(6)} MMX</span>`;
     loadOffers();
+    loadBalances();
+  } catch (e) {
+    status.innerHTML = `<span style='color:var(--danger)'>${escapeHtml(e.message)}</span>`;
+  }
+};
+
+// === Polling: auto-refresh balances + order book ===
+let _pollTimer = null;
+let _pollCount = 0;
+function startPolling() {
+  if (_pollTimer) return;
+  _pollTimer = setInterval(async () => {
+    // Only poll when page is visible
+    if (document.hidden) return;
+    _pollCount++;
+    const ind = document.getElementById("pollIndicator");
+    if (ind) ind.style.color = 'var(--accent)';
+    try {
+      await loadBalances();
+      // Refresh order book every 2nd poll (~30s, since block time is ~10s)
+      if (_pollCount % 2 === 0) {
+        await loadOffers();
+      }
+      if (ind) ind.style.color = 'var(--success)';
+    } catch {
+      if (ind) ind.style.color = 'var(--danger)';
+    }
+  }, 15000);  // every 15 seconds
+}
+function stopPolling() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+// === Sweep tab switching ===
+window.switchSweepTab = function(tab) {
+  const buyPanel = document.getElementById("sweepBuyPanel");
+  const sellPanel = document.getElementById("sweepSellPanel");
+  const buyTab = document.getElementById("sweepTabBuy");
+  const sellTab = document.getElementById("sweepTabSell");
+  if (tab === 'buy') {
+    buyPanel.style.display = '';
+    sellPanel.style.display = 'none';
+    buyTab.style.color = 'var(--success)'; buyTab.style.borderColor = 'var(--success)'; buyTab.style.fontWeight = '600';
+    sellTab.style.color = 'var(--text-muted)'; sellTab.style.borderColor = ''; sellTab.style.fontWeight = '';
+  } else {
+    buyPanel.style.display = 'none';
+    sellPanel.style.display = '';
+    sellTab.style.color = 'var(--danger)'; sellTab.style.borderColor = 'var(--danger)'; sellTab.style.fontWeight = '600';
+    buyTab.style.color = 'var(--text-muted)'; buyTab.style.borderColor = ''; buyTab.style.fontWeight = '';
+  }
+};
+
+// === Sweep Bids (sell TRAIL for MMX) ===
+// Walks through bids (highest price first), trades each until TRAIL budget exhausted or price < min.
+window.sweepBids = async function() {
+  const status = document.getElementById("sweepStatus");
+  const sellAmountStr = document.getElementById("sweepSellAmount").value.trim();
+  const minPriceStr = document.getElementById("sweepMinPrice").value.trim();
+  if (!sellAmountStr || !minPriceStr) { status.textContent = "Enter TRAIL amount and min price"; return; }
+  const sellTRAIL = parseFloat(sellAmountStr);
+  const minPrice = parseFloat(minPriceStr);
+  if (!sellTRAIL || sellTRAIL <= 0) { status.textContent = "Invalid TRAIL amount"; return; }
+  if (!minPrice || minPrice <= 0) { status.textContent = "Invalid min price"; return; }
+
+  status.innerHTML = "<span style='color:var(--text-muted)'>Fetching bids...</span>";
+  try {
+    // Fetch all bids (bid=MMX, ask=TRAIL) — people buying TRAIL with MMX
+    // display_price = TRAIL per MMX for bids. Price in MMX/TRAIL = 1/display_price
+    const bidsRaw = await api.getOffers(MMX_NULL, TRAIL_CONTRACT, 100);
+    const bids = (bidsRaw || [])
+      .filter(o => (o.bid_balance_value || 0) > 0)
+      .map(o => {
+        const dp = parseFloat(o.display_price) || 0;  // TRAIL per MMX
+        const priceMmxPerTrail = dp > 0 ? 1 / dp : 0;  // MMX per TRAIL
+        const mmxFunded = o.bid_balance_value || 0;  // MMX funded
+        const trailCap = mmxFunded * dp;  // TRAIL they can buy
+        return { addr: o.address, price: priceMmxPerTrail, mmxFunded, trailCap, askAmount: o.ask_amount, invPrice: o.inv_price };
+      })
+      .filter(o => o.price > 0 && o.price >= minPrice)
+      .sort((a, b) => b.price - a.price);  // highest price first (best for seller)
+
+    if (!bids.length) { status.innerHTML = `<span style='color:var(--text-muted)'>No bids found at or above ${minPrice} MMX/TRAIL</span>`; return; }
+
+    let trailBudgetSat = app.mmxToSat(String(sellTRAIL), 0);  // TRAIL has 0 decimals
+    let totalTRAIL = 0;
+    let totalMMX = 0;
+    let trades = 0;
+
+    for (const bid of bids) {
+      if (trailBudgetSat <= 0n) break;
+      status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${bids.length} — ${bid.price.toFixed(2)} MMX/TRAIL...</span>`;
+
+      // How much TRAIL can this bid absorb? (min of our budget and their capacity)
+      const trailCapSat = app.mmxToSat(String(bid.trailCap), 0);
+      const tradeAmountSat = trailBudgetSat < trailCapSat ? trailBudgetSat : trailCapSat;
+
+      // Check trade_estimate — sending TRAIL to a bid (ask=TRAIL)
+      const tradeAmountHuman = (Number(tradeAmountSat) / Math.pow(10, 0)).toString();
+      const est = await api.getOfferTradeEstimate(bid.addr, tradeAmountHuman);
+      const mmxReceived = parseFloat(est.trade?.value || 0);
+
+      if (mmxReceived <= 0) {
+        // Can't get any MMX — try accept if we can fill the whole bid
+        const fillCostSat = BigInt(bid.askAmount);  // TRAIL needed to fill
+        if (trailBudgetSat >= fillCostSat) {
+          const result = await app.acceptOffer(bid.addr);
+          totalTRAIL += Number(fillCostSat);
+          totalMMX += bid.mmxFunded;
+          trailBudgetSat -= fillCostSat;
+          trades++;
+        } else {
+          status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped bid at ${bid.price.toFixed(2)} — too small</span>`;
+          continue;
+        }
+      } else {
+        const result = await app.offerTrade(bid.addr, tradeAmountSat);
+        totalTRAIL += Number(tradeAmountSat);
+        totalMMX += mmxReceived;
+        trailBudgetSat -= tradeAmountSat;
+        trades++;
+      }
+    }
+
+    status.innerHTML = `<span style='color:var(--success)'>✅ Sweep complete: ${trades} trades, sold ${totalTRAIL} TRAIL for ${totalMMX.toFixed(6)} MMX</span>`;
+    loadOffers();
+    loadBalances();
   } catch (e) {
     status.innerHTML = `<span style='color:var(--danger)'>${escapeHtml(e.message)}</span>`;
   }
