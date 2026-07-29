@@ -13,16 +13,15 @@
 const STORAGE_KEY = "mmx_wallets";
 const ACTIVE_KEY = "mmx_active_wallet";
 
-// Detect environment — check both chrome (Chrome) and browser (Firefox)
-const _ext = typeof browser !== "undefined" ? browser : (typeof chrome !== "undefined" ? chrome : null);
-const isExtension = (_ext && _ext.storage && _ext.storage.local);
+// Detect environment
+const isExtension = (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local);
 
 // --- Storage abstraction (async for both environments) ---
 
 async function storageGet(key) {
   if (isExtension) {
     return new Promise(resolve => {
-      _ext.storage.local.get(key, result => resolve(result[key]));
+      chrome.storage.local.get(key, result => resolve(result[key]));
     });
   }
   const data = localStorage.getItem(key);
@@ -39,7 +38,7 @@ async function storageGet(key) {
 async function storageSet(key, value) {
   if (isExtension) {
     return new Promise(resolve => {
-      _ext.storage.local.set({ [key]: value }, () => resolve());
+      chrome.storage.local.set({ [key]: value }, () => resolve());
     });
   }
   // Only JSON.stringify objects/arrays, store raw strings as-is
@@ -53,7 +52,7 @@ async function storageSet(key, value) {
 async function storageRemove(key) {
   if (isExtension) {
     return new Promise(resolve => {
-      _ext.storage.local.remove(key, () => resolve());
+      chrome.storage.local.remove(key, () => resolve());
     });
   }
   localStorage.removeItem(key);
