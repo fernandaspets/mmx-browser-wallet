@@ -361,15 +361,13 @@ async function tryRestoreFromBackground() {
 // --- Initialize ---
 
 async function init() {
-  // Race init tasks against a timeout so they can't block wallet detection
-  const withTimeout = (promise, ms) => Promise.race([
-    promise,
-    new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))
-  ]);
   try {
-    await withTimeout(Promise.all([api.initNodeUrl(), app.init()]), 2000);
+    await api.initNodeUrl();
+    await app.init();
   } catch(e) {
-    console.error("Init error:", e.message);
+    setStatus("createStatus", "Init error: " + e.message, "error");
+    console.error("Init error:", e);
+    return;
   }
 
   let wallets = [];

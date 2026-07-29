@@ -20,6 +20,14 @@ const isExtension = (typeof chrome !== "undefined" && chrome.storage && chrome.s
 
 async function storageGet(key) {
   if (isExtension) {
+    // Try promise API first (Firefox native: browser.storage.local.get returns Promise)
+    if (typeof browser !== "undefined" && browser.storage && browser.storage.local) {
+      try {
+        const result = await browser.storage.local.get(key);
+        return result[key];
+      } catch {}
+    }
+    // Fall back to callback API (Chrome compat)
     return new Promise(resolve => {
       chrome.storage.local.get(key, result => resolve(result[key]));
     });
@@ -37,6 +45,14 @@ async function storageGet(key) {
 
 async function storageSet(key, value) {
   if (isExtension) {
+    // Try promise API first (Firefox native)
+    if (typeof browser !== "undefined" && browser.storage && browser.storage.local) {
+      try {
+        await browser.storage.local.set({ [key]: value });
+        return;
+      } catch {}
+    }
+    // Fall back to callback API (Chrome compat)
     return new Promise(resolve => {
       chrome.storage.local.set({ [key]: value }, () => resolve());
     });
@@ -51,6 +67,14 @@ async function storageSet(key, value) {
 
 async function storageRemove(key) {
   if (isExtension) {
+    // Try promise API first (Firefox native)
+    if (typeof browser !== "undefined" && browser.storage && browser.storage.local) {
+      try {
+        await browser.storage.local.remove(key);
+        return;
+      } catch {}
+    }
+    // Fall back to callback API (Chrome compat)
     return new Promise(resolve => {
       chrome.storage.local.remove(key, () => resolve());
     });
