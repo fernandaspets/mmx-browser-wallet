@@ -790,9 +790,25 @@ if (document.getElementById("popupRpcSave")) {
   document.getElementById("popupRpcSave").addEventListener("click", async () => {
     const url = document.getElementById("popupRpcUrl").value.trim();
     if (!url) return;
-    await api.saveNodeUrl(url);
-    document.getElementById("popupRpcStatus").innerHTML = '<span style="color:#4caf50">✓ Saved! Reloading...</span>';
-    setTimeout(() => location.reload(), 1000);
+    const btn = document.getElementById("popupRpcSave");
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    try {
+      await api.saveNodeUrl(url);
+      document.getElementById("popupRpcStatus").innerHTML = '<span style="color:#4caf50">✓ Saved! RPC set to ' + app.escapeHtml(url) + '</span>';
+      // Update the settings input to show the saved value
+      document.getElementById("popupRpcUrl").value = api.getNodeUrl();
+      // Refresh balance/tx data with new RPC (no reload needed)
+      try {
+        if (app.isUnlocked()) {
+          await renderDashboard();
+        }
+      } catch {}
+    } catch (e) {
+      document.getElementById("popupRpcStatus").innerHTML = '<span style="color:#f44336">✗ Error: ' + app.escapeHtml(e.message) + '</span>';
+    }
+    btn.disabled = false;
+    btn.textContent = "Save";
   });
 }
 

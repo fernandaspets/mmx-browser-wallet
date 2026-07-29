@@ -280,7 +280,7 @@
           <button class="btn" style="flex:1;font-size:10px;padding:4px" onclick="document.getElementById('rpcUrlInput').value='http://localhost:11380'">Local</button>
         </div>
         <div id="rpcStatus" style="font-size:10px;color:var(--text-muted);margin-bottom:8px"></div>
-        <button class="btn btn-primary" id="rpcSaveBtn" style="width:100%">Save & Reload</button>
+        <button class="btn btn-primary" id="rpcSaveBtn" style="width:100%">Save</button>
       </div>
     </div>
 
@@ -438,9 +438,18 @@ async function showApp() {
   document.getElementById("rpcSaveBtn").onclick = async () => {
     const url = document.getElementById("rpcUrlInput").value.trim();
     if (!url) return;
-    await api.saveNodeUrl(url);
-    document.getElementById("rpcStatus").innerHTML = '<span style="color:var(--success)">✓ Saved! Reloading...</span>';
-    setTimeout(() => location.reload(), 1000);
+    const btn = document.getElementById("rpcSaveBtn");
+    btn.disabled = true; btn.textContent = "Saving...";
+    try {
+      await api.saveNodeUrl(url);
+      document.getElementById("rpcStatus").innerHTML = '<span style="color:var(--success)">✓ Saved! RPC set to ' + escapeHtml(url) + '</span>';
+      document.getElementById("rpcUrlInput").value = api.getNodeUrl();
+      // Refresh data with new RPC
+      try { await loadBalances(); await loadTxHistory(); } catch {}
+    } catch (e) {
+      document.getElementById("rpcStatus").innerHTML = '<span style="color:var(--error)">✗ Error: ' + escapeHtml(e.message) + '</span>';
+    }
+    btn.disabled = false; btn.textContent = "Save";
   };
 }
 
