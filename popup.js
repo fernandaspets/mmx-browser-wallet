@@ -361,26 +361,22 @@ async function tryRestoreFromBackground() {
 // --- Initialize ---
 
 async function init() {
-  console.log("[MMX DEBUG] init() started");
   try {
     await api.initNodeUrl();
     await app.init();
-    console.log("[MMX DEBUG] initNodeUrl + loadWordlist OK");
   } catch(e) {
     setStatus("createStatus", "Init error: " + e.message, "error");
-    console.error("[MMX DEBUG] Init error:", e);
+    console.error("Init error:", e);
     return;
   }
 
   let wallets = [];
   try {
     wallets = await app.getWalletsList();
-    console.log("[MMX DEBUG] getWalletsList returned:", wallets.length, "wallets");
   } catch(e) {
-    console.error("[MMX DEBUG] Get wallets error:", e);
+    console.error("Get wallets error:", e);
   }
 
-  console.log("[MMX DEBUG] wallets.length =", wallets.length, "-> showing", wallets.length === 0 ? "onboardingView" : "unlockView");
   if (wallets.length === 0) {
     showView("onboardingView");
   } else {
@@ -1149,14 +1145,16 @@ document.getElementById("receiveBackBtn").addEventListener("click", () => {
 
 // --- Open in tab (stays open when popup closes) ---
 
-document.getElementById("openTabBtn").addEventListener("click", () => {
-  if (typeof browser !== "undefined" && browser.tabs) {
-    browser.tabs.create({ url: browser.runtime.getURL("wallet.html") });
-  } else if (typeof chrome !== "undefined" && chrome.tabs) {
-    chrome.tabs.create({ url: chrome.runtime.getURL("wallet.html") });
-  }
-  window.close();
-});
+if (document.getElementById("openTabBtn")) {
+  document.getElementById("openTabBtn").addEventListener("click", () => {
+    if (typeof browser !== "undefined" && browser.tabs) {
+      browser.tabs.create({ url: browser.runtime.getURL("wallet.html") });
+    } else if (typeof chrome !== "undefined" && chrome.tabs) {
+      chrome.tabs.create({ url: chrome.runtime.getURL("wallet.html") });
+    }
+    window.close();
+  });
+}
 
 // --- dApp integration toggle (opt-in) ---
 
