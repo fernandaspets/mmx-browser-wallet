@@ -284,6 +284,22 @@
       </div>
     </div>
 
+    <!-- TX Confirm modal (generic, used by Send, Swap, Make Offer, Sweep) -->
+    <div id="txConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;max-width:380px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.5)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span id="txConfirmTitle" style="font-weight:600;font-size:14px">Confirm</span>
+          <button id="txConfirmCloseBtn" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px">✕</button>
+        </div>
+        <div id="txConfirmBody" style="font-size:12px;line-height:1.6;margin-bottom:12px"></div>
+        <div id="txConfirmStatus" class="status" style="margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="txConfirmCancelBtn" style="flex:1">Cancel</button>
+          <button class="btn btn-primary" id="txConfirmSendBtn" style="flex:1">Confirm & Send</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Offer Trade/Accept modal -->
     <div id="offerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)closeOfferModal()">
       <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:16px;max-width:400px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.5)">
@@ -519,17 +535,23 @@ function initSendUI() {
     const status = document.getElementById("sendStatus");
     if (!to || !amountStr) { status.className = "status error"; status.textContent = "Enter address and amount"; return; }
 
-    status.className = "status pending"; status.textContent = "Sending...";
-    try {
-      const token = balances.find(b => b.symbol === currency);
-      const decimals = token?.decimals || 0;
-      const contractAddr = token?.contract || null;
-      const amountSat = app.mmxToSat(amountStr, decimals);
+    const token = balances.find(b => b.symbol === currency);
+    const decimals = token?.decimals || 0;
+    const contractAddr = token?.contract || null;
+    const amountSat = app.mmxToSat(amountStr, decimals);
+
+    // Show confirmation dialog
+    const memoLine = memo ? `<div style="margin-top:4px;color:var(--text-muted)">Memo: ${escapeHtml(memo)}</div>` : '';
+    showTxConfirm("Confirm Send", `
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Sending</span><span style="font-weight:600;color:var(--primary)">${escapeHtml(amountStr)} ${escapeHtml(currency)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">To</span><span style="font-family:monospace;font-size:11px;word-break:break-all;text-align:right;max-width:240px">${escapeHtml(to)}</span></div>
+      ${memoLine}
+    `, async () => {
       const result = await app.sendTransaction(to, amountSat, contractAddr, memo);
-      status.className = "status success"; status.innerHTML = `✅ Sent! Fee: ${result.fee_value} MMX · <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
       document.getElementById("sendTo").value = ""; document.getElementById("sendAmount").value = ""; document.getElementById("sendMemo").value = "";
       setTimeout(() => { loadBalances(); loadTxHistory(); }, 3000);
-    } catch (e) { status.className = "status error"; status.textContent = e.message; }
+      return result;
+    });
   };
 }
 
@@ -660,25 +682,32 @@ async function executeSwap() {
   const amountSat = app.mmxToSat(amt, fromDecimals);
   const slippage = parseInt(document.getElementById("swapSlippage").value);
   let minTradeSat = 0;
+  let estOutStr = "?";
   if (slippage > 0) {
     try {
       const est = await api.getSwapTradeEstimate(currentPool.address, fromIndex, amt, 1);
       const toDecimals = tokens[fromIndex === 0 ? 1 : 0]?.decimals || 0;
       const estOut = est.trade?.value || est.output || est.amount || 0;
+      estOutStr = String(estOut);
       const estSat = BigInt(Math.floor(parseFloat(estOut) * Math.pow(10, toDecimals)));
       minTradeSat = estSat * BigInt(100 - slippage) / BigInt(100);
     } catch {}
   }
-  btn.disabled = true; status.className = "status pending"; status.textContent = "Swapping...";
-  try {
+
+  const fromS = tokens[fromIndex]?.symbol || "?";
+  const toS = tokens[fromIndex === 0 ? 1 : 0]?.symbol || "?";
+  showTxConfirm("Confirm Swap", `
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">From</span><span style="font-weight:600">${escapeHtml(amt)} ${escapeHtml(fromS)}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Est. output</span><span style="font-weight:600;color:var(--primary)">≈ ${escapeHtml(estOutStr)} ${escapeHtml(toS)}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Slippage</span><span>${slippage}%</span></div>
+  `, async () => {
     const result = await app.swapTrade(currentPool.address, fromIndex, amountSat, from, minTradeSat, 1);
-    status.className = "status success"; status.innerHTML = `✅ Swap sent! Fee: ${result.fee_value} MMX · <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
     document.getElementById("swapTxSection").style.display = "block";
     document.getElementById("swapTxLink").href = `https://explore.mmx.network/#/explore/transaction/${result.txid}`;
     document.getElementById("swapTxLink").textContent = result.txid;
     setTimeout(() => { loadBalances(); }, 3000);
-  } catch (e) { status.className = "status error"; status.textContent = e.message; }
-  finally { btn.disabled = false; }
+    return result;
+  });
 }
 
 // === Offers UI ===
@@ -780,9 +809,7 @@ async function loadPoolPrice() {
 }
 
 async function makeOffer() {
-  const btn = document.getElementById("makeOfferBtn");
   const status = document.getElementById("offerStatus");
-  btn.disabled = true; status.className = "status pending"; status.textContent = "Creating offer...";
   try {
     const bidCurrency = document.getElementById("offerBidCurrency").value;
     const askCurrency = document.getElementById("offerAskCurrency").value;
@@ -797,11 +824,17 @@ async function makeOffer() {
     const askSat = app.mmxToSat(String(askAmount), askDec);
     if (bidSat <= 0n || askSat <= 0n) throw new Error("Amounts must be positive");
 
-    const result = await app.makeOffer(bidCurrency, askCurrency, bidSat, askSat);
-    status.className = "status success"; status.innerHTML = `Offer created! <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
-    loadOffers(); // Refresh list
+    const price = (askAmount / bidAmount).toFixed(6);
+    showTxConfirm("Confirm Offer", `
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Offering</span><span style="font-weight:600">${escapeHtml(String(bidAmount))} ${escapeHtml(bidCurrency)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Asking</span><span style="font-weight:600;color:var(--primary)">${escapeHtml(String(askAmount))} ${escapeHtml(askCurrency)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Price</span><span>${escapeHtml(price)} ${escapeHtml(askCurrency)}/${escapeHtml(bidCurrency)}</span></div>
+    `, async () => {
+      const result = await app.makeOffer(bidCurrency, askCurrency, bidSat, askSat);
+      loadOffers();
+      return result;
+    });
   } catch (e) { status.className = "status error"; status.textContent = e.message; }
-  finally { btn.disabled = false; }
 }
 
 // TRAIL contract address — hardcoded for the order book
@@ -913,6 +946,46 @@ async function loadOffers() {
 
 window.closeOfferModal = function() {
   document.getElementById("offerModal").style.display = "none";
+};
+
+// === Generic TX Confirm modal (used by Send, Swap, Make Offer, Sweep) ===
+let _txConfirmAction = null; // stores the async function to execute on confirm
+
+function showTxConfirm(title, bodyHtml, actionFn) {
+  document.getElementById("txConfirmTitle").textContent = title;
+  document.getElementById("txConfirmBody").innerHTML = bodyHtml;
+  document.getElementById("txConfirmStatus").textContent = "";
+  document.getElementById("txConfirmStatus").className = "status";
+  _txConfirmAction = actionFn;
+  document.getElementById("txConfirmModal").style.display = "flex";
+}
+
+function closeTxConfirm() {
+  document.getElementById("txConfirmModal").style.display = "none";
+  _txConfirmAction = null;
+}
+
+document.getElementById("txConfirmCloseBtn").onclick = closeTxConfirm;
+document.getElementById("txConfirmCancelBtn").onclick = closeTxConfirm;
+document.getElementById("txConfirmSendBtn").onclick = async () => {
+  if (!_txConfirmAction) return;
+  const btn = document.getElementById("txConfirmSendBtn");
+  const status = document.getElementById("txConfirmStatus");
+  btn.disabled = true; btn.textContent = "Sending...";
+  status.className = "status pending"; status.textContent = "Building & signing...";
+  try {
+    const result = await _txConfirmAction();
+    closeTxConfirm();
+    // Show success in the relevant status area (caller handles their own UI)
+    if (result && result.txid) {
+      status.className = "status success";
+      status.innerHTML = `✅ Sent! Fee: ${result.fee_value} MMX · <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
+    }
+  } catch (e) {
+    status.className = "status error"; status.textContent = e.message;
+    document.getElementById("txConfirmModal").style.display = "flex"; // keep open on error
+  }
+  btn.disabled = false; btn.textContent = "Confirm & Send";
 };
 
 // State for the current offer modal
@@ -1120,58 +1193,55 @@ window.sweepAsks = async function() {
 
   status.innerHTML = "<span style='color:var(--text-muted)'>Fetching asks...</span>";
   try {
-    // Fetch all asks (bid=TRAIL, ask=MMX) — people selling TRAIL for MMX
     const asksRaw = await api.getOffers(TRAIL_CONTRACT, MMX_NULL, 100);
-    // Filter: only funded offers with price <= maxPrice
-    // display_price = MMX per TRAIL for asks (bid=TRAIL, ask=MMX)
     const asks = (asksRaw || [])
       .filter(o => (o.bid_balance_value || 0) > 0)
       .map(o => ({ addr: o.address, price: parseFloat(o.display_price) || 0, trailAvail: o.bid_balance_value, askAmount: o.ask_amount, askValue: o.ask_value, invPrice: o.inv_price }))
       .filter(o => o.price > 0 && o.price <= maxPrice)
-      .sort((a, b) => a.price - b.price);  // cheapest first
+      .sort((a, b) => a.price - b.price);
 
-    if (!asks.length) { status.innerHTML = "<span style='color:var(--text-muted)'>No asks found at or below ${maxPrice} TRAIL/MMX</span>"; return; }
+    if (!asks.length) { status.innerHTML = `<span style='color:var(--text-muted)'>No asks found at or below ${maxPrice} MMX/TRAIL</span>`; return; }
 
-    let budgetSat = app.mmxToSat(String(maxMMX), 6);  // MMX has 6 decimals
-    let totalTRAIL = 0;
-    let totalMMX = 0;
-    let trades = 0;
-
-    for (const ask of asks) {
-      if (budgetSat <= 0n) break;
-      status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${asks.length} — ${ask.price.toFixed(2)} TRAIL/MMX...</span>`;
-
-      // How much MMX needed to fill this ask entirely?
-      const fillCostSat = BigInt(ask.askAmount);  // raw MMX satoshis
-
-      if (budgetSat >= fillCostSat) {
-        // We can afford the full offer → ACCEPT (returns change, no MMX wasted)
-        const result = await app.acceptOffer(ask.addr);
-        totalTRAIL += ask.trailAvail;
-        totalMMX += ask.askValue;
-        budgetSat -= fillCostSat;
-        trades++;
-      } else {
-        // Can't afford full offer → TRADE partial (leftover MMX stays in offer)
-        // But only if we get at least 1 TRAIL, otherwise skip
-        const tradeAmountHuman = (Number(budgetSat) / 1e6).toString();
-        const est = await api.getOfferTradeEstimate(ask.addr, tradeAmountHuman);
-        const trailReceived = parseFloat(est.trade?.value || 0);
-        if (trailReceived > 0) {
-          const result = await app.offerTrade(ask.addr, budgetSat);
-          totalTRAIL += trailReceived;
-          totalMMX += Number(budgetSat) / 1e6;
-          budgetSat = 0n;
+    // Show confirmation before sweeping
+    showTxConfirm("Confirm Sweep Buy", `
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Max MMX budget</span><span style="font-weight:600">${escapeHtml(String(maxMMX))} MMX</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Max price</span><span>${escapeHtml(String(maxPrice))} MMX/TRAIL</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Offers to sweep</span><span>${asks.length}</span></div>
+      <div style="margin-top:6px;color:var(--warning)">⚠️ Multiple transactions (one per offer). Not atomic.</div>
+    `, async () => {
+      closeTxConfirm();
+      let budgetSat = app.mmxToSat(String(maxMMX), 6);
+      let totalTRAIL = 0, totalMMX = 0, trades = 0;
+      for (const ask of asks) {
+        if (budgetSat <= 0n) break;
+        status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${asks.length} — ${ask.price.toFixed(2)} MMX/TRAIL...</span>`;
+        const fillCostSat = BigInt(ask.askAmount);
+        if (budgetSat >= fillCostSat) {
+          await app.acceptOffer(ask.addr);
+          totalTRAIL += ask.trailAvail;
+          totalMMX += ask.askValue;
+          budgetSat -= fillCostSat;
           trades++;
         } else {
-          status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped offer at ${ask.price.toFixed(2)} — budget too small for 1 TRAIL</span>`;
+          const tradeAmountHuman = (Number(budgetSat) / 1e6).toString();
+          const est = await api.getOfferTradeEstimate(ask.addr, tradeAmountHuman);
+          const trailReceived = parseFloat(est.trade?.value || 0);
+          if (trailReceived > 0) {
+            await app.offerTrade(ask.addr, budgetSat);
+            totalTRAIL += trailReceived;
+            totalMMX += Number(budgetSat) / 1e6;
+            budgetSat = 0n;
+            trades++;
+          } else {
+            status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped offer at ${ask.price.toFixed(2)} — budget too small for 1 TRAIL</span>`;
+          }
         }
       }
-    }
-
-    status.innerHTML = `<span style='color:var(--success)'>✅ Sweep complete: ${trades} trades, bought ${totalTRAIL} TRAIL for ${totalMMX.toFixed(6)} MMX</span>`;
-    loadOffers();
-    loadBalances();
+      status.innerHTML = `<span style='color:var(--success)'>✅ Sweep complete: ${trades} trades, bought ${totalTRAIL} TRAIL for ${totalMMX.toFixed(6)} MMX</span>`;
+      loadOffers();
+      loadBalances();
+      return { txid: "sweep", fee_value: 0 };
+    });
   } catch (e) {
     status.innerHTML = `<span style='color:var(--danger)'>${escapeHtml(e.message)}</span>`;
   }
@@ -1253,62 +1323,61 @@ window.sweepBids = async function() {
 
   status.innerHTML = "<span style='color:var(--text-muted)'>Fetching bids...</span>";
   try {
-    // Fetch all bids (bid=MMX, ask=TRAIL) — people buying TRAIL with MMX
-    // display_price = TRAIL per MMX for bids. Price in TRAIL/MMX = 1/display_price
     const bidsRaw = await api.getOffers(MMX_NULL, TRAIL_CONTRACT, 100);
     const bids = (bidsRaw || [])
       .filter(o => (o.bid_balance_value || 0) > 0)
       .map(o => {
-        const dp = parseFloat(o.display_price) || 0;  // TRAIL per MMX
-        const priceMmxPerTrail = dp > 0 ? 1 / dp : 0;  // MMX per TRAIL
-        const mmxFunded = o.bid_balance_value || 0;  // MMX funded
-        const trailCap = mmxFunded * dp;  // TRAIL they can buy
+        const dp = parseFloat(o.display_price) || 0;
+        const priceMmxPerTrail = dp > 0 ? 1 / dp : 0;
+        const mmxFunded = o.bid_balance_value || 0;
+        const trailCap = mmxFunded * dp;
         return { addr: o.address, price: priceMmxPerTrail, mmxFunded, trailCap, askAmount: o.ask_amount, invPrice: o.inv_price };
       })
       .filter(o => o.price > 0 && o.price >= minPrice)
-      .sort((a, b) => b.price - a.price);  // highest price first (best for seller)
+      .sort((a, b) => b.price - a.price);
 
-    if (!bids.length) { status.innerHTML = `<span style='color:var(--text-muted)'>No bids found at or above ${minPrice} TRAIL/MMX</span>`; return; }
+    if (!bids.length) { status.innerHTML = `<span style='color:var(--text-muted)'>No bids found at or above ${minPrice} MMX/TRAIL</span>`; return; }
 
-    let trailBudgetSat = app.mmxToSat(String(sellTRAIL), 0);  // TRAIL has 0 decimals
-    let totalTRAIL = 0;
-    let totalMMX = 0;
-    let trades = 0;
-
-    for (const bid of bids) {
-      if (trailBudgetSat <= 0n) break;
-      status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${bids.length} — ${bid.price.toFixed(2)} TRAIL/MMX...</span>`;
-
-      // How much TRAIL needed to fill this bid entirely?
-      const fillCostSat = BigInt(bid.askAmount);  // TRAIL needed to fill (ask_amount)
-
-      if (trailBudgetSat >= fillCostSat) {
-        // We can fill the whole bid → ACCEPT (returns change, no TRAIL wasted)
-        const result = await app.acceptOffer(bid.addr);
-        totalTRAIL += Number(fillCostSat);
-        totalMMX += bid.mmxFunded;
-        trailBudgetSat -= fillCostSat;
-        trades++;
-      } else {
-        // Can't fill whole bid → TRADE partial (leftover TRAIL stays in offer)
-        const tradeAmountHuman = (Number(trailBudgetSat) / Math.pow(10, 0)).toString();
-        const est = await api.getOfferTradeEstimate(bid.addr, tradeAmountHuman);
-        const mmxReceived = parseFloat(est.trade?.value || 0);
-        if (mmxReceived > 0) {
-          const result = await app.offerTrade(bid.addr, trailBudgetSat);
-          totalTRAIL += Number(trailBudgetSat);
-          totalMMX += mmxReceived;
-          trailBudgetSat = 0n;
+    // Show confirmation before sweeping
+    showTxConfirm("Confirm Sweep Sell", `
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Selling</span><span style="font-weight:600">${escapeHtml(String(sellTRAIL))} TRAIL</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Min price</span><span>${escapeHtml(String(minPrice))} MMX/TRAIL</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Offers to sweep</span><span>${bids.length}</span></div>
+      <div style="margin-top:6px;color:var(--warning)">⚠️ Multiple transactions (one per offer). Not atomic.</div>
+    `, async () => {
+      closeTxConfirm();
+      let trailBudgetSat = app.mmxToSat(String(sellTRAIL), 0);
+      let totalTRAIL = 0, totalMMX = 0, trades = 0;
+      for (const bid of bids) {
+        if (trailBudgetSat <= 0n) break;
+        status.innerHTML = `<span style='color:var(--text-muted)'>Sweeping ${trades + 1}/${bids.length} — ${bid.price.toFixed(2)} MMX/TRAIL...</span>`;
+        const fillCostSat = BigInt(bid.askAmount);
+        if (trailBudgetSat >= fillCostSat) {
+          await app.acceptOffer(bid.addr);
+          totalTRAIL += Number(fillCostSat);
+          totalMMX += bid.mmxFunded;
+          trailBudgetSat -= fillCostSat;
           trades++;
         } else {
-          status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped bid at ${bid.price.toFixed(2)} — amount too small</span>`;
+          const tradeAmountHuman = (Number(trailBudgetSat) / Math.pow(10, 0)).toString();
+          const est = await api.getOfferTradeEstimate(bid.addr, tradeAmountHuman);
+          const mmxReceived = parseFloat(est.trade?.value || 0);
+          if (mmxReceived > 0) {
+            await app.offerTrade(bid.addr, trailBudgetSat);
+            totalTRAIL += Number(trailBudgetSat);
+            totalMMX += mmxReceived;
+            trailBudgetSat = 0n;
+            trades++;
+          } else {
+            status.innerHTML += `<br><span style='color:var(--text-muted)'>Skipped bid at ${bid.price.toFixed(2)} — amount too small</span>`;
+          }
         }
       }
-    }
-
-    status.innerHTML = `<span style='color:var(--success)'>✅ Sweep complete: ${trades} trades, sold ${totalTRAIL} TRAIL for ${totalMMX.toFixed(6)} MMX</span>`;
-    loadOffers();
-    loadBalances();
+      status.innerHTML = `<span style='color:var(--success)'>✅ Sweep complete: ${trades} trades, sold ${totalTRAIL} TRAIL for ${totalMMX.toFixed(6)} MMX</span>`;
+      loadOffers();
+      loadBalances();
+      return { txid: "sweep", fee_value: 0 };
+    });
   } catch (e) {
     status.innerHTML = `<span style='color:var(--danger)'>${escapeHtml(e.message)}</span>`;
   }
@@ -1361,9 +1430,12 @@ async function startPayment() {
   if (paywallUnlocked) return;
   const btn = document.getElementById("paywallBtn");
   const status = document.getElementById("paywallStatus");
-  btn.disabled = true; status.className = "status pending"; status.textContent = "Sending 1 TRAIL to Morpheus...";
-  try {
-    const amountSat = app.mmxToSat("1", 0); // TRAIL has 0 decimals
+  showTxConfirm("Confirm Payment", `
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Sending</span><span style="font-weight:600;color:var(--primary)">1 TRAIL</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">To</span><span style="font-family:monospace;font-size:11px;word-break:break-all;text-align:right;max-width:240px">${escapeHtml(MORPHEUS)}</span></div>
+    <div style="margin-top:4px;color:var(--text-muted)">Unlocks the content below.</div>
+  `, async () => {
+    const amountSat = app.mmxToSat("1", 0);
     const result = await app.sendTransaction(MORPHEUS, amountSat, TRAIL_CONTRACT);
     status.className = "status success"; status.textContent = "Payment sent! Unlocking...";
     document.getElementById("paywallTxSection").style.display = "block";
@@ -1376,7 +1448,8 @@ async function startPayment() {
       btn.style.display = "none";
     }, 500);
     paywallUnlocked = true;
-  } catch (e) { status.className = "status error"; status.textContent = e.message; btn.disabled = false; }
+    return result;
+  });
 }
 
 // === Helpers ===
