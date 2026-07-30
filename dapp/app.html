@@ -365,7 +365,11 @@ document.querySelectorAll(".tab").forEach(tab => {
 
 // === Init ===
 async function init() {
-  await api.initNodeUrl();
+  // Only load saved RPC in extension context (bypasses CORS).
+  // Web pages (GitHub Pages, localhost) always use public RPC — local node doesn't support CORS.
+  const isExtension = (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) ||
+                      (typeof browser !== "undefined" && browser.storage && browser.storage.local);
+  if (isExtension) await api.initNodeUrl();
   await app.init();
 
   if (typeof window.mmx !== "undefined" && window.mmx.isMMX && window.mmx.getAddress) {
