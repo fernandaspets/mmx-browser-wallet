@@ -361,22 +361,26 @@ async function tryRestoreFromBackground() {
 // --- Initialize ---
 
 async function init() {
+  console.log("[MMX DEBUG] init() started");
   try {
     await api.initNodeUrl();
     await app.init();
+    console.log("[MMX DEBUG] initNodeUrl + loadWordlist OK");
   } catch(e) {
     setStatus("createStatus", "Init error: " + e.message, "error");
-    console.error("Init error:", e);
+    console.error("[MMX DEBUG] Init error:", e);
     return;
   }
 
   let wallets = [];
   try {
     wallets = await app.getWalletsList();
+    console.log("[MMX DEBUG] getWalletsList returned:", wallets.length, "wallets");
   } catch(e) {
-    console.error("Get wallets error:", e);
+    console.error("[MMX DEBUG] Get wallets error:", e);
   }
 
+  console.log("[MMX DEBUG] wallets.length =", wallets.length, "-> showing", wallets.length === 0 ? "onboardingView" : "unlockView");
   if (wallets.length === 0) {
     showView("onboardingView");
   } else {

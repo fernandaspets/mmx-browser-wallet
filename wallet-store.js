@@ -15,6 +15,7 @@ const ACTIVE_KEY = "mmx_active_wallet";
 
 // Detect environment
 const isExtension = (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local);
+console.log("[MMX DEBUG] wallet-store loaded. isExtension:", isExtension, "browser:", typeof browser, "chrome:", typeof chrome);
 
 // --- Storage abstraction (async for both environments) ---
 
@@ -24,12 +25,19 @@ async function storageGet(key) {
     if (typeof browser !== "undefined" && browser.storage && browser.storage.local) {
       try {
         const result = await browser.storage.local.get(key);
+        console.log("[MMX DEBUG] storageGet(" + key + ") via browser promise:", result[key] ? "HAS DATA" : "EMPTY");
         return result[key];
-      } catch {}
+      } catch(e) {
+        console.log("[MMX DEBUG] storageGet(" + key + ") browser promise FAILED:", e.message);
+      }
     }
     // Fall back to callback API (Chrome compat)
+    console.log("[MMX DEBUG] storageGet(" + key + ") falling back to chrome callback");
     return new Promise(resolve => {
-      chrome.storage.local.get(key, result => resolve(result[key]));
+      chrome.storage.local.get(key, result => {
+        console.log("[MMX DEBUG] storageGet(" + key + ") chrome callback:", result[key] ? "HAS DATA" : "EMPTY");
+        resolve(result[key]);
+      });
     });
   }
   const data = localStorage.getItem(key);
@@ -158,6 +166,7 @@ function generateId() {
 
 export async function getWallets() {
   const data = await storageGet(STORAGE_KEY);
+  console.log("[MMX DEBUG] getWallets: storageGet returned:", data ? `type=${typeof data}, length=${data.length || "?"}` : "null/undefined");
   if (!data) return [];
   if (Array.isArray(data)) return data;
   // Maybe stored as non-JSON string, try parsing
