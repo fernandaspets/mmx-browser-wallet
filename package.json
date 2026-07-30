@@ -1,6 +1,6 @@
 {
   "name": "mmx-browser-wallet",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "Lightweight MMX wallet for the browser — keys never leave your device",
   "type": "module",
   "scripts": {
