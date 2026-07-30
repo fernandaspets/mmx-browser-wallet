@@ -1,7 +1,7 @@
 # Code Review — MMX Browser Wallet
 
 **Date:** July 29, 2026
-**Commit:** d421472
+**Commit:** ea0e5f8
 **Scope:** All source files + dapp/ directory
 
 ## Summary

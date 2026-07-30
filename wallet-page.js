@@ -55,6 +55,14 @@ const status = document.getElementById("status");
       document.getElementById("rpcUrlInput").value = api.getNodeUrl();
       document.getElementById("rpcStatus").textContent = "Current: " + api.getNodeUrl();
     };
+    // Close modal on backdrop click or close button (no inline onclick — CSP safe)
+    if (settingsModal) settingsModal.addEventListener("click", (e) => {
+      if (e.target === settingsModal) settingsModal.style.display = "none";
+    });
+    const settingsCloseBtn = document.getElementById("settingsCloseBtn");
+    if (settingsCloseBtn) settingsCloseBtn.addEventListener("click", () => {
+      settingsModal.style.display = "none";
+    });
     const rpcPresetOfficial = document.getElementById("rpcPresetOfficial");
     if (rpcPresetOfficial) rpcPresetOfficial.onclick = () => {
       document.getElementById("rpcUrlInput").value = "https://rpc.mmx.network";
