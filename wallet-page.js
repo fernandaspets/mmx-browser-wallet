@@ -53,7 +53,7 @@ const status = document.getElementById("status");
       const app = await import("./wallet-app.js");
       const api = await import("./mmx-node-api.js");
       const { bech32m } = await import("./lib/bech32-esm.js");
-      await api.initNodeUrl();
+      // Web wallet always uses public RPC (local node doesn't support CORS for web pages)
       await app.init();
       setStatus("Ready");
       window.app = app;
