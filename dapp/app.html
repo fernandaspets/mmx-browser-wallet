@@ -542,10 +542,10 @@ function initSendUI() {
 
     // Show confirmation dialog
     const memoLine = memo ? `<div style="margin-top:4px;color:var(--text-muted)">Memo: ${escapeHtml(memo)}</div>` : '';
-    showTxConfirm("Confirm Send", `
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Sending</span><span style="font-weight:600;color:var(--primary)">${escapeHtml(amountStr)} ${escapeHtml(currency)}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">To</span><span style="font-family:monospace;font-size:11px;word-break:break-all;text-align:right;max-width:240px">${escapeHtml(to)}</span></div>
-      ${memoLine}
+    showTxConfirm("📤 Confirm Send", `
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">Amount</span><span style="font-weight:600;font-size:15px;color:var(--primary)">${escapeHtml(amountStr)} ${escapeHtml(currency)}</span></div>
+      <div style="margin-bottom:6px"><span style="color:var(--text-muted)">To address</span><div style="font-family:monospace;font-size:11px;word-break:break-all;padding:4px 6px;background:var(--bg);border-radius:4px;margin-top:2px">${escapeHtml(to)}</div></div>
+      ${memo ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">Memo</span><span style="color:var(--accent)">${escapeHtml(memo)}</span></div>` : ''}
     `, async () => {
       const result = await app.sendTransaction(to, amountSat, contractAddr, memo);
       document.getElementById("sendTo").value = ""; document.getElementById("sendAmount").value = ""; document.getElementById("sendMemo").value = "";
@@ -697,9 +697,11 @@ async function executeSwap() {
   const fromS = tokens[fromIndex]?.symbol || "?";
   const toS = tokens[fromIndex === 0 ? 1 : 0]?.symbol || "?";
   showTxConfirm("Confirm Swap", `
-    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">From</span><span style="font-weight:600">${escapeHtml(amt)} ${escapeHtml(fromS)}</span></div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Est. output</span><span style="font-weight:600;color:var(--primary)">≈ ${escapeHtml(estOutStr)} ${escapeHtml(toS)}</span></div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Slippage</span><span>${slippage}%</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">🔥 From</span><span style="font-weight:600">${escapeHtml(amt)} ${escapeHtml(fromS)}</span></div>
+    <div style="font-size:16px;text-align:center;margin:8px;color:var(--text-muted)">⬇</div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">✨ Est. output</span><span style="font-weight:600;color:var(--primary)">≈ ${escapeHtml(estOutStr)} ${escapeHtml(toS)}</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">Slippage tolerance</span><span style="color:var(--accent)">${slippage}%</span></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">Pool</span><span style="font-size:11px">${escapeHtml(fromS)}/${escapeHtml(toS)}</span></div>
   `, async () => {
     const result = await app.swapTrade(currentPool.address, fromIndex, amountSat, from, minTradeSat, 1);
     document.getElementById("swapTxSection").style.display = "block";
@@ -825,10 +827,12 @@ async function makeOffer() {
     if (bidSat <= 0n || askSat <= 0n) throw new Error("Amounts must be positive");
 
     const price = (askAmount / bidAmount).toFixed(6);
+    const bidSym = getSymbol(bidCurrency);
+    const askSym = getSymbol(askCurrency);
     showTxConfirm("Confirm Offer", `
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Offering</span><span style="font-weight:600">${escapeHtml(String(bidAmount))} ${escapeHtml(bidCurrency)}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Asking</span><span style="font-weight:600;color:var(--primary)">${escapeHtml(String(askAmount))} ${escapeHtml(askCurrency)}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Price</span><span>${escapeHtml(price)} ${escapeHtml(askCurrency)}/${escapeHtml(bidCurrency)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">Offering</span><span style="font-weight:600">${escapeHtml(String(bidAmount))} ${escapeHtml(bidSym)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">Asking</span><span style="font-weight:600;color:var(--primary)">${escapeHtml(String(askAmount))} ${escapeHtml(askSym)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">Price</span><span style="color:var(--accent)">${escapeHtml(price)} ${escapeHtml(askSym)}/${escapeHtml(bidSym)}</span></div>
     `, async () => {
       const result = await app.makeOffer(bidCurrency, askCurrency, bidSat, askSat);
       loadOffers();
@@ -975,15 +979,19 @@ document.getElementById("txConfirmSendBtn").onclick = async () => {
   status.className = "status pending"; status.textContent = "Building & signing...";
   try {
     const result = await _txConfirmAction();
-    closeTxConfirm();
-    // Show success in the relevant status area (caller handles their own UI)
+    // Show success IN the modal (don't close yet)
     if (result && result.txid) {
       status.className = "status success";
-      status.innerHTML = `✅ Sent! Fee: ${result.fee_value} MMX · <a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank">${result.txid.substring(0,16)}... ↗</a>`;
+      status.innerHTML = `✅ Sent! Fee: ${result.fee_value || 0} MMX<br><a href="https://explore.mmx.network/#/explore/transaction/${result.txid}" target="_blank" style="color:var(--primary)">${result.txid.substring(0,20)}... ↗ View on explorer</a>`;
+      // Auto-close after 3 seconds
+      setTimeout(() => { closeTxConfirm(); }, 3000);
+    } else {
+      // Sweep or other multi-tx action — action already showed status in its own area
+      closeTxConfirm();
     }
   } catch (e) {
     status.className = "status error"; status.textContent = e.message;
-    document.getElementById("txConfirmModal").style.display = "flex"; // keep open on error
+    // Keep modal open on error so user can see what went wrong
   }
   btn.disabled = false; btn.textContent = "Confirm & Send";
 };
@@ -1203,11 +1211,11 @@ window.sweepAsks = async function() {
     if (!asks.length) { status.innerHTML = `<span style='color:var(--text-muted)'>No asks found at or below ${maxPrice} MMX/TRAIL</span>`; return; }
 
     // Show confirmation before sweeping
-    showTxConfirm("Confirm Sweep Buy", `
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Max MMX budget</span><span style="font-weight:600">${escapeHtml(String(maxMMX))} MMX</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Max price</span><span>${escapeHtml(String(maxPrice))} MMX/TRAIL</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Offers to sweep</span><span>${asks.length}</span></div>
-      <div style="margin-top:6px;color:var(--warning)">⚠️ Multiple transactions (one per offer). Not atomic.</div>
+    showTxConfirm("💸 Confirm Sweep Buy", `
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">💰 Max budget</span><span style="font-weight:600;color:var(--primary)">${escapeHtml(String(maxMMX))} MMX</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">📈 Max price</span><span style="color:var(--accent)">${escapeHtml(String(maxPrice))} MMX/TRAIL</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">📋 Offers to sweep</span><span>${asks.length}</span></div>
+      <div style="margin-top:8px;padding:6px;background:var(--warning-bg);border-radius:4px;color:var(--warning);font-size:11px">⚠️ Sends multiple transactions (one per offer). Not atomic — partial fills possible.</div>
     `, async () => {
       closeTxConfirm();
       let budgetSat = app.mmxToSat(String(maxMMX), 6);
@@ -1240,7 +1248,7 @@ window.sweepAsks = async function() {
       status.innerHTML = `<span style='color:var(--success)'>✅ Sweep complete: ${trades} trades, bought ${totalTRAIL} TRAIL for ${totalMMX.toFixed(6)} MMX</span>`;
       loadOffers();
       loadBalances();
-      return { txid: "sweep", fee_value: 0 };
+      return null;
     });
   } catch (e) {
     status.innerHTML = `<span style='color:var(--danger)'>${escapeHtml(e.message)}</span>`;
@@ -1339,11 +1347,11 @@ window.sweepBids = async function() {
     if (!bids.length) { status.innerHTML = `<span style='color:var(--text-muted)'>No bids found at or above ${minPrice} MMX/TRAIL</span>`; return; }
 
     // Show confirmation before sweeping
-    showTxConfirm("Confirm Sweep Sell", `
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Selling</span><span style="font-weight:600">${escapeHtml(String(sellTRAIL))} TRAIL</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Min price</span><span>${escapeHtml(String(minPrice))} MMX/TRAIL</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Offers to sweep</span><span>${bids.length}</span></div>
-      <div style="margin-top:6px;color:var(--warning)">⚠️ Multiple transactions (one per offer). Not atomic.</div>
+    showTxConfirm("💸 Confirm Sweep Sell", `
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">📦 Selling</span><span style="font-weight:600;color:var(--danger)">${escapeHtml(String(sellTRAIL))} TRAIL</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">📈 Min price</span><span style="color:var(--accent)">${escapeHtml(String(minPrice))} MMX/TRAIL</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">📋 Offers to sweep</span><span>${bids.length}</span></div>
+      <div style="margin-top:8px;padding:6px;background:var(--warning-bg);border-radius:4px;color:var(--warning);font-size:11px">⚠️ Sends multiple transactions (one per offer). Not atomic — partial fills possible.</div>
     `, async () => {
       closeTxConfirm();
       let trailBudgetSat = app.mmxToSat(String(sellTRAIL), 0);
@@ -1376,7 +1384,7 @@ window.sweepBids = async function() {
       status.innerHTML = `<span style='color:var(--success)'>✅ Sweep complete: ${trades} trades, sold ${totalTRAIL} TRAIL for ${totalMMX.toFixed(6)} MMX</span>`;
       loadOffers();
       loadBalances();
-      return { txid: "sweep", fee_value: 0 };
+      return null;
     });
   } catch (e) {
     status.innerHTML = `<span style='color:var(--danger)'>${escapeHtml(e.message)}</span>`;
@@ -1393,6 +1401,18 @@ function getDecimals(addr) {
   const b = balances.find(b => b.contract === addr);
   if (b) return b.decimals;
   return 0; // Default for unknown tokens
+}
+
+// Look up token symbol from contract address (MMX_NULL = "MMX")
+function getSymbol(addr) {
+  if (addr === MMX_NULL) return "MMX";
+  for (const p of pools) {
+    const t = (p.tokens || []).find(t => t.address === addr);
+    if (t) return t.symbol || "?";
+  }
+  const b = balances.find(b => b.contract === addr);
+  if (b) return b.symbol || "?";
+  return addr.substring(0, 12) + "..."; // fallback to truncated address
 }
 
 function escapeHtml(str) {
@@ -1430,10 +1450,10 @@ async function startPayment() {
   if (paywallUnlocked) return;
   const btn = document.getElementById("paywallBtn");
   const status = document.getElementById("paywallStatus");
-  showTxConfirm("Confirm Payment", `
-    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">Sending</span><span style="font-weight:600;color:var(--primary)">1 TRAIL</span></div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text-muted)">To</span><span style="font-family:monospace;font-size:11px;word-break:break-all;text-align:right;max-width:240px">${escapeHtml(MORPHEUS)}</span></div>
-    <div style="margin-top:4px;color:var(--text-muted)">Unlocks the content below.</div>
+  showTxConfirm("🔓 Confirm Payment", `
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text-muted)">Amount</span><span style="font-weight:600;font-size:15px;color:var(--primary)">1 TRAIL</span></div>
+    <div style="margin-bottom:6px"><span style="color:var(--text-muted)">To (Morpheus)</span><div style="font-family:monospace;font-size:11px;word-break:break-all;padding:4px 6px;background:var(--bg);border-radius:4px;margin-top:2px">${escapeHtml(MORPHEUS)}</div></div>
+    <div style="color:var(--accent);font-size:12px">🔓 Unlocks the content below</div>
   `, async () => {
     const amountSat = app.mmxToSat("1", 0);
     const result = await app.sendTransaction(MORPHEUS, amountSat, TRAIL_CONTRACT);
