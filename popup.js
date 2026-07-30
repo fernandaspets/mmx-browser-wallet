@@ -783,7 +783,7 @@ if (document.getElementById("popupRpcOfficial")) {
 }
 if (document.getElementById("popupRpcLocal")) {
   document.getElementById("popupRpcLocal").addEventListener("click", () => {
-    document.getElementById("popupRpcUrl").value = "http://localhost:11380";
+    document.getElementById("popupRpcUrl").value = "http://localhost:11380/wapi";
   });
 }
 if (document.getElementById("popupRpcSave")) {

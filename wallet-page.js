@@ -55,7 +55,7 @@ const status = document.getElementById("status");
     };
     const rpcPresetLocal = document.getElementById("rpcPresetLocal");
     if (rpcPresetLocal) rpcPresetLocal.onclick = () => {
-      document.getElementById("rpcUrlInput").value = "http://localhost:11380";
+      document.getElementById("rpcUrlInput").value = "http://localhost:11380/wapi";
     };
     const rpcSaveBtn = document.getElementById("rpcSaveBtn");
     if (rpcSaveBtn) rpcSaveBtn.onclick = async () => {
