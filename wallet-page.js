@@ -47,40 +47,6 @@ const status = document.getElementById("status");
       localStorage.setItem("mmx_theme", newTheme);
     };
 
-    // --- Settings modal ---
-    const settingsBtn = document.getElementById("settingsBtn");
-    const settingsModal = document.getElementById("settingsModal");
-    if (settingsBtn) settingsBtn.onclick = () => {
-      settingsModal.style.display = "flex";
-      document.getElementById("rpcUrlInput").value = api.getNodeUrl();
-      document.getElementById("rpcStatus").textContent = "Current: " + api.getNodeUrl();
-    };
-    // Close modal on backdrop click or close button (no inline onclick — CSP safe)
-    if (settingsModal) settingsModal.addEventListener("click", (e) => {
-      if (e.target === settingsModal) settingsModal.style.display = "none";
-    });
-    const settingsCloseBtn = document.getElementById("settingsCloseBtn");
-    if (settingsCloseBtn) settingsCloseBtn.addEventListener("click", () => {
-      settingsModal.style.display = "none";
-    });
-    const rpcPresetOfficial = document.getElementById("rpcPresetOfficial");
-    if (rpcPresetOfficial) rpcPresetOfficial.onclick = () => {
-      document.getElementById("rpcUrlInput").value = "https://rpc.mmx.network";
-    };
-    const rpcPresetLocal = document.getElementById("rpcPresetLocal");
-    if (rpcPresetLocal) rpcPresetLocal.onclick = () => {
-      document.getElementById("rpcUrlInput").value = "http://localhost:11380/wapi";
-    };
-    const rpcSaveBtn = document.getElementById("rpcSaveBtn");
-    if (rpcSaveBtn) rpcSaveBtn.onclick = async () => {
-      const url = document.getElementById("rpcUrlInput").value.trim();
-      if (!url) return;
-      const savedUrl = await api.saveNodeUrl(url);
-      const note = savedUrl !== url.replace(/\/+$/, "") ? ' (auto-added /wapi)' : '';
-      document.getElementById("rpcStatus").innerHTML = '<span style="color:#4caf50">✓ Saved! RPC set to ' + savedUrl + note + '</span>';
-      document.getElementById("rpcUrlInput").value = api.getNodeUrl();
-    };
-
     // --- Load ---
     try {
       setStatus("Loading crypto libraries...");
