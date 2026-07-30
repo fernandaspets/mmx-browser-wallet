@@ -227,9 +227,9 @@ export async function sendTransaction(toAddress, amountSat, currencyContract, me
   skey.fill(0);
   
   return {
-    txid: Buffer.from(txId).toString("hex").toUpperCase(),
-    fee: result.total_fee || 50000,        // actual fee from node dry-run (satoshis)
-    fee_value: (result.total_fee || 50000) / 1e6,  // human-readable MMX
+    txid: result.txid,
+    fee: result.fee,
+    fee_value: result.fee_value,
   };
 }
 
