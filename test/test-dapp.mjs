@@ -186,8 +186,8 @@ console.log("\n10. wallet-app.js swapTrade");
   assertIncludes("wallet-app.js uses trade method", src, 'method: "trade"');
   assertIncludes("wallet-app.js builds deposit operation", src, '__type: "mmx.operation.Deposit"');
 
-  // swapTrade signs and broadcasts
-  assertIncludes("wallet-app.js validates swap tx", src, 'Swap trade validation failed');
+  // swapTrade uses buildAndSendTx helper for signing, validation, and broadcast
+  assertIncludes("wallet-app.js builds swap tx via helper", src, 'buildAndSendTx');
   assertIncludes("wallet-app.js broadcasts swap tx", src, 'api.broadcastTransaction');
 }
 

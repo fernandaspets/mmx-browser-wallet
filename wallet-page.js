@@ -17,14 +17,20 @@ const status = document.getElementById("status");
       document.getElementById(viewId).classList.remove("hidden");
     }
 
-    window.copyEl = async function(el) {
+    // --- Copy helpers ---
+    async function copyEl(el) {
       try {
         await navigator.clipboard.writeText(el.textContent);
         const orig = el.style.borderColor;
         el.style.borderColor = "#4caf50";
         setTimeout(() => el.style.borderColor = orig, 1000);
       } catch {}
-    };
+    }
+    // Wire up copy elements (no inline onclick — CSP safe)
+    const displayAddr = document.getElementById("displayAddress");
+    if (displayAddr) displayAddr.addEventListener("click", () => copyEl(displayAddr));
+    const mnemonicEl = document.getElementById("mnemonicDisplay");
+    if (mnemonicEl) mnemonicEl.addEventListener("click", () => copyEl(mnemonicEl));
 
     // --- Theme toggle ---
     function applyTheme(theme) {

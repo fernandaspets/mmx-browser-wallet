@@ -249,8 +249,9 @@ const CONTACTS_KEY = "mmx_contacts";
 export async function getContacts() {
   const data = await storageGet(CONTACTS_KEY);
   if (!data) return [];
-  // storageGet already JSON.parses for localStorage, check if it's already an array
-  return Array.isArray(data) ? data : JSON.parse(data);
+  // Handle both array (new format) and string (old format from before refactor)
+  if (Array.isArray(data)) return data;
+  try { return JSON.parse(data); } catch { return []; }
 }
 
 export async function addContact(name, address) {
@@ -261,14 +262,14 @@ export async function addContact(name, address) {
   }
   const contact = { id: generateId(), name: name.trim() || "Unnamed", address, created: Date.now() };
   contacts.push(contact);
-  await storageSet(CONTACTS_KEY, JSON.stringify(contacts));
+  await storageSet(CONTACTS_KEY, contacts);
   return contact;
 }
 
 export async function deleteContact(id) {
   const contacts = await getContacts();
   const filtered = contacts.filter(c => c.id !== id);
-  await storageSet(CONTACTS_KEY, JSON.stringify(filtered));
+  await storageSet(CONTACTS_KEY, filtered);
 }
 
 export async function findContactByAddress(address) {

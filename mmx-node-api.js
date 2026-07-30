@@ -207,7 +207,7 @@ export async function getSwapUserInfo(poolAddr, userAddr) {
   return await resp.json();
 }
 
-export async function getSwapTradeEstimate(poolAddr, index, amount, iters = 200) {
+export async function getSwapTradeEstimate(poolAddr, index, amount, iters = 1) {
   const resp = await fetch(`${_nodeUrl}/swap/trade_estimate?id=${poolAddr}&index=${index}&amount=${amount}&iters=${iters}`);
   if (!resp.ok) throw new Error(`Trade estimate error: ${resp.status}`);
   return await resp.json();

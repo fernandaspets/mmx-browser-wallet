@@ -217,49 +217,13 @@ export async function sendTransaction(toAddress, amountSat, currencyContract, me
     static_cost: staticCost,
   };
 
-  // Compute tx id
-  const txId = calcTxId(tx);
-
-  // Sign
-  const solution = await signTx(txId, skey);
-  tx.solutions = [solution];
-
-  // Compute content hash
-  const contentHash = calcContentHash(tx);
-
-  // Build VNX object
-  const txObj = {
-    __type: "mmx.Transaction",
-    version: tx.version,
-    expires: tx.expires,
-    fee_ratio: tx.fee_ratio,
-    max_fee_amount: tx.max_fee_amount,
-    note: tx.note,
-    nonce: tx.nonce.toString(),
-    network: tx.network,
-    sender: tx.sender,
-    inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
-    outputs: tx.outputs.map(o => ({ ...o, __type: "mmx.txout_t" })),
-    execute: [],
-    deploy: null,
-    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
-    static_cost: tx.static_cost,
-    id: Array.from(txId),
-    content_hash: Array.from(contentHash),
-  };
-
-  // Dry-run: validate to get actual fee from node (exec_result.total_fee)
-  const result = await api.validateTransaction(toVNX(txObj));
-  if (result.did_fail) throw new Error("Transaction validation failed: " + (result.error || "unknown"));
-
-  // Broadcast to network
-  await api.broadcastTransaction(toVNX(txObj));
+  // Build, sign, validate, and broadcast
+  const result = await buildAndSendTx(tx, skey);
 
   // Auto-track destination address in contacts (if not own and not already saved)
   try { await store.autoTrackAddress(toAddress, "Sent to"); } catch {}
 
   // Clear sensitive data from memory after signing
-  // skey and seed are local, but let's zero them out
   skey.fill(0);
   
   return {
@@ -597,11 +561,11 @@ export async function autoTrackAddress(address, defaultName) { return store.auto
 // amountSat: amount in smallest units (satoshis)
 // currencyContract: the token contract address being sold
 // minTradeSat: minimum output in smallest units (slippage protection, 0 = no min)
-// numIter: iterations (1 = simple, 20 = default in MMX wallet)
+// numIter: iterations (1 = simple, official GUI default)
 
 // Compute static_cost for a transaction (must match Transaction::calc_cost in C++)
 // ChainParams (mainnet): min_txfee=20000, min_txfee_io=10000, min_txfee_sign=10000,
-//                       min_txfee_exec=10000, min_txfee_byte=100, min_txfee_deploy=200000
+//                       min_txfee_exec=10000, min_txfee_byte=100, min_txfee_deploy=20000
 // For Execute/Deposit ops: cost += (method.length + sum(get_num_bytes(arg))) * min_txfee_byte
 // Mainnet chain params (fallback if API unavailable)
 // Source: https://rpc.mmx.network/chain/info
@@ -741,9 +705,9 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
   // Nonce
   const nonce = randomNonce();
 
-  // Compute static_cost correctly (must match Transaction::calc_cost in C++)
-  // min_txfee(100) + inputs(100 each) + outputs(100 each) + exec(10000 each) + solutions(1000 each)
-  // + execute payload * min_txfee_byte(10)
+  // Compute static_cost (must match Transaction::calc_cost in C++)
+  // min_txfee(20000) + inputs(10000 each) + exec(10000 each) + solutions(10000 each)
+  // + execute payload * min_txfee_byte(100)
   const params = await getChainParamsLocal(); const staticCost = calcStaticCost(1, 0, [deposit], 1, null, params);
 
   const tx = {
@@ -770,51 +734,10 @@ export async function swapTrade(swapAddr, tokenIndex, amountSat, currencyContrac
     static_cost: staticCost,
   };
 
-  // Compute tx id
-  const txId = calcTxId(tx);
-
-  // Sign
-  const solution = await signTx(txId, skey);
-  tx.solutions = [solution];
-
-  // Compute content hash
-  const contentHash = calcContentHash(tx);
-
-  // Build VNX object for broadcast
-  const txObj = {
-    __type: "mmx.Transaction",
-    version: tx.version,
-    expires: tx.expires,
-    fee_ratio: tx.fee_ratio,
-    max_fee_amount: tx.max_fee_amount,
-    note: tx.note,
-    nonce: tx.nonce.toString(),
-    network: tx.network,
-    sender: tx.sender,
-    inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
-    outputs: [],
-    execute: [deposit],
-    deploy: null,
-    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
-    static_cost: tx.static_cost,
-    id: Array.from(txId),
-    content_hash: Array.from(contentHash),
-  };
-
-  // Dry-run: validate to get actual fee
-  const result = await api.validateTransaction(toVNX(txObj));
-  if (result.did_fail) throw new Error("Swap trade validation failed: " + (result.error || "unknown"));
-
-  // Broadcast
-  await api.broadcastTransaction(toVNX(txObj));
-
+  // Build, sign, validate, and broadcast (pass full deposit object for broadcast)
+  const result = await buildAndSendTx(tx, skey, { executeOps: [deposit] });
   skey.fill(0);
-
-  return {
-    txid: Buffer.from(txId).toString("hex").toUpperCase(),
-    fee: result.total_fee || staticCost,
-    fee_value: (result.total_fee || staticCost) / 1e6,
-  };
+  return result;
 }
 
 // ====================================================================
@@ -892,8 +815,15 @@ function toVNX(txObj) {
   return out;
 }
 
-// Helper: build, sign, validate, broadcast a transaction
-async function buildAndSendTx(tx, skey) {
+// Helper: build, sign, validate, and optionally broadcast a transaction
+// tx: the transaction object (with execute as [{hash, fullHash}] or empty)
+// skey: signing key
+// options: { deploy: Executable, broadcast: true, executeOps: [Deposit/Execute] }
+//   deploy: full Executable object for broadcast (if tx.deploy is set)
+//   broadcast: if false, only validate (dry-run for fee estimation)
+//   executeOps: full Deposit/Execute objects for broadcast (if tx.execute has hashes)
+async function buildAndSendTx(tx, skey, options = {}) {
+  const { deploy = null, broadcast = true, executeOps = null } = options;
   const txId = calcTxId(tx);
   const solution = await signTx(txId, skey);
   tx.solutions = [solution];
@@ -910,8 +840,9 @@ async function buildAndSendTx(tx, skey) {
     sender: tx.sender,
     inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
     outputs: tx.outputs.map(o => ({ ...o, __type: "mmx.txout_t" })),
-    execute: tx.execute || [],
-    deploy: tx.deploy || null,
+    // For broadcast: use full objects. For hash-only: use hash refs.
+    execute: executeOps || tx.execute || [],
+    deploy: deploy || tx.deploy || null,
     solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
     static_cost: tx.static_cost,
     id: Array.from(txId),
@@ -927,11 +858,15 @@ async function buildAndSendTx(tx, skey) {
     }
     throw new Error("Validation failed: " + msg);
   }
-  await api.broadcastTransaction(toVNX(txObj));
+  if (broadcast) {
+    await api.broadcastTransaction(toVNX(txObj));
+  }
   return {
     txid: Buffer.from(txId).toString("hex").toUpperCase(),
     fee: result.total_fee || tx.static_cost,
     fee_value: (result.total_fee || tx.static_cost) / 1e6,
+    did_fail: result.did_fail,
+    outputs: result.outputs || [],
   };
 }
 
@@ -1022,53 +957,10 @@ export async function makeOffer(bidCurrency, askCurrency, bidAmountSat, askAmoun
   tx.static_cost = calcStaticCost(1, 0, null, 1, executable, offerParams);
   tx.max_fee_amount = calcMaxFee(tx.static_cost);
 
-  // For broadcast, deploy needs the full Executable object
-  const result = await buildAndSendTxDeploy(tx, executable, skey);
+  // Build, sign, validate, and broadcast (pass full Executable for deploy)
+  const result = await buildAndSendTx(tx, skey, { deploy: executable });
   skey.fill(0);
   return result;
-}
-
-// Helper: build and send tx with a deploy (Executable) instead of execute ops
-async function buildAndSendTxDeploy(tx, executable, skey) {
-  const txId = calcTxId(tx);
-  const solution = await signTx(txId, skey);
-  tx.solutions = [solution];
-  const contentHash = calcContentHash(tx);
-  const txObj = {
-    __type: "mmx.Transaction",
-    version: tx.version,
-    expires: tx.expires,
-    fee_ratio: tx.fee_ratio,
-    max_fee_amount: tx.max_fee_amount,
-    note: tx.note,
-    nonce: tx.nonce.toString(),
-    network: tx.network,
-    sender: tx.sender,
-    inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
-    outputs: tx.outputs.map(o => ({ ...o, __type: "mmx.txout_t" })),
-    execute: [],
-    deploy: executable,  // Full Executable object for node to deserialize
-    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
-    static_cost: tx.static_cost,
-    id: Array.from(txId),
-    content_hash: Array.from(contentHash),
-  };
-  const result = await api.validateTransaction(toVNX(txObj));
-  if (result.did_fail) {
-    let msg = "unknown";
-    if (result.error) {
-      if (typeof result.error === "string") msg = result.error;
-      else if (result.error.message) msg = result.error.message;
-      else msg = JSON.stringify(result.error);
-    }
-    throw new Error("Validation failed: " + msg);
-  }
-  await api.broadcastTransaction(toVNX(txObj));
-  return {
-    txid: Buffer.from(txId).toString("hex").toUpperCase(),
-    fee: result.total_fee || tx.static_cost,
-    fee_value: (result.total_fee || tx.static_cost) / 1e6,
-  };
 }
 
 // _offerDeposit: shared helper for offer trade/accept (Deposit to offer contract)
@@ -1133,51 +1025,10 @@ async function _offerDeposit(method, offerAddr, askAmountSat, broadcast = true) 
   };
   tx.max_fee_amount = calcMaxFee(tx.static_cost);
 
-  // For broadcast, include the full deposit object
-  const txId = calcTxId(tx);
-  const solution = await signTx(txId, skey);
-  tx.solutions = [solution];
-  const contentHash = calcContentHash(tx);
-  const txObj = {
-    __type: "mmx.Transaction",
-    version: tx.version,
-    expires: tx.expires,
-    fee_ratio: tx.fee_ratio,
-    max_fee_amount: tx.max_fee_amount,
-    note: tx.note,
-    nonce: tx.nonce.toString(),
-    network: tx.network,
-    sender: tx.sender,
-    inputs: tx.inputs.map(i => ({ ...i, __type: "mmx.txin_t" })),
-    outputs: tx.outputs.map(o => ({ ...o, __type: "mmx.txout_t" })),
-    execute: [deposit],
-    deploy: null,
-    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
-    static_cost: tx.static_cost,
-    id: Array.from(txId),
-    content_hash: Array.from(contentHash),
-  };
-  const result = await api.validateTransaction(toVNX(txObj));
-  if (result.did_fail) {
-    let msg = "unknown";
-    if (result.error) {
-      if (typeof result.error === "string") msg = result.error;
-      else if (result.error.message) msg = result.error.message;
-      else msg = JSON.stringify(result.error);
-    }
-    throw new Error("Validation failed: " + msg);
-  }
-  if (broadcast) {
-    await api.broadcastTransaction(toVNX(txObj));
-  }
+  // Build, sign, validate, and optionally broadcast
+  const result = await buildAndSendTx(tx, skey, { executeOps: [deposit], broadcast });
   skey.fill(0);
-  return {
-    txid: Buffer.from(txId).toString("hex").toUpperCase(),
-    fee: result.total_fee || tx.static_cost,
-    fee_value: (result.total_fee || tx.static_cost) / 1e6,
-    did_fail: result.did_fail,
-    outputs: result.outputs || [],
-  };
+  return result;
 }
 
 // acceptOffer: accept an existing offer — full fill (buy ALL remaining bid currency)
@@ -1257,43 +1108,7 @@ export async function cancelOffer(offerAddr) {
   const cancelParams = await getChainParamsLocal();
   tx.static_cost = calcStaticCost(0, 0, [executeOp], 1, null, cancelParams);
   tx.max_fee_amount = calcMaxFee(tx.static_cost);
-  const txId = calcTxId(tx);
-  tx.solutions = [solution];
-  const contentHash = calcContentHash(tx);
-  const txObj = {
-    __type: "mmx.Transaction",
-    version: tx.version,
-    expires: tx.expires,
-    fee_ratio: tx.fee_ratio,
-    max_fee_amount: tx.max_fee_amount,
-    note: TX_NOTE.TRANSFER,
-    nonce: tx.nonce.toString(),
-    network: tx.network,
-    sender: tx.sender,
-    inputs: [],
-    outputs: [],
-    execute: [executeOp],
-    deploy: null,
-    solutions: [{ ...solution, __type: "mmx.solution.PubKey" }],
-    static_cost: tx.static_cost,
-    id: Array.from(txId),
-    content_hash: Array.from(contentHash),
-  };
-  const result = await api.validateTransaction(toVNX(txObj));
-  if (result.did_fail) {
-    let msg = "unknown";
-    if (result.error) {
-      if (typeof result.error === "string") msg = result.error;
-      else if (result.error.message) msg = result.error.message;
-      else msg = JSON.stringify(result.error);
-    }
-    throw new Error("Validation failed: " + msg);
-  }
-  await api.broadcastTransaction(toVNX(txObj));
+  const result = await buildAndSendTx(tx, skey, { executeOps: [executeOp] });
   skey.fill(0);
-  return {
-    txid: Buffer.from(txId).toString("hex").toUpperCase(),
-    fee: result.total_fee || tx.static_cost,
-    fee_value: (result.total_fee || tx.static_cost) / 1e6,
-  };
+  return result;
 }

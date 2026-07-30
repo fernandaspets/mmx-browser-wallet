@@ -15,7 +15,7 @@ Golden test vectors and architectural inspiration from [Stotiks](https://github.
 - **Create wallet** — generates keys locally, encrypts with password (AES-GCM + PBKDF2)
 - **Import from mnemonic** — restore any wallet from 24 words
 - **Password-protected** — wallet locked at rest, auto-lock after 5 min inactivity
-- **Send transactions** — builds, signs, and broadcasts entirely in the browser
+- **Send transactions** — builds, signs, and broadcasts entirely in the browser, with optional memo (up to 64 chars)
 - **Swap pool trading** — Uniswap-style swap UI with price estimate and slippage protection
 - **Offer trading** — order book with partial fill (Trade) and full fill (Accept)
 - **Limit sweep** — buy or sell TRAIL across multiple offers up to your price limit
@@ -23,8 +23,9 @@ Golden test vectors and architectural inspiration from [Stotiks](https://github.
 - **Transaction history** — paginated, with explorer links
 - **Multi-wallet** — create/import/switch between multiple wallets
 - **Address book** — auto-saves addresses you send to, name them, quick-select when sending
-- **Send confirmation** — review amount, destination, fee, and total before broadcasting
+- **Send confirmation** — review amount, destination, memo, fee, and total before broadcasting
 - **dApp integration (opt-in)** — toggle in dashboard enables `window.mmx` + `window.mmx_wallet` injection for web apps. Supports the official MMX dApp API: `get_address`, `get_public_key`, `get_network`, `sign_message`, `sign_transaction`.
+- **Configurable RPC** — switch between official public RPC and local node in settings. Auto-detects `/wapi` prefix for raw nodes.
 - **Dark/light theme** — toggle in header, choice persists across sessions
 - **Session persistence** — stays unlocked across popup close/reopen (extension)
 
@@ -52,7 +53,7 @@ cd mmx-wallet
 npm test    # runs all 7 suites
 ```
 
-7 test suites: crypto (22), regression (131), fuzz (38), integration (54), security (10), dApp (19), golden (7) — **281 tests total**.
+7 test suites: crypto (22), regression (128), fuzz (38), integration (54), security (10), dApp (147), golden (7) — **306 tests total**.
 
 ## Documentation
 

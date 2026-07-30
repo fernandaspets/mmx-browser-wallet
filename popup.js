@@ -972,15 +972,15 @@ document.getElementById("listImportBtn").addEventListener("click", () => {
 
 // --- Copy address ---
 
-window.copyAddress = async function() {
-  const addr = document.getElementById("addressDisplay").textContent;
+const addrEl = document.getElementById("addressDisplay");
+if (addrEl) addrEl.addEventListener("click", async () => {
+  const addr = addrEl.textContent;
   try {
     await navigator.clipboard.writeText(addr);
     const fb = document.getElementById("copyFeedback");
-    fb.style.display = "block";
-    setTimeout(() => fb.style.display = "none", 2000);
+    if (fb) { fb.style.display = "block"; setTimeout(() => fb.style.display = "none", 2000); }
   } catch {}
-};
+});
 
 document.getElementById("copyReceiveBtn").addEventListener("click", async () => {
   const addr = document.getElementById("receiveAddress").textContent;

@@ -25,7 +25,11 @@ const TX_TYPE_HASH = 0xce0462acdceaa5bcn;
 // tx_note_e values (only TRANSFER is used by this wallet; others exist in MMX protocol)
 const TX_NOTE = {
   TRANSFER: 858544509,
+  TRADE: 329618288,
+  OFFER: 1549148948,
 };
+const TX_NOTE_TRADE = TX_NOTE.TRADE;
+const TX_NOTE_OFFER = TX_NOTE.OFFER;
 
 // --- Binary writer ---
 
@@ -389,11 +393,6 @@ function writeVariant(w, val) {
     w.writeString(String(val));
   }
 }
-
-// --- Trade tx note ---
-const TX_NOTE_TRADE = 329618288; // tx_note_e::TRADE
-// --- Offer tx note ---
-const TX_NOTE_OFFER = 1549148948; // tx_note_e::OFFER
 
 // Executable::calc_hash() (for deploy field)
 // Executable extends TokenBase, so includes TokenBase fields + Executable-specific fields
