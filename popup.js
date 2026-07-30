@@ -794,8 +794,9 @@ if (document.getElementById("popupRpcSave")) {
     btn.disabled = true;
     btn.textContent = "Saving...";
     try {
-      await api.saveNodeUrl(url);
-      document.getElementById("popupRpcStatus").innerHTML = '<span style="color:#4caf50">✓ Saved! RPC set to ' + app.escapeHtml(url) + '</span>';
+      const savedUrl = await api.saveNodeUrl(url);
+      const note = savedUrl !== url.replace(/\/+$/, "") ? ' (auto-added /wapi)' : '';
+      document.getElementById("popupRpcStatus").innerHTML = '<span style="color:#4caf50">✓ Saved! RPC set to ' + app.escapeHtml(savedUrl) + note + '</span>';
       // Update the settings input to show the saved value
       document.getElementById("popupRpcUrl").value = api.getNodeUrl();
       // Refresh balance/tx data with new RPC (no reload needed)

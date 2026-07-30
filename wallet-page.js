@@ -61,9 +61,10 @@ const status = document.getElementById("status");
     if (rpcSaveBtn) rpcSaveBtn.onclick = async () => {
       const url = document.getElementById("rpcUrlInput").value.trim();
       if (!url) return;
-      await api.saveNodeUrl(url);
-      document.getElementById("rpcStatus").innerHTML = '<span style="color:#4caf50">✓ Saved! Reloading...</span>';
-      setTimeout(() => location.reload(), 1000);
+      const savedUrl = await api.saveNodeUrl(url);
+      const note = savedUrl !== url.replace(/\/+$/, "") ? ' (auto-added /wapi)' : '';
+      document.getElementById("rpcStatus").innerHTML = '<span style="color:#4caf50">✓ Saved! RPC set to ' + savedUrl + note + '</span>';
+      document.getElementById("rpcUrlInput").value = api.getNodeUrl();
     };
 
     // --- Load ---

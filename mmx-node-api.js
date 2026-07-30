@@ -43,13 +43,38 @@ export async function initNodeUrl() {
 }
 
 // Save RPC URL to storage
+// Auto-detect if RPC URL needs /wapi prefix.
+// Public RPC (rpc.mmx.network) reverse-proxies / → /wapi/ so no prefix needed.
+// Raw MMX nodes serve WebAPI at /wapi/ only.
+// Test: try /headers?limit=1, if 404 try /wapi/headers?limit=1, auto-append if needed.
+async function autoDetectWapi(url) {
+  const cleanUrl = url.replace(/\/+$/, "");
+  // Already has /wapi
+  if (cleanUrl.endsWith("/wapi")) return cleanUrl;
+  try {
+    // Test without /wapi
+    let resp = await fetch(`${cleanUrl}/headers?limit=1`);
+    if (resp.ok) return cleanUrl; // No /wapi needed (public RPC style)
+  } catch {}
+  // Test with /wapi
+  try {
+    let resp = await fetch(`${cleanUrl}/wapi/headers?limit=1`);
+    if (resp.ok) return cleanUrl + "/wapi"; // Raw node needs /wapi
+  } catch {}
+  // Can't detect — return as-is, user can fix manually
+  return cleanUrl;
+}
+
 export async function saveNodeUrl(url) {
+  const detected = await autoDetectWapi(url);
   try {
     const store = await import("./wallet-store.js");
-    await store.setSetting("rpc_url", url);
-    setNodeUrl(url);
+    await store.setSetting("rpc_url", detected);
+    setNodeUrl(detected);
+    return detected;
   } catch {
-    setNodeUrl(url); // at least apply in-memory
+    setNodeUrl(detected); // at least apply in-memory
+    return detected;
   }
 }
 

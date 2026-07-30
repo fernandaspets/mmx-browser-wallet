@@ -442,7 +442,9 @@ async function showApp() {
     btn.disabled = true; btn.textContent = "Saving...";
     try {
       await api.saveNodeUrl(url);
-      document.getElementById("rpcStatus").innerHTML = '<span style="color:var(--success)">✓ Saved! RPC set to ' + escapeHtml(url) + '</span>';
+      const savedUrl = await api.saveNodeUrl(url);
+      const note = savedUrl !== url.replace(/\/+$/, "") ? ' (auto-added /wapi)' : '';
+      document.getElementById("rpcStatus").innerHTML = '<span style="color:var(--success)">✓ Saved! RPC set to ' + escapeHtml(savedUrl) + note + '</span>';
       document.getElementById("rpcUrlInput").value = api.getNodeUrl();
       // Refresh data with new RPC
       try { await loadBalances(); await loadTxHistory(); } catch {}
